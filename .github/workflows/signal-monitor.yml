@@ -82,6 +82,10 @@ jobs:
       - name: Save signal state
         shell: bash
         run: |
+          if [ ! -f signal_watch.state.json ]; then
+            echo "no state file yet, skip"
+            exit 0
+          fi
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -f signal_watch.state.json

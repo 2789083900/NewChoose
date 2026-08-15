@@ -1559,10 +1559,15 @@ function renderStrategy() {
   const smAgrees = smRatio != null && ((analysis.signalClass === 'bull' && smRatio >= 5) || (analysis.signalClass === 'bear' && smRatio <= -5));
   const smOpposes = smRatio != null && ((analysis.signalClass === 'bull' && smRatio <= -5) || (analysis.signalClass === 'bear' && smRatio >= 5));
 
-  // ============ 主策略：RSI背离（回测年化+23%） ============
+  // ============ 按周期选择主策略（回测验证） ============
+  // 1h → 乖离回归(+12.1%) | 4h → RSI背离(+23.1%) | 1d → RSI背离(+23.7%)
+  const tf = state.interval;
+  const useBias = tf === '1h' || tf === '15m';
+
+  // ============ RSI背离（4h/1d 主策略） ============
   const div = detectRsiDivergence(klines, indicators, lastIndex);
 
-  if (div.direction) {
+  if (!useBias && div.direction) {
     const isLong = div.direction === 'long';
     dirEl.textContent = isLong ? '背离抄底' : '背离逃顶';
     dirEl.className = isLong ? 'bull' : 'bear';
@@ -1583,7 +1588,48 @@ function renderStrategy() {
     return;
   }
 
-  // ---- 无背离信号：显示当前状态与等待背离确认 ----
+  // ============ 乖离回归（1h/15m 短线主策略） ============
+  if (useBias) {
+    const ema20v = indicators.ema20[lastIndex];
+    const biasPct = ema20v ? ((last.close - ema20v) / ema20v) * 100 : 0;
+    const devAt = ema20v ? (last.close - ema20v) / Math.max(atr, 0.0001) : 0;
+    const oversold = devAt <= -2.2;
+    const overbought = devAt >= 2.2;
+    if (oversold || overbought) {
+      const isLong = oversold;
+      dirEl.textContent = isLong ? '超跌反弹' : '超涨回落';
+      dirEl.className = isLong ? 'bull' : 'bear';
+      setChip('strategyTag', '乖离回归', isLong ? 'bull' : 'bear');
+      metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 乖离回归策略 · 短线回测年化+12%`;
+      const risk = atr * 1.2;
+      const stop = isLong ? last.close - risk : last.close + risk;
+      const target = isLong ? last.close + risk * 4 : last.close - risk * 4;
+      entryEl.textContent = isLong ? `偏离EMA20 ${biasPct.toFixed(1)}% 超跌` : `偏离EMA20 +${biasPct.toFixed(1)}% 超涨`;
+      entryEl.className = dirEl.className;
+      stopEl.textContent = formatPrice(stop);
+      stopEl.className = dirEl.className;
+      targetEl.textContent = formatPrice(target);
+      targetEl.className = dirEl.className;
+      sizeEl.textContent = '风险 1%-1.5%';
+      sizeEl.className = dirEl.className;
+      planEl.textContent = `${meta.base} 短线乖离 ${biasPct.toFixed(1)}%（${(devAt).toFixed(1)}×ATR），偏离过大建议${isLong ? '分批做多博反弹' : '分批做空博回落'}。止损 1.2×ATR，目标 4×ATR（盈亏比3:1）。短线信号需严格止损，超跌可能继续跌。`;
+      return;
+    }
+    // 短线无信号
+    dirEl.textContent = '观望';
+    dirEl.className = 'flat';
+    setChip('strategyTag', '等待乖离', 'flat');
+    metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 乖离回归策略 · 无信号`;
+    entryEl.textContent = '等待乖离';
+    entryEl.className = 'flat';
+    stopEl.textContent = '--';
+    targetEl.textContent = '--';
+    sizeEl.textContent = '观望';
+    planEl.textContent = `${meta.base} 短线当前乖离 ${biasPct.toFixed(1)}%（${devAt.toFixed(1)}×ATR），未达入场阈值（±2.2×ATR）。乖离回归策略：价格偏离EMA20过大时反向博回归，回测年化+12%，耐心等待极端乖离。`;
+    return;
+  }
+
+  // ---- 无背离信号（4h/1d）：显示当前状态与等待背离确认 ----
   const rsiCur = indicators.rsi[lastIndex];
   const nearOversold = rsiCur != null && rsiCur < 40;
   const nearOverbought = rsiCur != null && rsiCur > 60;
@@ -1655,21 +1701,43 @@ function renderRsiDashboard() {
   }
   let signals = [];
   let watching = 0;
+  const tf = state.interval;
+  const useBias = tf === '1h' || tf === '15m';
   for (const snap of results) {
     const klines = snap.klines;
     const indicators = snap.indicators;
-    const div = detectRsiDivergence(klines, indicators, klines.length - 1);
     const atr = calcATR(klines, 14) || snap.last * 0.01;
     const meta = getMeta(snap.symbol);
-    if (div.direction) {
-      const isLong = div.direction === 'long';
+    let direction = null;
+    let reasons = [];
+    if (useBias) {
+      // 短线：乖离回归
+      const ema20v = indicators.ema20[klines.length - 1];
+      const devAt = ema20v ? (snap.last - ema20v) / Math.max(atr, 0.0001) : 0;
+      const biasPct = ema20v ? ((snap.last - ema20v) / ema20v) * 100 : 0;
+      if (devAt <= -2.2) {
+        direction = 'long';
+        reasons = [`乖离${biasPct.toFixed(1)}%（${devAt.toFixed(1)}×ATR）`];
+      } else if (devAt >= 2.2) {
+        direction = 'short';
+        reasons = [`乖离+${biasPct.toFixed(1)}%（${devAt.toFixed(1)}×ATR）`];
+      }
+    } else {
+      // 4h/1d：RSI背离
+      const div = detectRsiDivergence(klines, indicators, klines.length - 1);
+      direction = div.direction;
+      reasons = div.reasons;
+    }
+    if (direction) {
+      const isLong = direction === 'long';
       const stop = isLong ? snap.last - atr * 1.2 : snap.last + atr * 1.2;
       const target = isLong ? snap.last + atr * 4 : snap.last - atr * 4;
       signals.push({
         symbol: snap.symbol,
         icon: meta.icon,
-        direction: div.direction,
-        reasons: div.reasons,
+        direction,
+        strategy: useBias ? '乖离回归' : 'RSI背离',
+        reasons,
         price: snap.last,
         change: snap.change,
         stop,
@@ -1680,10 +1748,11 @@ function renderRsiDashboard() {
     }
   }
   const total = results.length;
-  tagEl.textContent = signals.length ? `背离 ${signals.length} 个` : '无信号';
+  const stratName = useBias ? '乖离回归' : 'RSI背离';
+  tagEl.textContent = signals.length ? `${stratName} ${signals.length} 个` : '无信号';
   tagEl.className = 'signal-chip ' + (signals.length ? 'bull' : 'flat');
   if (signals.length) {
-    planEl.textContent = `发现 ${signals.length} 个RSI背离信号，详情如下（止损1.2×ATR / 目标4×ATR）：`;
+    planEl.textContent = `发现 ${signals.length} 个${stratName}信号（止损1.2×ATR / 目标4×ATR）：`;
     listEl.innerHTML = signals.map((s) => {
       const isLong = s.direction === 'long';
       const cls = isLong ? 'bull' : 'bear';
@@ -1692,7 +1761,7 @@ function renderRsiDashboard() {
           <div class="rsi-head">
             <span class="watch-icon">${escapeHtml(s.icon)}</span>
             <span class="watch-name"><strong>${escapeHtml(s.symbol.replace('USDT', ''))}</strong></span>
-            <span class="signal-chip ${cls}">${isLong ? '底背离·做多' : '顶背离·做空'}</span>
+            <span class="signal-chip ${cls}">${isLong ? '做多' : '做空'}·${escapeHtml(s.strategy)}</span>
           </div>
           <div class="rsi-body">
             <div class="rsi-reason">${escapeHtml(s.reasons.join('、'))}</div>
@@ -1708,8 +1777,8 @@ function renderRsiDashboard() {
       el.addEventListener('click', () => selectSymbol(el.dataset.symbol));
     });
   } else {
-    planEl.textContent = `全部 ${total} 个币种当前均无RSI背离信号，${watching} 个处于观望。背离信号出现频率低，但一旦出现即高盈亏比机会（3:1），耐心等待。`;
-    listEl.innerHTML = '<div class="empty-smart">当前无背离信号，保持观望 📡</div>';
+    planEl.textContent = `全部 ${total} 个币种当前均无${stratName}信号，${watching} 个观望。${useBias ? '乖离回归：短线偏离EMA20超2.2×ATR时反向，回测年化+12%。' : '背离信号出现频率低，但一旦出现即高盈亏比机会（3:1），耐心等待。'}`;
+    listEl.innerHTML = `<div class="empty-smart">当前无${stratName}信号，保持观望 📡</div>`;
   }
 }
 

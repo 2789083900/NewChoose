@@ -785,6 +785,74 @@ button {
   }
 }
 
+/* ---- 回测总览 ---- */
+.bt-overview-body {
+  padding: 12px 14px;
+  background: var(--panel);
+}
+
+.bt-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.bt-tab {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.bt-tab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--hover);
+}
+
+.bt-table-wrap {
+  overflow-x: auto;
+}
+
+.bt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.bt-table th,
+.bt-table td {
+  padding: 7px 10px;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.bt-table th {
+  color: var(--faint);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.bt-table td.sym {
+  text-align: left;
+  font-weight: 600;
+}
+
+.bt-table tfoot td {
+  border-top: 2px solid var(--line);
+  border-bottom: none;
+  font-weight: 700;
+}
+
+.bt-table td.bull { color: var(--green); }
+.bt-table td.bear { color: var(--red); }
+
 .dashboard {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;

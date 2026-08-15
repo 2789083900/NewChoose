@@ -1782,12 +1782,65 @@ function renderRsiDashboard() {
   }
 }
 
+function loadBacktestOverview() {
+  const metaEl = $('btOverviewMeta');
+  const tabsEl = $('btOverviewTabs');
+  const tableEl = $('btOverviewTable');
+  if (!metaEl) return;
+  fetchJSON('backtest_report.json', 15000)
+    .then((report) => {
+      if (!report || !report.timeframes) throw new Error('no data');
+      metaEl.textContent = `生成于 ${report.generated_at} · 参数：止损${report.params.stop_atr}×ATR / 目标${report.params.target_atr}×ATR · 手续费0.1% · 初始10000U`;
+      let active = report.timeframes[0].interval;
+      const renderTab = () => {
+        tabsEl.innerHTML = report.timeframes
+          .map((tf) => `<button class="bt-tab${tf.interval === active ? ' active' : ''}" data-tf="${tf.interval}">${tf.interval} · ${tf.strategy}</button>`)
+          .join('');
+        const tf = report.timeframes.find((x) => x.interval === active);
+        if (!tf) return;
+        const s = tf.summary;
+        metaEl.textContent = `${tf.interval} ${tf.strategy}：${tf.description} · 共${s.coins}币/交易${s.trades}次 · 平均年化${s.avg_annualized}% · 生成于 ${report.generated_at}`;
+        const rows = tf.rows.map((r) => {
+          const winCls = r.win_rate >= 40 ? 'bull' : r.win_rate >= 30 ? '' : 'bear';
+          const annCls = r.annualized > 0 ? 'bull' : 'bear';
+          const pfCls = r.profit_factor >= 1.2 ? 'bull' : r.profit_factor >= 1 ? '' : 'bear';
+          return `<tr>
+            <td class="sym">${escapeHtml(r.symbol.replace('USDT', ''))}</td>
+            <td>${r.trades}</td>
+            <td class="${winCls}">${r.win_rate}%</td>
+            <td>${r.payoff}</td>
+            <td class="${annCls}">${r.annualized > 0 ? '+' : ''}${r.annualized}%</td>
+            <td class="${pfCls}">${r.profit_factor}</td>
+            <td>${r.max_drawdown}%</td>
+            <td>${r.avg_win}% / ${r.avg_loss}%</td>
+          </tr>`;
+        }).join('');
+        tableEl.innerHTML = `
+          <table class="bt-table">
+            <thead><tr>
+              <th>币种</th><th>交易</th><th>胜率</th><th>盈亏比</th><th>年化</th><th>PF</th><th>最大回撤</th><th>均盈/均亏</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+            <tfoot><tr>
+              <td>平均</td><td>${s.trades}</td><td>${s.avg_win_rate}%</td><td>${s.avg_payoff}</td>
+              <td class="${s.avg_annualized > 0 ? 'bull' : 'bear'}">${s.avg_annualized > 0 ? '+' : ''}${s.avg_annualized}%</td>
+              <td class="${s.avg_pf >= 1.2 ? 'bull' : 'bear'}">${s.avg_pf}</td><td>${s.avg_drawdown}%</td><td>--</td>
+            </tr></tfoot>
+          </table>
+          <p class="strategy-note">⚠️ 历史回测仅供参考，不构成投资建议。胜率低但盈亏比高=小亏大赚，同样能长期盈利。</p>`;
+        tabsEl.querySelectorAll('.bt-tab').forEach((btn) => {
+          btn.addEventListener('click', () => { active = btn.dataset.tf; renderTab(); });
+        });
+      };
+      renderTab();
+    })
+    .catch((err) => {
+      metaEl.textContent = `回测报告加载失败：${err.message}`;
+      tableEl.innerHTML = '<div class="empty-smart">请先在本地运行 gen_backtest_report.py 生成并上传报告</div>';
+    });
+}
+
 function renderSignalLog() {
-  const el = $('signalLog');
-  if (!state.log.length) {
-    el.innerHTML = '<div class="empty-log">暂无信号</div>';
-    return;
-  }
   el.innerHTML = state.log
     .map((item) => {
       const date = new Date(item.time);
@@ -3293,6 +3346,9 @@ function bindEvents() {
 
   $('runBacktestBtn').addEventListener('click', runBacktest);
 
+  const refreshBt = $('refreshBtBtn');
+  if (refreshBt) refreshBt.addEventListener('click', loadBacktestOverview);
+
   window.addEventListener('resize', () => {
     clearTimeout(window.__resizeTimer);
     window.__resizeTimer = setTimeout(() => {
@@ -3369,6 +3425,7 @@ function init() {
   renderMicroSignal();
   renderBacktest(null);
   drawBacktestChart();
+  loadBacktestOverview();
   refreshAll();
   startAuto();
 }

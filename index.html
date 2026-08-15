@@ -369,11 +369,25 @@
             </div>
           </div>
         </section>
+
+        <section class="panel backtest-panel" id="btOverviewPanel">
+          <div class="panel-head">
+            <div>
+              <h3>📊 回测总览（多币×多周期 胜率/盈亏比）</h3>
+              <p id="btOverviewMeta">加载回测报告中...</p>
+            </div>
+            <button class="btn primary" id="refreshBtBtn">刷新数据</button>
+          </div>
+          <div class="bt-overview-body">
+            <div id="btOverviewTabs" class="bt-tabs"></div>
+            <div id="btOverviewTable" class="bt-table-wrap"></div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>

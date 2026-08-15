@@ -666,6 +666,166 @@ def build_message(event, config):
     return "\n".join(lines)
 
 
+def detect_reversal(klines, indicators):
+    """高胜率反转信号检测：极值 + 反转确认 + 多条件共振（与看板/回测一致）
+    返回 (direction, points, reasons)。direction: 'long'/'short'/None
+    """
+    closes = [k["close"] for k in klines]
+    last = len(klines) - 1
+    prev = max(0, last - 1)
+    kline = klines[last]
+    prev_k = klines[prev]
+
+    rsi = indicators["rsi"][last]
+    rsi_prev = indicators["rsi"][prev] if prev > 0 else None
+    kdj = indicators["kdj"]
+    j = kdj["J"][last]
+    j_prev = kdj["J"][prev]
+    k = kdj["K"][last]
+    d = kdj["D"][last]
+    k_prev = kdj["K"][prev]
+    d_prev = kdj["D"][prev]
+    stoch = indicators["stochRsi"]
+    st_k = stoch["K"][last]
+    st_d = stoch["D"][last]
+    st_k_prev = stoch["K"][prev]
+    st_d_prev = stoch["D"][prev]
+
+    ema20 = indicators["ema20"][last]
+    price = closes[last]
+    bias = (price - ema20) / ema20 * 100 if ema20 else 0.0
+
+    long_points = 0
+    short_points = 0
+    long_reasons = []
+    short_reasons = []
+
+    # --- 极值区（超卖 → 做多候选） ---
+    if rsi is not None and rsi < 30:
+        long_points += 1
+        long_reasons.append(f"RSI超卖({rsi:.0f})")
+    if rsi is not None and rsi < 20:
+        long_points += 1
+        long_reasons.append(f"RSI深度超卖({rsi:.0f})")
+    if j is not None and j < 20:
+        long_points += 1
+        long_reasons.append(f"KDJ-J超卖({j:.0f})")
+    if j is not None and j < 5:
+        long_points += 1
+        long_reasons.append(f"KDJ-J深度超卖({j:.0f})")
+    if st_k is not None and st_k < 20:
+        long_points += 1
+        long_reasons.append(f"StochRSI超卖({st_k:.0f})")
+    if bias < -5:
+        long_points += 1
+        long_reasons.append(f"乖离率{bias:+.1f}%（偏离均线过大）")
+
+    # --- 极值区（超买 → 做空候选） ---
+    if rsi is not None and rsi > 70:
+        short_points += 1
+        short_reasons.append(f"RSI超买({rsi:.0f})")
+    if rsi is not None and rsi > 80:
+        short_points += 1
+        short_reasons.append(f"RSI深度超买({rsi:.0f})")
+    if j is not None and j > 80:
+        short_points += 1
+        short_reasons.append(f"KDJ-J超买({j:.0f})")
+    if j is not None and j > 95:
+        short_points += 1
+        short_reasons.append(f"KDJ-J深度超买({j:.0f})")
+    if st_k is not None and st_k > 80:
+        short_points += 1
+        short_reasons.append(f"StochRSI超买({st_k:.0f})")
+    if bias > 5:
+        short_points += 1
+        short_reasons.append(f"乖离率{bias:+.1f}%（偏离均线过大）")
+
+    # --- 反转确认信号 ---
+    if k_prev is not None and d_prev is not None and k is not None and d is not None:
+        if k_prev <= d_prev and k > d:
+            long_points += 1
+            long_reasons.append("KDJ金叉")
+            if j_prev is not None and j_prev < 20:
+                long_points += 1
+                long_reasons.append("超卖区金叉")
+        if k_prev >= d_prev and k < d:
+            short_points += 1
+            short_reasons.append("KDJ死叉")
+            if j_prev is not None and j_prev > 80:
+                short_points += 1
+                short_reasons.append("超买区死叉")
+
+    if st_k_prev is not None and st_d_prev is not None and st_k is not None and st_d is not None:
+        if st_k_prev <= st_d_prev and st_k > st_d:
+            long_points += 1
+            long_reasons.append("StochRSI金叉")
+        if st_k_prev >= st_d_prev and st_k < st_d:
+            short_points += 1
+            short_reasons.append("StochRSI死叉")
+
+    if rsi_prev is not None and rsi is not None:
+        if rsi_prev < 30 <= rsi:
+            long_points += 1
+            long_reasons.append("RSI上穿30")
+        if rsi_prev > 70 >= rsi:
+            short_points += 1
+            short_reasons.append("RSI下穿70")
+
+    # 吞没 K 线
+    body = abs(kline["close"] - kline["open"])
+    prev_body = abs(prev_k["close"] - prev_k["open"])
+    if body > prev_body * 1.2 and body > 0:
+        if kline["close"] > kline["open"] and prev_k["close"] < prev_k["open"]:
+            long_points += 1
+            long_reasons.append("阳线吞没")
+        if kline["close"] < kline["open"] and prev_k["close"] > prev_k["open"]:
+            short_points += 1
+            short_reasons.append("阴线吞没")
+
+    # 长下影（多头反转）
+    low_range = kline["high"] - kline["low"]
+    if low_range > 0:
+        lower_wick = min(kline["open"], kline["close"]) - kline["low"]
+        if lower_wick / low_range > 0.5 and lower_wick > body * 0.8:
+            long_points += 1
+            long_reasons.append("长下影线")
+
+    # 放量
+    vols = [k["volume"] for k in klines[-6:-1]]
+    avg_vol = sum(vols) / len(vols) if vols else 0
+    if avg_vol > 0 and kline["volume"] > avg_vol * 1.5:
+        if long_points > 0:
+            long_points += 1
+            long_reasons.append("放量")
+        if short_points > 0:
+            short_points += 1
+            short_reasons.append("放量")
+
+    if long_points >= 3 and long_points >= short_points:
+        return "long", long_points, long_reasons
+    if short_points >= 3 and short_points > long_points:
+        return "short", short_points, short_reasons
+    return None, max(long_points, short_points), (
+        long_reasons if long_points >= short_points else short_reasons
+    )
+
+
+def build_reversal_message(event, config):
+    direction = "抄底做多" if event["direction"] == "long" else "逃顶做空"
+    lines = [
+        f"🔄 高胜率反转信号 {event['symbol']} {event['interval']}",
+        f"{direction} · {event['points']} 项共振（{event['grade']}）",
+        f"现价 {event['price']}（{event['change']:+.2f}%）",
+        f"依据：{event['reason']}",
+        f"策略：{event['strategy']}",
+        f"时间：{event['time']}"
+    ]
+    dashboard_url = config.get("dashboard_url")
+    if dashboard_url:
+        lines.append(f"看板：{dashboard_url}")
+    return "\n".join(lines)
+
+
 def scan_once(config, state):
     events = []
     threshold = float(config.get("threshold", 2))
@@ -680,6 +840,32 @@ def scan_once(config, state):
                 indicators = compute_indicators(klines)
                 analysis = analyze_indicators(klines, indicators)
                 prev_label = state.get(key)
+                # 高胜率反转信号（主策略）：状态变化即推送
+                direction, points, reasons = detect_reversal(klines, indicators)
+                rev_key = f"{symbol}|{interval}|rev"
+                prev_rev = state.get(rev_key)
+                if prev_rev != f"{direction}|{points}" and direction is not None:
+                    if direction == "long":
+                        grade = "极高胜率" if points >= 6 else "高胜率" if points >= 5 else "较高胜率" if points >= 4 else "中胜率"
+                    else:
+                        grade = "极高胜率" if points >= 6 else "高胜率" if points >= 5 else "较高胜率" if points >= 4 else "中胜率"
+                    events.append({
+                        "symbol": symbol,
+                        "interval": interval,
+                        "label": f"反转{'做多' if direction == 'long' else '做空'}",
+                        "direction": direction,
+                        "score": float(points),
+                        "reason": " · ".join(reasons),
+                        "strategy": build_reversal_strategy_text(klines, indicators, direction),
+                        "price": format_price(klines[-1]["close"]),
+                        "change": get_change(klines, interval),
+                        "provider": provider,
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "points": points,
+                        "grade": grade
+                    })
+                state[rev_key] = f"{direction}|{points}" if direction is not None else f"none|{points}"
+                # 兜底：没有反转信号时，保留原来的顺势信号推送
                 if prev_label is not None and prev_label != analysis["label"] and abs(analysis["score"]) >= threshold:
                     events.append({
                         "symbol": symbol,
@@ -700,10 +886,35 @@ def scan_once(config, state):
     return events
 
 
+def build_reversal_strategy_text(klines, indicators, direction):
+    """反转策略：入场/止损/目标"""
+    last = klines[-1]
+    price = last["close"]
+    atr = calc_atr(klines, 14) or price * 0.008
+    ema20 = indicators["ema20"][-1]
+    ema50 = indicators["ema50"][-1]
+    if direction == "long":
+        recent_low = min(k["low"] for k in klines[-10:])
+        stop = min(ema20 if ema20 else price, recent_low) - atr * 0.5
+        target = ema50 if ema50 and ema50 > price else (ema20 + atr * 2) if ema20 else price * 1.03
+        return (f"超卖反弹，现价附近分批入场；跌破止损 {format_price(stop)} 离场；"
+                f"目标 {format_price(target)}（2.5倍盈亏比）")
+    else:
+        recent_high = max(k["high"] for k in klines[-10:])
+        stop = max(ema20 if ema20 else price, recent_high) + atr * 0.5
+        target = ema50 if ema50 and ema50 < price else (ema20 - atr * 2) if ema20 else price * 0.97
+        return (f"超买回落，现价附近分批入场；突破止损 {format_price(stop)} 离场；"
+                f"目标 {format_price(target)}（2.5倍盈亏比）")
+
+
 def process_events(events, config):
     for event in events:
-        title = f"CoinPulse {event['symbol']} {event['label']}"
-        content = build_message(event, config)
+        if event.get("direction") in ("long", "short") and event.get("points"):
+            title = f"CoinPulse {event['symbol']} 高胜率反转{event['label']}"
+            content = build_reversal_message(event, config)
+        else:
+            title = f"CoinPulse {event['symbol']} {event['label']}"
+            content = build_message(event, config)
         send_notification(title, content, config)
         logging.info("发现信号: %s", content.replace("\n", " / "))
 

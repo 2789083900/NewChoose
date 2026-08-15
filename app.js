@@ -44,6 +44,31 @@ const INTERVAL_BARS = { '15m': 96, '1h': 24, '4h': 6, '1d': 1 };
 
 const PROVIDERS = [
   {
+    key: 'okx',
+    label: 'OKX',
+    get: async (symbol, interval, limit = 320) => {
+      const map = { '15m': '15m', '1h': '1H', '4h': '4H', '1d': '1D' };
+      const instId = symbol.replace('USDT', '-USDT');
+      const data = await fetchJSON(
+        `https://www.okx.com/api/v5/market/candles?instId=${encodeURIComponent(instId)}&bar=${map[interval]}&limit=${limit}`
+      );
+      if (data.code !== '0') {
+        throw new Error(data.msg || 'OKX error');
+      }
+      const list = Array.isArray(data.data) ? data.data : [];
+      return list
+        .map((r) => ({
+          time: +r[0],
+          open: +r[1],
+          high: +r[2],
+          low: +r[3],
+          close: +r[4],
+          volume: +r[5]
+        }))
+        .reverse();
+    }
+  },
+  {
     key: 'binance-data',
     label: 'Binance',
     get: async (symbol, interval, limit = 320) => {
@@ -92,31 +117,6 @@ const PROVIDERS = [
       return list
         .map((r) => ({
           time: +r[0] * 1000,
-          open: +r[1],
-          high: +r[2],
-          low: +r[3],
-          close: +r[4],
-          volume: +r[5]
-        }))
-        .reverse();
-    }
-  },
-  {
-    key: 'okx',
-    label: 'OKX',
-    get: async (symbol, interval, limit = 320) => {
-      const map = { '15m': '15m', '1h': '1H', '4h': '4H', '1d': '1D' };
-      const instId = symbol.replace('USDT', '-USDT');
-      const data = await fetchJSON(
-        `https://www.okx.com/api/v5/market/candles?instId=${encodeURIComponent(instId)}&bar=${map[interval]}&limit=${limit}`
-      );
-      if (data.code !== '0') {
-        throw new Error(data.msg || 'OKX error');
-      }
-      const list = Array.isArray(data.data) ? data.data : [];
-      return list
-        .map((r) => ({
-          time: +r[0],
           open: +r[1],
           high: +r[2],
           low: +r[3],

@@ -945,27 +945,6 @@ def scan_once(config, state):
                         "divergence": True
                     })
                 state[div_key] = direction if direction is not None else "none"
-                # ========== 辅助策略：反转共振（仅高共振） ==========
-                rev_direction, points, reasons = detect_reversal(klines, indicators)
-                rev_key = f"{symbol}|{interval}|rev"
-                prev_rev = state.get(rev_key)
-                if prev_rev != f"{rev_direction}|{points}" and rev_direction is not None and points >= 4:
-                    events.append({
-                        "symbol": symbol,
-                        "interval": interval,
-                        "label": f"反转{'做多' if rev_direction == 'long' else '做空'}",
-                        "direction": rev_direction,
-                        "score": float(points),
-                        "reason": " · ".join(reasons),
-                        "strategy": build_reversal_strategy_text(klines, indicators, rev_direction),
-                        "price": format_price(klines[-1]["close"]),
-                        "change": get_change(klines, interval),
-                        "provider": provider,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "points": points,
-                        "grade": "辅助信号"
-                    })
-                state[rev_key] = f"{rev_direction}|{points}" if rev_direction is not None else f"none|{points}"
             except Exception as exc:
                 logging.warning("%s %s 获取失败: %s", symbol, interval, exc)
     return events

@@ -1,0 +1,469 @@
+{
+  "generated_at": "2026-08-16 00:59:36",
+  "params": {
+    "stop_atr": 1.2,
+    "target_atr": 4.0,
+    "fee": 0.001,
+    "capital": 10000
+  },
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "AVAXUSDT",
+    "TONUSDT",
+    "SUIUSDT",
+    "PEPEUSDT"
+  ],
+  "timeframes": [
+    {
+      "interval": "1h",
+      "strategy": "乖离回归",
+      "description": "短线：偏离EMA20超2.2×ATR反向",
+      "rows": [
+        {
+          "symbol": "BTCUSDT",
+          "trades": 101,
+          "win_rate": 30.7,
+          "payoff": 2.8,
+          "annualized": 5.5,
+          "profit_factor": 1.24,
+          "max_drawdown": -23.1,
+          "avg_win": 2.17,
+          "avg_loss": 0.77
+        },
+        {
+          "symbol": "ETHUSDT",
+          "trades": 87,
+          "win_rate": 27.6,
+          "payoff": 3.06,
+          "annualized": 1.2,
+          "profit_factor": 1.17,
+          "max_drawdown": -19.7,
+          "avg_win": 3.16,
+          "avg_loss": 1.03
+        },
+        {
+          "symbol": "SOLUSDT",
+          "trades": 72,
+          "win_rate": 19.4,
+          "payoff": 2.4,
+          "annualized": -68.8,
+          "profit_factor": 0.58,
+          "max_drawdown": -36.2,
+          "avg_win": 3.01,
+          "avg_loss": 1.25
+        },
+        {
+          "symbol": "BNBUSDT",
+          "trades": 98,
+          "win_rate": 25.5,
+          "payoff": 2.7,
+          "annualized": -36.5,
+          "profit_factor": 0.92,
+          "max_drawdown": -16.3,
+          "avg_win": 2.18,
+          "avg_loss": 0.81
+        },
+        {
+          "symbol": "XRPUSDT",
+          "trades": 88,
+          "win_rate": 29.5,
+          "payoff": 2.75,
+          "annualized": -2.1,
+          "profit_factor": 1.15,
+          "max_drawdown": -17.9,
+          "avg_win": 2.77,
+          "avg_loss": 1.01
+        },
+        {
+          "symbol": "ADAUSDT",
+          "trades": 90,
+          "win_rate": 21.1,
+          "payoff": 2.88,
+          "annualized": -66.8,
+          "profit_factor": 0.77,
+          "max_drawdown": -36.9,
+          "avg_win": 4.4,
+          "avg_loss": 1.53
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "trades": 75,
+          "win_rate": 34.7,
+          "payoff": 2.42,
+          "annualized": 27.1,
+          "profit_factor": 1.29,
+          "max_drawdown": -14.2,
+          "avg_win": 2.98,
+          "avg_loss": 1.23
+        },
+        {
+          "symbol": "LINKUSDT",
+          "trades": 80,
+          "win_rate": 35.0,
+          "payoff": 2.87,
+          "annualized": 107.5,
+          "profit_factor": 1.55,
+          "max_drawdown": -20.0,
+          "avg_win": 3.5,
+          "avg_loss": 1.22
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "trades": 71,
+          "win_rate": 36.6,
+          "payoff": 2.59,
+          "annualized": 94.5,
+          "profit_factor": 1.49,
+          "max_drawdown": -19.4,
+          "avg_win": 3.7,
+          "avg_loss": 1.43
+        },
+        {
+          "symbol": "TONUSDT",
+          "trades": 95,
+          "win_rate": 23.2,
+          "payoff": 3.24,
+          "annualized": -46.1,
+          "profit_factor": 0.98,
+          "max_drawdown": -42.9,
+          "avg_win": 6.25,
+          "avg_loss": 1.93
+        },
+        {
+          "symbol": "SUIUSDT",
+          "trades": 69,
+          "win_rate": 36.2,
+          "payoff": 2.94,
+          "annualized": 189.4,
+          "profit_factor": 1.67,
+          "max_drawdown": -15.6,
+          "avg_win": 4.62,
+          "avg_loss": 1.57
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "trades": 43,
+          "win_rate": 14.0,
+          "payoff": 3.39,
+          "annualized": -67.8,
+          "profit_factor": 0.55,
+          "max_drawdown": -35.4,
+          "avg_win": 6.45,
+          "avg_loss": 1.9
+        }
+      ],
+      "summary": {
+        "coins": 12,
+        "trades": 969,
+        "avg_annualized": 11.4,
+        "avg_win_rate": 27.8,
+        "avg_payoff": 2.84,
+        "avg_pf": 1.11,
+        "avg_drawdown": -24.8
+      }
+    },
+    {
+      "interval": "4h",
+      "strategy": "RSI背离",
+      "description": "中线：价格新高/低+RSI背离",
+      "rows": [
+        {
+          "symbol": "BTCUSDT",
+          "trades": 109,
+          "win_rate": 25.7,
+          "payoff": 3.07,
+          "annualized": -5.7,
+          "profit_factor": 1.06,
+          "max_drawdown": -26.9,
+          "avg_win": 4.98,
+          "avg_loss": 1.62
+        },
+        {
+          "symbol": "ETHUSDT",
+          "trades": 92,
+          "win_rate": 26.1,
+          "payoff": 3.04,
+          "annualized": -5.6,
+          "profit_factor": 1.07,
+          "max_drawdown": -38.7,
+          "avg_win": 8.22,
+          "avg_loss": 2.71
+        },
+        {
+          "symbol": "SOLUSDT",
+          "trades": 94,
+          "win_rate": 30.9,
+          "payoff": 3.23,
+          "annualized": 52.4,
+          "profit_factor": 1.44,
+          "max_drawdown": -42.4,
+          "avg_win": 9.06,
+          "avg_loss": 2.8
+        },
+        {
+          "symbol": "BNBUSDT",
+          "trades": 102,
+          "win_rate": 25.5,
+          "payoff": 2.95,
+          "annualized": -10.7,
+          "profit_factor": 1.01,
+          "max_drawdown": -31.0,
+          "avg_win": 5.63,
+          "avg_loss": 1.91
+        },
+        {
+          "symbol": "XRPUSDT",
+          "trades": 96,
+          "win_rate": 34.4,
+          "payoff": 3.61,
+          "annualized": 140.1,
+          "profit_factor": 1.89,
+          "max_drawdown": -22.8,
+          "avg_win": 9.4,
+          "avg_loss": 2.6
+        },
+        {
+          "symbol": "ADAUSDT",
+          "trades": 106,
+          "win_rate": 27.4,
+          "payoff": 2.61,
+          "annualized": -20.7,
+          "profit_factor": 0.98,
+          "max_drawdown": -58.5,
+          "avg_win": 8.69,
+          "avg_loss": 3.33
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "trades": 102,
+          "win_rate": 35.3,
+          "payoff": 2.65,
+          "annualized": 65.9,
+          "profit_factor": 1.45,
+          "max_drawdown": -33.6,
+          "avg_win": 8.81,
+          "avg_loss": 3.32
+        },
+        {
+          "symbol": "LINKUSDT",
+          "trades": 93,
+          "win_rate": 28.0,
+          "payoff": 2.82,
+          "annualized": -3.1,
+          "profit_factor": 1.09,
+          "max_drawdown": -41.0,
+          "avg_win": 8.99,
+          "avg_loss": 3.19
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "trades": 98,
+          "win_rate": 32.7,
+          "payoff": 2.69,
+          "annualized": 33.6,
+          "profit_factor": 1.31,
+          "max_drawdown": -44.8,
+          "avg_win": 8.86,
+          "avg_loss": 3.29
+        },
+        {
+          "symbol": "TONUSDT",
+          "trades": 96,
+          "win_rate": 27.1,
+          "payoff": 3.11,
+          "annualized": 4.7,
+          "profit_factor": 1.16,
+          "max_drawdown": -44.1,
+          "avg_win": 9.58,
+          "avg_loss": 3.08
+        },
+        {
+          "symbol": "SUIUSDT",
+          "trades": 103,
+          "win_rate": 32.0,
+          "payoff": 2.68,
+          "annualized": 31.3,
+          "profit_factor": 1.26,
+          "max_drawdown": -49.8,
+          "avg_win": 10.53,
+          "avg_loss": 3.93
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "trades": 95,
+          "win_rate": 25.3,
+          "payoff": 3.3,
+          "annualized": -4.5,
+          "profit_factor": 1.12,
+          "max_drawdown": -72.3,
+          "avg_win": 13.83,
+          "avg_loss": 4.19
+        }
+      ],
+      "summary": {
+        "coins": 12,
+        "trades": 1186,
+        "avg_annualized": 23.1,
+        "avg_win_rate": 29.2,
+        "avg_payoff": 2.98,
+        "avg_pf": 1.24,
+        "avg_drawdown": -42.2
+      }
+    },
+    {
+      "interval": "1d",
+      "strategy": "RSI背离",
+      "description": "日线：大周期背离更可靠",
+      "rows": [
+        {
+          "symbol": "BTCUSDT",
+          "trades": 66,
+          "win_rate": 24.2,
+          "payoff": 2.98,
+          "annualized": -8.6,
+          "profit_factor": 0.95,
+          "max_drawdown": -53.2,
+          "avg_win": 15.85,
+          "avg_loss": 5.32
+        },
+        {
+          "symbol": "ETHUSDT",
+          "trades": 64,
+          "win_rate": 32.8,
+          "payoff": 3.06,
+          "annualized": 15.0,
+          "profit_factor": 1.5,
+          "max_drawdown": -59.1,
+          "avg_win": 21.77,
+          "avg_loss": 7.1
+        },
+        {
+          "symbol": "SOLUSDT",
+          "trades": 61,
+          "win_rate": 31.1,
+          "payoff": 2.64,
+          "annualized": -6.5,
+          "profit_factor": 1.2,
+          "max_drawdown": -86.6,
+          "avg_win": 29.42,
+          "avg_loss": 11.13
+        },
+        {
+          "symbol": "BNBUSDT",
+          "trades": 59,
+          "win_rate": 30.5,
+          "payoff": 3.39,
+          "annualized": 12.8,
+          "profit_factor": 1.49,
+          "max_drawdown": -60.6,
+          "avg_win": 23.34,
+          "avg_loss": 6.88
+        },
+        {
+          "symbol": "XRPUSDT",
+          "trades": 52,
+          "win_rate": 36.5,
+          "payoff": 2.98,
+          "annualized": 23.0,
+          "profit_factor": 1.72,
+          "max_drawdown": -57.6,
+          "avg_win": 29.11,
+          "avg_loss": 9.76
+        },
+        {
+          "symbol": "ADAUSDT",
+          "trades": 58,
+          "win_rate": 36.2,
+          "payoff": 3.18,
+          "annualized": 35.0,
+          "profit_factor": 1.81,
+          "max_drawdown": -62.9,
+          "avg_win": 29.14,
+          "avg_loss": 9.16
+        },
+        {
+          "symbol": "DOGEUSDT",
+          "trades": 60,
+          "win_rate": 36.7,
+          "payoff": 3.76,
+          "annualized": 64.1,
+          "profit_factor": 2.18,
+          "max_drawdown": -63.3,
+          "avg_win": 37.11,
+          "avg_loss": 9.87
+        },
+        {
+          "symbol": "LINKUSDT",
+          "trades": 66,
+          "win_rate": 33.3,
+          "payoff": 2.9,
+          "annualized": 13.7,
+          "profit_factor": 1.45,
+          "max_drawdown": -68.5,
+          "avg_win": 29.6,
+          "avg_loss": 10.19
+        },
+        {
+          "symbol": "AVAXUSDT",
+          "trades": 71,
+          "win_rate": 28.2,
+          "payoff": 3.63,
+          "annualized": 4.0,
+          "profit_factor": 1.42,
+          "max_drawdown": -67.9,
+          "avg_win": 38.92,
+          "avg_loss": 10.71
+        },
+        {
+          "symbol": "TONUSDT",
+          "trades": 18,
+          "win_rate": 33.3,
+          "payoff": 3.75,
+          "annualized": 35.7,
+          "profit_factor": 1.87,
+          "max_drawdown": -43.6,
+          "avg_win": 31.02,
+          "avg_loss": 8.28
+        },
+        {
+          "symbol": "SUIUSDT",
+          "trades": 47,
+          "win_rate": 19.1,
+          "payoff": 3.47,
+          "annualized": -39.0,
+          "profit_factor": 0.82,
+          "max_drawdown": -87.3,
+          "avg_win": 36.81,
+          "avg_loss": 10.61
+        },
+        {
+          "symbol": "PEPEUSDT",
+          "trades": 39,
+          "win_rate": 38.5,
+          "payoff": 2.86,
+          "annualized": 50.6,
+          "profit_factor": 1.79,
+          "max_drawdown": -66.7,
+          "avg_win": 37.88,
+          "avg_loss": 13.24
+        }
+      ],
+      "summary": {
+        "coins": 12,
+        "trades": 661,
+        "avg_annualized": 16.7,
+        "avg_win_rate": 31.7,
+        "avg_payoff": 3.22,
+        "avg_pf": 1.52,
+        "avg_drawdown": -64.8
+      }
+    }
+  ]
+}

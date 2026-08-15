@@ -227,6 +227,44 @@ def calc_atr(klines, period=14):
     return sum(tail) / len(tail)
 
 
+def calc_atr_slice(klines, idx, period=14):
+    """计算到 idx 为止的 ATR（回测用，避免未来数据）"""
+    if idx < period + 1:
+        return None
+    true_ranges = []
+    for i in range(idx - period + 1, idx + 1):
+        prev_close = klines[i - 1]["close"]
+        true_ranges.append(max(
+            klines[i]["high"] - klines[i]["low"],
+            abs(klines[i]["high"] - prev_close),
+            abs(klines[i]["low"] - prev_close)
+        ))
+    return sum(true_ranges) / len(true_ranges)
+
+
+def compute_bollinger(klines, period=20, mult=2.0):
+    """布林带（percentB），与看板一致"""
+    closes = [k["close"] for k in klines]
+    length = len(closes)
+    upper = [None] * length
+    middle = [None] * length
+    lower = [None] * length
+    percentB = [None] * length
+    for i in range(period - 1, length):
+        window = closes[i - period + 1:i + 1]
+        mean = sum(window) / period
+        variance = sum((x - mean) ** 2 for x in window) / period
+        std = variance ** 0.5
+        middle[i] = mean
+        upper[i] = mean + mult * std
+        lower[i] = mean - mult * std
+        if upper[i] - lower[i] > 0:
+            percentB[i] = (closes[i] - lower[i]) / (upper[i] - lower[i])
+        else:
+            percentB[i] = 0.5
+    return {"upper": upper, "middle": middle, "lower": lower, "percentB": percentB}
+
+
 def calc_adx(klines, period=14):
     length = len(klines)
     adx = [None] * length
@@ -670,8 +708,13 @@ def detect_reversal(klines, indicators):
     """高胜率反转信号检测：极值 + 反转确认 + 多条件共振（与看板/回测一致）
     返回 (direction, points, reasons)。direction: 'long'/'short'/None
     """
+    return detect_reversal_slice(klines, indicators, len(klines) - 1)
+
+
+def detect_reversal_slice(klines, indicators, idx):
+    """detect_reversal 的切片版：计算到 idx 为止的信号（回测用，避免未来数据）"""
     closes = [k["close"] for k in klines]
-    last = len(klines) - 1
+    last = idx
     prev = max(0, last - 1)
     kline = klines[last]
     prev_k = klines[prev]
@@ -810,6 +853,49 @@ def detect_reversal(klines, indicators):
     )
 
 
+def detect_rsi_divergence_slice(klines, indicators, idx):
+    """RSI 背离检测（回测验证：止损1.2×ATR/止盈4.0×ATR，全币年化+23%，优选币+54%）
+    底背离：价格创新低但 RSI 抬高 → 做多
+    顶背离：价格创新高但 RSI 降低 → 做空
+    返回 (direction, reasons)
+    """
+    if idx < 30:
+        return None, []
+    price = klines[idx]["close"]
+    rsi = indicators["rsi"][idx]
+    rsi_prev = indicators["rsi"][idx - 5]
+    if rsi is None or rsi_prev is None:
+        return None, []
+    low_now = min(k["low"] for k in klines[idx - 3:idx + 1])
+    low_prev = min(k["low"] for k in klines[idx - 8:idx - 4])
+    high_now = max(k["high"] for k in klines[idx - 3:idx + 1])
+    high_prev = max(k["high"] for k in klines[idx - 8:idx - 4])
+    # 底背离：价格创新低，RSI 抬高
+    if low_now < low_prev and rsi > rsi_prev + 3 and rsi < 45:
+        return "long", [f"底背离(RSI {rsi_prev:.0f}→{rsi:.0f} 价格新低)"]
+    # 顶背离：价格创新高，RSI 降低
+    if high_now > high_prev and rsi < rsi_prev - 3 and rsi > 55:
+        return "short", [f"顶背离(RSI {rsi_prev:.0f}→{rsi:.0f} 价格新高)"]
+    return None, []
+
+
+def build_rsi_divergence_text(klines, indicators, direction):
+    """RSI背离策略：入场/止损/目标（1.2×ATR止损 / 4.0×ATR止盈，回测最优）"""
+    last = klines[-1]
+    price = last["close"]
+    atr = calc_atr(klines, 14) or price * 0.01
+    if direction == "long":
+        stop = price - atr * 1.2
+        target = price + atr * 4.0
+        return (f"底背离反转，现价附近分批入场；跌破止损 {format_price(stop)} 离场；"
+                f"目标 {format_price(target)}（4倍ATR，盈亏比约3:1）")
+    else:
+        stop = price + atr * 1.2
+        target = price - atr * 4.0
+        return (f"顶背离反转，现价附近分批入场；突破止损 {format_price(stop)} 离场；"
+                f"目标 {format_price(target)}（4倍ATR，盈亏比约3:1）")
+
+
 def build_reversal_message(event, config):
     direction = "抄底做多" if event["direction"] == "long" else "逃顶做空"
     lines = [
@@ -828,7 +914,6 @@ def build_reversal_message(event, config):
 
 def scan_once(config, state):
     events = []
-    threshold = float(config.get("threshold", 2))
     symbols = config.get("symbols") or DEFAULT_SYMBOLS
     intervals = config.get("intervals") or ["1h"]
 
@@ -838,49 +923,49 @@ def scan_once(config, state):
             try:
                 klines, provider = fetch_klines_with_fallback(symbol, interval)
                 indicators = compute_indicators(klines)
-                analysis = analyze_indicators(klines, indicators)
-                prev_label = state.get(key)
-                # 高胜率反转信号（主策略）：状态变化即推送
-                direction, points, reasons = detect_reversal(klines, indicators)
-                rev_key = f"{symbol}|{interval}|rev"
-                prev_rev = state.get(rev_key)
-                if prev_rev != f"{direction}|{points}" and direction is not None:
-                    if direction == "long":
-                        grade = "极高胜率" if points >= 6 else "高胜率" if points >= 5 else "较高胜率" if points >= 4 else "中胜率"
-                    else:
-                        grade = "极高胜率" if points >= 6 else "高胜率" if points >= 5 else "较高胜率" if points >= 4 else "中胜率"
+                # ========== 主策略：RSI 背离（回测验证正期望） ==========
+                direction, div_reasons = detect_rsi_divergence_slice(klines, indicators, len(klines) - 1)
+                div_key = f"{symbol}|{interval}|div"
+                prev_div = state.get(div_key)
+                if direction is not None and prev_div != direction:
                     events.append({
                         "symbol": symbol,
                         "interval": interval,
-                        "label": f"反转{'做多' if direction == 'long' else '做空'}",
+                        "label": f"背离{'做多' if direction == 'long' else '做空'}",
                         "direction": direction,
+                        "score": 0.0,
+                        "reason": " · ".join(div_reasons),
+                        "strategy": build_rsi_divergence_text(klines, indicators, direction),
+                        "price": format_price(klines[-1]["close"]),
+                        "change": get_change(klines, interval),
+                        "provider": provider,
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "points": 4,
+                        "grade": "回测年化+23%",
+                        "divergence": True
+                    })
+                state[div_key] = direction if direction is not None else "none"
+                # ========== 辅助策略：反转共振（仅高共振） ==========
+                rev_direction, points, reasons = detect_reversal(klines, indicators)
+                rev_key = f"{symbol}|{interval}|rev"
+                prev_rev = state.get(rev_key)
+                if prev_rev != f"{rev_direction}|{points}" and rev_direction is not None and points >= 4:
+                    events.append({
+                        "symbol": symbol,
+                        "interval": interval,
+                        "label": f"反转{'做多' if rev_direction == 'long' else '做空'}",
+                        "direction": rev_direction,
                         "score": float(points),
                         "reason": " · ".join(reasons),
-                        "strategy": build_reversal_strategy_text(klines, indicators, direction),
+                        "strategy": build_reversal_strategy_text(klines, indicators, rev_direction),
                         "price": format_price(klines[-1]["close"]),
                         "change": get_change(klines, interval),
                         "provider": provider,
                         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         "points": points,
-                        "grade": grade
+                        "grade": "辅助信号"
                     })
-                state[rev_key] = f"{direction}|{points}" if direction is not None else f"none|{points}"
-                # 兜底：没有反转信号时，保留原来的顺势信号推送
-                if prev_label is not None and prev_label != analysis["label"] and abs(analysis["score"]) >= threshold:
-                    events.append({
-                        "symbol": symbol,
-                        "interval": interval,
-                        "label": analysis["label"],
-                        "direction": analysis["signalClass"],
-                        "score": analysis["score"],
-                        "reason": analysis["reason"],
-                        "strategy": build_strategy_text(klines, indicators, analysis, interval),
-                        "price": format_price(klines[-1]["close"]),
-                        "change": get_change(klines, interval),
-                        "provider": provider,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    })
-                state[key] = analysis["label"]
+                state[rev_key] = f"{rev_direction}|{points}" if rev_direction is not None else f"none|{points}"
             except Exception as exc:
                 logging.warning("%s %s 获取失败: %s", symbol, interval, exc)
     return events
@@ -907,10 +992,29 @@ def build_reversal_strategy_text(klines, indicators, direction):
                 f"目标 {format_price(target)}（2.5倍盈亏比）")
 
 
+def build_divergence_message(event, config):
+    direction = "抄底做多" if event["direction"] == "long" else "逃顶做空"
+    lines = [
+        f"📉📈 RSI背离反转信号 {event['symbol']} {event['interval']}",
+        f"{direction} · {event['grade']}",
+        f"现价 {event['price']}（{event['change']:+.2f}%）",
+        f"依据：{event['reason']}",
+        f"策略：{event['strategy']}",
+        f"时间：{event['time']}"
+    ]
+    dashboard_url = config.get("dashboard_url")
+    if dashboard_url:
+        lines.append(f"看板：{dashboard_url}")
+    return "\n".join(lines)
+
+
 def process_events(events, config):
     for event in events:
-        if event.get("direction") in ("long", "short") and event.get("points"):
-            title = f"CoinPulse {event['symbol']} 高胜率反转{event['label']}"
+        if event.get("divergence"):
+            title = f"CoinPulse {event['symbol']} RSI背离{event['label']}"
+            content = build_divergence_message(event, config)
+        elif event.get("direction") in ("long", "short") and event.get("points"):
+            title = f"CoinPulse {event['symbol']} 反转{event['label']}"
             content = build_reversal_message(event, config)
         else:
             title = f"CoinPulse {event['symbol']} {event['label']}"

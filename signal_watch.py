@@ -887,13 +887,17 @@ def build_rsi_divergence_text(klines, indicators, direction):
     if direction == "long":
         stop = price - atr * 1.2
         target = price + atr * 4.0
-        return (f"底背离反转，现价附近分批入场；跌破止损 {format_price(stop)} 离场；"
-                f"目标 {format_price(target)}（4倍ATR，盈亏比约3:1）")
+        entry = price  # 背离确认处即入场
+        return (f"入场点位 ≈ {format_price(entry)}（背离确认处现价进场）\n"
+                f"止损 {format_price(stop)}（1.2×ATR，约{atr*1.2/price*100:.1f}%）\n"
+                f"目标 {format_price(target)}（4×ATR，盈亏比约3.3:1）")
     else:
         stop = price + atr * 1.2
         target = price - atr * 4.0
-        return (f"顶背离反转，现价附近分批入场；突破止损 {format_price(stop)} 离场；"
-                f"目标 {format_price(target)}（4倍ATR，盈亏比约3:1）")
+        entry = price
+        return (f"入场点位 ≈ {format_price(entry)}（背离确认处现价进场）\n"
+                f"止损 {format_price(stop)}（1.2×ATR，约{atr*1.2/price*100:.1f}%）\n"
+                f"目标 {format_price(target)}（4×ATR，盈亏比约3.3:1）")
 
 
 def build_reversal_message(event, config):
@@ -970,15 +974,21 @@ def detect_bias_regression(klines, indicators, dev_th=2.2):
     bias_pct = (price - ema20) / ema20 * 100
     if dev <= -dev_th:
         reasons = [f"乖离{bias_pct:.1f}%（{dev:.1f}×ATR偏离EMA20）"]
-        text = (f"短线超跌偏离EMA20 {bias_pct:.1f}%，博反弹做多；"
-                f"止损 {format_price(price - atr * 1.2)}（1.2×ATR），"
-                f"目标 {format_price(price + atr * 4.0)}（4×ATR，盈亏比3:1）")
+        entry = price  # 乖离极值时现价入场
+        stop = price - atr * 1.2
+        target = price + atr * 4.0
+        text = (f"入场点位 ≈ {format_price(entry)}（超跌乖离极值处进场）\n"
+                f"止损 {format_price(stop)}（1.2×ATR，约{atr*1.2/price*100:.1f}%）\n"
+                f"目标 {format_price(target)}（4×ATR，盈亏比约3.3:1）")
         return "long", reasons, text
     if dev >= dev_th:
         reasons = [f"乖离+{bias_pct:.1f}%（{dev:.1f}×ATR偏离EMA20）"]
-        text = (f"短线超涨偏离EMA20 {bias_pct:.1f}%，博回落做空；"
-                f"止损 {format_price(price + atr * 1.2)}（1.2×ATR），"
-                f"目标 {format_price(price - atr * 4.0)}（4×ATR，盈亏比3:1）")
+        entry = price
+        stop = price + atr * 1.2
+        target = price - atr * 4.0
+        text = (f"入场点位 ≈ {format_price(entry)}（超涨乖离极值处进场）\n"
+                f"止损 {format_price(stop)}（1.2×ATR，约{atr*1.2/price*100:.1f}%）\n"
+                f"目标 {format_price(target)}（4×ATR，盈亏比约3.3:1）")
         return "short", reasons, text
     return None, [], ""
 
@@ -1011,7 +1021,7 @@ def build_divergence_message(event, config):
         f"{direction} · {event['grade']}",
         f"现价 {event['price']}（{event['change']:+.2f}%）",
         f"依据：{event['reason']}",
-        f"策略：{event['strategy']}",
+        f"{event['strategy']}",
         f"时间：{event['time']}"
     ]
     dashboard_url = config.get("dashboard_url")

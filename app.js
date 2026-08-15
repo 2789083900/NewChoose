@@ -1680,6 +1680,76 @@ function renderOverview() {
   `;
 }
 
+function renderRsiDashboard() {
+  const listEl = $('rsiList');
+  const tagEl = $('rsiTag');
+  const planEl = $('rsiPlan');
+  if (!listEl) return;
+  const results = Object.values(state.scanResults).filter((r) => r.indicators && r.klines);
+  if (!results.length) {
+    listEl.innerHTML = '<div class="empty-smart">正在扫描RSI背离...</div>';
+    return;
+  }
+  let signals = [];
+  let watching = 0;
+  for (const snap of results) {
+    const klines = snap.klines;
+    const indicators = snap.indicators;
+    const div = detectRsiDivergence(klines, indicators, klines.length - 1);
+    const atr = calcATR(klines, 14) || snap.last * 0.01;
+    const meta = getMeta(snap.symbol);
+    if (div.direction) {
+      const isLong = div.direction === 'long';
+      const stop = isLong ? snap.last - atr * 1.2 : snap.last + atr * 1.2;
+      const target = isLong ? snap.last + atr * 4 : snap.last - atr * 4;
+      signals.push({
+        symbol: snap.symbol,
+        icon: meta.icon,
+        direction: div.direction,
+        reasons: div.reasons,
+        price: snap.last,
+        change: snap.change,
+        stop,
+        target
+      });
+    } else {
+      watching += 1;
+    }
+  }
+  const total = results.length;
+  tagEl.textContent = signals.length ? `背离 ${signals.length} 个` : '无信号';
+  tagEl.className = 'signal-chip ' + (signals.length ? 'bull' : 'flat');
+  if (signals.length) {
+    planEl.textContent = `发现 ${signals.length} 个RSI背离信号，详情如下（止损1.2×ATR / 目标4×ATR）：`;
+    listEl.innerHTML = signals.map((s) => {
+      const isLong = s.direction === 'long';
+      const cls = isLong ? 'bull' : 'bear';
+      return `
+        <div class="rsi-item" data-symbol="${escapeHtml(s.symbol)}">
+          <div class="rsi-head">
+            <span class="watch-icon">${escapeHtml(s.icon)}</span>
+            <span class="watch-name"><strong>${escapeHtml(s.symbol.replace('USDT', ''))}</strong></span>
+            <span class="signal-chip ${cls}">${isLong ? '底背离·做多' : '顶背离·做空'}</span>
+          </div>
+          <div class="rsi-body">
+            <div class="rsi-reason">${escapeHtml(s.reasons.join('、'))}</div>
+            <div class="rsi-grid">
+              <span>现价 ${formatPrice(s.price)}（${formatPct(s.change)}）</span>
+              <span>止损 ${formatPrice(s.stop)}</span>
+              <span>目标 ${formatPrice(s.target)}</span>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+    listEl.querySelectorAll('.rsi-item').forEach((el) => {
+      el.addEventListener('click', () => selectSymbol(el.dataset.symbol));
+    });
+  } else {
+    planEl.textContent = `全部 ${total} 个币种当前均无RSI背离信号，${watching} 个处于观望。背离信号出现频率低，但一旦出现即高盈亏比机会（3:1），耐心等待。`;
+    listEl.innerHTML = '<div class="empty-smart">当前无背离信号，保持观望 📡</div>';
+  }
+}
+
 function renderSignalLog() {
   const el = $('signalLog');
   if (!state.log.length) {
@@ -3028,6 +3098,8 @@ async function scanWatchlist() {
           return {
             symbol,
             analysis,
+            indicators,
+            klines,
             last: klines[klines.length - 1].close,
             change: getChange(klines, '4h'),
             closes: klines.slice(-48).map((k) => k.close)
@@ -3056,6 +3128,7 @@ async function scanWatchlist() {
     }
     renderWatchlist();
     renderOverview();
+    renderRsiDashboard();
   } finally {
     state.scanning = false;
   }

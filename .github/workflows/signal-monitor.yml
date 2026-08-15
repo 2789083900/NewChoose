@@ -54,7 +54,7 @@ jobs:
                   "SUIUSDT",
                   "PEPEUSDT"
               ],
-              "intervals": ["4h"],
+              "intervals": ["1h", "4h", "1d"],
               "threshold": 4,
               "refresh_seconds": 300,
               "dashboard_url": os.environ.get("DASHBOARD_URL", ""),

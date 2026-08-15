@@ -137,10 +137,10 @@ def fetch_okx(symbol, interval):
 
 
 PROVIDERS = [
+    ("okx", fetch_okx),
     ("binance-data", fetch_binance_data),
     ("binance-api", fetch_binance_api),
-    ("bybit", fetch_bybit),
-    ("okx", fetch_okx)
+    ("bybit", fetch_bybit)
 ]
 
 

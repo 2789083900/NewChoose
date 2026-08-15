@@ -1566,6 +1566,30 @@ function renderStrategy() {
   dirEl.textContent = direction;
   dirEl.className = analysis.signalClass;
 
+  // 高胜率反转策略：优先展示反转信号（超卖抄底/超买逃顶）
+  const reversal = detectHighWinReversal(klines, indicators, lastIndex);
+  if (reversal.direction) {
+    const grade = reversal.points >= 6 ? '★★★★★ 极高胜率' : reversal.points >= 5 ? '★★★★ 高胜率' : reversal.points >= 4 ? '★★★ 较高胜率' : '★★ 中胜率';
+    const isLong = reversal.direction === 'long';
+    dirEl.textContent = isLong ? '抄底做多' : '逃顶做空';
+    dirEl.className = isLong ? 'bull' : 'bear';
+    setChip('strategyTag', `反转 ${reversal.points} 共振`, isLong ? 'bull' : 'bear');
+    metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 高胜率反转策略 · ${grade}`;
+    const risk = Math.max(atr * 1.5, atr * 1.5);
+    const stop = isLong ? last.close - risk : last.close + risk;
+    const target = isLong ? last.close + risk * 2.5 : last.close - risk * 2.5;
+    entryEl.textContent = isLong ? `超卖反弹 ${formatPrice(last.close)} 附近` : `超买回落 ${formatPrice(last.close)} 附近`;
+    entryEl.className = dirEl.className;
+    stopEl.textContent = formatPrice(stop);
+    stopEl.className = dirEl.className;
+    targetEl.textContent = formatPrice(target);
+    targetEl.className = dirEl.className;
+    sizeEl.textContent = reversal.points >= 5 ? '风险 1.5%-2%' : '风险 1%-1.5%';
+    sizeEl.className = dirEl.className;
+    planEl.textContent = `${meta.base} 出现高胜率反转信号（${reversal.points} 项共振：${reversal.reasons.join('、')}）。建议${isLong ? '超卖后分批做多' : '超买后分批做空'}，止损按 1.5 倍 ATR，目标按 2.5 倍盈亏比设置。信号需严格止损，反转失败立即离场。`;
+    return;
+  }
+
   if (analysis.signalClass === 'flat') {
     planEl.textContent = `${meta.base} 当前信号不明确，建议空仓等待。等 MACD/KDJ 金叉或死叉共振、RSI 明确穿越 50 后再入场，避免无信号反复交易。`;
     entryEl.textContent = '等待确认';
@@ -2308,7 +2332,100 @@ function backtestDual(klines, indicators, threshold = 4, feeRate = 0.001, capita
   };
 }
 
+function detectHighWinReversal(klines, indicators, i) {
+  // 高胜率反转信号：极值 + 反转确认 + 多条件共振（与 Python reversal_scanner 一致）
+  const closes = indicators.closes;
+  const prev = Math.max(0, i - 1);
+  const kline = klines[i];
+  const prevK = klines[prev];
+  const rsi = indicators.rsi[i];
+  const rsiPrev = indicators.rsi[prev];
+  const j = indicators.kdj.J[i];
+  const jPrev = indicators.kdj.J[prev];
+  const k = indicators.kdj.K[i];
+  const d = indicators.kdj.D[i];
+  const kPrev = indicators.kdj.K[prev];
+  const dPrev = indicators.kdj.D[prev];
+  const stK = indicators.stochRsi.K[i];
+  const stD = indicators.stochRsi.D[i];
+  const stKPrev = indicators.stochRsi.K[prev];
+  const stDPrev = indicators.stochRsi.D[prev];
+  const ema20 = indicators.ema20[i];
+  const price = closes[i];
+  const bias = ema20 ? ((price - ema20) / ema20) * 100 : 0;
+
+  let longPoints = 0;
+  let shortPoints = 0;
+  const longReasons = [];
+  const shortReasons = [];
+
+  // --- 极值区 ---
+  if (rsi != null && rsi < 30) { longPoints += 1; longReasons.push(`RSI超卖(${rsi.toFixed(0)})`); }
+  if (rsi != null && rsi < 20) { longPoints += 1; longReasons.push(`RSI深度超卖(${rsi.toFixed(0)})`); }
+  if (j != null && j < 20) { longPoints += 1; longReasons.push(`KDJ-J超卖(${j.toFixed(0)})`); }
+  if (j != null && j < 5) { longPoints += 1; longReasons.push(`KDJ-J深度超卖(${j.toFixed(0)})`); }
+  if (stK != null && stK < 20) { longPoints += 1; longReasons.push(`StochRSI超卖(${stK.toFixed(0)})`); }
+  if (bias < -5) { longPoints += 1; longReasons.push(`乖离率${bias.toFixed(1)}%（偏离过大）`); }
+
+  if (rsi != null && rsi > 70) { shortPoints += 1; shortReasons.push(`RSI超买(${rsi.toFixed(0)})`); }
+  if (rsi != null && rsi > 80) { shortPoints += 1; shortReasons.push(`RSI深度超买(${rsi.toFixed(0)})`); }
+  if (j != null && j > 80) { shortPoints += 1; shortReasons.push(`KDJ-J超买(${j.toFixed(0)})`); }
+  if (j != null && j > 95) { shortPoints += 1; shortReasons.push(`KDJ-J深度超买(${j.toFixed(0)})`); }
+  if (stK != null && stK > 80) { shortPoints += 1; shortReasons.push(`StochRSI超买(${stK.toFixed(0)})`); }
+  if (bias > 5) { shortPoints += 1; shortReasons.push(`乖离率${bias.toFixed(1)}%（偏离过大）`); }
+
+  // --- 反转确认 ---
+  if (kPrev != null && dPrev != null && k != null && d != null) {
+    if (kPrev <= dPrev && k > d) {
+      longPoints += 1; longReasons.push('KDJ金叉');
+      if (jPrev != null && jPrev < 20) { longPoints += 1; longReasons.push('超卖区金叉'); }
+    }
+    if (kPrev >= dPrev && k < d) {
+      shortPoints += 1; shortReasons.push('KDJ死叉');
+      if (jPrev != null && jPrev > 80) { shortPoints += 1; shortReasons.push('超买区死叉'); }
+    }
+  }
+  if (stKPrev != null && stDPrev != null && stK != null && stD != null) {
+    if (stKPrev <= stDPrev && stK > stD) { longPoints += 1; longReasons.push('StochRSI金叉'); }
+    if (stKPrev >= stDPrev && stK < stD) { shortPoints += 1; shortReasons.push('StochRSI死叉'); }
+  }
+  if (rsiPrev != null && rsi != null) {
+    if (rsiPrev < 30 && rsi >= 30) { longPoints += 1; longReasons.push('RSI上穿30'); }
+    if (rsiPrev > 70 && rsi <= 70) { shortPoints += 1; shortReasons.push('RSI下穿70'); }
+  }
+
+  // 吞没 K 线
+  const body = Math.abs(kline.close - kline.open);
+  const prevBody = Math.abs(prevK.close - prevK.open);
+  if (body > prevBody * 1.2 && body > 0) {
+    if (kline.close > kline.open && prevK.close < prevK.open) { longPoints += 1; longReasons.push('阳线吞没'); }
+    if (kline.close < kline.open && prevK.close > prevK.open) { shortPoints += 1; shortReasons.push('阴线吞没'); }
+  }
+  // 长下影
+  const lowRange = kline.high - kline.low;
+  if (lowRange > 0) {
+    const lowerWick = Math.min(kline.open, kline.close) - kline.low;
+    if (lowerWick / lowRange > 0.5 && lowerWick > body * 0.8) { longPoints += 1; longReasons.push('长下影线'); }
+  }
+  // 放量
+  const vols = klines.slice(Math.max(0, i - 5), i).map((x) => x.volume);
+  const avgVol = vols.length ? vols.reduce((a, b) => a + b, 0) / vols.length : 0;
+  if (avgVol > 0 && kline.volume > avgVol * 1.5) {
+    if (longPoints > 0) { longPoints += 1; longReasons.push('放量'); }
+    if (shortPoints > 0) { shortPoints += 1; shortReasons.push('放量'); }
+  }
+
+  if (longPoints >= 3 && longPoints >= shortPoints) {
+    return { direction: 'long', points: longPoints, reasons: longReasons };
+  }
+  if (shortPoints >= 3 && shortPoints > longPoints) {
+    return { direction: 'short', points: shortPoints, reasons: shortReasons };
+  }
+  return { direction: null, points: Math.max(longPoints, shortPoints), reasons: longPoints >= shortPoints ? longReasons : shortReasons };
+}
+
 function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, capital = 10000) {
+  // 高胜率反转主策略回测（极值+共振+形态，多条件共振才入场）
   const start = 34;
   let longEquity = capital / 2;
   let shortEquity = capital / 2;
@@ -2321,29 +2438,24 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
   const firstTime = klines[start].time;
   const atrSeries = calcATRSeries(klines, 14);
 
-  const canLong = (signal, i) => {
+  const canLong = (i) => {
+    const r = detectHighWinReversal(klines, indicators, i);
+    if (r.direction !== 'long' || r.points < 3) return false;
+    // 强趋势过滤：ADX 空头趋势且强劲时不抄底（避免接飞刀）
     const adxCur = indicators.adx ? indicators.adx.adx[i] : null;
     const plusDi = indicators.adx ? indicators.adx.plusDi[i] : null;
     const minusDi = indicators.adx ? indicators.adx.minusDi[i] : null;
-    const strongBear = adxCur != null && plusDi != null && minusDi != null && adxCur >= 25 && minusDi > plusDi;
-    return !strongBear &&
-      signal.score <= -threshold &&
-      indicators.bb.percentB[i] != null &&
-      indicators.bb.percentB[i] <= 0.2 &&
-      indicators.rsi[i] != null &&
-      indicators.rsi[i] <= 40;
+    if (adxCur != null && plusDi != null && minusDi != null && adxCur >= 30 && minusDi > plusDi) return false;
+    return true;
   };
-  const canShort = (signal, i) => {
+  const canShort = (i) => {
+    const r = detectHighWinReversal(klines, indicators, i);
+    if (r.direction !== 'short' || r.points < 3) return false;
     const adxCur = indicators.adx ? indicators.adx.adx[i] : null;
     const plusDi = indicators.adx ? indicators.adx.plusDi[i] : null;
     const minusDi = indicators.adx ? indicators.adx.minusDi[i] : null;
-    const strongBull = adxCur != null && plusDi != null && minusDi != null && adxCur >= 25 && plusDi > minusDi;
-    return !strongBull &&
-      signal.score >= threshold &&
-      indicators.bb.percentB[i] != null &&
-      indicators.bb.percentB[i] >= 0.8 &&
-      indicators.rsi[i] != null &&
-      indicators.rsi[i] >= 60;
+    if (adxCur != null && plusDi != null && minusDi != null && adxCur >= 30 && plusDi > minusDi) return false;
+    return true;
   };
 
   const closeLong = (i, pos, price, reason) => {
@@ -2384,7 +2496,7 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
     const signal = analyzeAt(indicators, i);
     const price = klines[i].close;
 
-    if (!longPos && canLong(signal, i)) {
+    if (!longPos && canLong(i)) {
       longEquity *= 1 - feeRate;
       const atr = atrSeries[i] || price * 0.01;
       longPos = {
@@ -2396,7 +2508,7 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
         targetPct: Math.max(0.04, (2.5 * atr) / price)
       };
     }
-    if (!shortPos && canShort(signal, i)) {
+    if (!shortPos && canShort(i)) {
       shortEquity *= 1 - feeRate;
       const atr = atrSeries[i] || price * 0.01;
       shortPos = {

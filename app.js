@@ -1559,15 +1559,26 @@ function renderStrategy() {
   const smAgrees = smRatio != null && ((analysis.signalClass === 'bull' && smRatio >= 5) || (analysis.signalClass === 'bear' && smRatio <= -5));
   const smOpposes = smRatio != null && ((analysis.signalClass === 'bull' && smRatio <= -5) || (analysis.signalClass === 'bear' && smRatio >= 5));
 
-  setChip('strategyTag', analysis.label, analysis.signalClass);
-  metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · ATR ${formatPrice(atr)} · ${emaState}`;
-
-  const direction = analysis.signalClass === 'bull' ? '做多' : analysis.signalClass === 'bear' ? '做空' : '观望';
-  dirEl.textContent = direction;
-  dirEl.className = analysis.signalClass;
-
-  // 高胜率反转策略：优先展示反转信号（超卖抄底/超买逃顶）
+  // ============ 高胜率反转策略（主策略） ============
   const reversal = detectHighWinReversal(klines, indicators, lastIndex);
+  const rsiCur = indicators.rsi[lastIndex];
+  const jCur = indicators.kdj.J[lastIndex];
+  const stKCur = indicators.stochRsi.K[lastIndex];
+  const bbPB = indicators.bb.percentB[lastIndex];
+  const bias = ema20 ? ((last.close - ema20) / ema20) * 100 : 0;
+  // 当前所处区域（即使共振不足也显示）
+  const zoneParts = [];
+  if (rsiCur != null && rsiCur < 30) zoneParts.push(`RSI超卖(${rsiCur.toFixed(0)})`);
+  if (rsiCur != null && rsiCur > 70) zoneParts.push(`RSI超买(${rsiCur.toFixed(0)})`);
+  if (jCur != null && jCur < 20) zoneParts.push(`KDJ-J超卖(${jCur.toFixed(0)})`);
+  if (jCur != null && jCur > 80) zoneParts.push(`KDJ-J超买(${jCur.toFixed(0)})`);
+  if (stKCur != null && stKCur < 20) zoneParts.push(`StochRSI超卖(${stKCur.toFixed(0)})`);
+  if (stKCur != null && stKCur > 80) zoneParts.push(`StochRSI超买(${stKCur.toFixed(0)})`);
+  if (bias < -5) zoneParts.push(`乖离${bias.toFixed(1)}%`);
+  if (bias > 5) zoneParts.push(`乖离+${bias.toFixed(1)}%`);
+  if (bbPB != null && bbPB <= 0.2) zoneParts.push('布林下轨');
+  if (bbPB != null && bbPB >= 0.8) zoneParts.push('布林上轨');
+
   if (reversal.direction) {
     const grade = reversal.points >= 6 ? '★★★★★ 极高胜率' : reversal.points >= 5 ? '★★★★ 高胜率' : reversal.points >= 4 ? '★★★ 较高胜率' : '★★ 中胜率';
     const isLong = reversal.direction === 'long';
@@ -1575,7 +1586,7 @@ function renderStrategy() {
     dirEl.className = isLong ? 'bull' : 'bear';
     setChip('strategyTag', `反转 ${reversal.points} 共振`, isLong ? 'bull' : 'bear');
     metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 高胜率反转策略 · ${grade}`;
-    const risk = Math.max(atr * 1.5, atr * 1.5);
+    const risk = atr * 1.5;
     const stop = isLong ? last.close - risk : last.close + risk;
     const target = isLong ? last.close + risk * 2.5 : last.close - risk * 2.5;
     entryEl.textContent = isLong ? `超卖反弹 ${formatPrice(last.close)} 附近` : `超买回落 ${formatPrice(last.close)} 附近`;
@@ -1590,67 +1601,22 @@ function renderStrategy() {
     return;
   }
 
-  if (analysis.signalClass === 'flat') {
-    planEl.textContent = `${meta.base} 当前信号不明确，建议空仓等待。等 MACD/KDJ 金叉或死叉共振、RSI 明确穿越 50 后再入场，避免无信号反复交易。`;
-    entryEl.textContent = '等待确认';
-    stopEl.textContent = '--';
-    targetEl.textContent = '--';
-    sizeEl.textContent = '观望';
-    return;
-  }
-
-  const isBull = analysis.signalClass === 'bull';
-  const entryRef = Number.isFinite(ema20) ? ema20 : last.close;
-  const risk = Math.max(
-    atr * 1.5,
-    (isBull ? Math.max(0, last.close - recentLow) : Math.max(0, recentHigh - last.close)) * 0.6
-  );
-  const stop = isBull ? last.close - risk : last.close + risk;
-  const target = isBull ? last.close + risk * 2 : last.close - risk * 2;
-
-  entryEl.textContent = isBull
-    ? `回踩 ${formatPrice(entryRef)} 附近分批`
-    : `反弹 ${formatPrice(entryRef)} 附近分批`;
-  entryEl.className = analysis.signalClass;
-  stopEl.textContent = formatPrice(stop);
-  stopEl.className = analysis.signalClass;
-  targetEl.textContent = formatPrice(target);
-  targetEl.className = analysis.signalClass;
-
-  const absScore = Math.abs(analysis.score);
-  let sizeText = absScore >= 4 ? '风险 1.5%-2%' : absScore >= 3 ? '风险 1%-1.5%' : '风险 ≤1%';
-  if (smOpposes || (isBull && !bullAlign) || (!isBull && !bearAlign)) sizeText = '轻仓 0.5%-1%';
-  sizeEl.textContent = sizeText;
-  sizeEl.className = analysis.signalClass;
-
-  const stopText = isBull ? '跌破止损位立即离场' : '突破止损位立即离场';
-  let plan;
-  if (isBull) {
-    if (bullAlign) {
-      plan = `${meta.base} 当前为${analysis.label}信号（${analysis.score}）。均线多头排列（EMA20>50>100>200），建议顺势做多：价格回踩 EMA20 附近分批建仓，${stopText}，目标按 2 倍风险收益比设置。`;
-    } else if (bearAlign) {
-      plan = `${meta.base} 当前指标偏多，但均线仍为空头排列，属于逆势信号，建议放弃或轻仓，等 EMA20 上穿 EMA50 后再做多。`;
-    } else {
-      plan = `${meta.base} 当前为${analysis.label}信号（${analysis.score}），但均线方向尚未统一，建议轻仓试探，等 EMA20 与 EMA50 方向一致后加仓。`;
-    }
+  // ---- 无完整信号：显示当前区域与等待确认（不再退回顺势文案） ----
+  dirEl.textContent = '观望';
+  dirEl.className = 'flat';
+  setChip('strategyTag', zoneParts.length ? '等待反转确认' : '空仓观望', 'flat');
+  metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 高胜率反转策略 · 无信号`;
+  entryEl.textContent = zoneParts.length ? '等待反转确认' : '等待超买/超卖';
+  entryEl.className = 'flat';
+  stopEl.textContent = '--';
+  targetEl.textContent = '--';
+  sizeEl.textContent = '观望';
+  if (zoneParts.length) {
+    planEl.textContent = `${meta.base} 当前处于 ${zoneParts.join('、')} 区域，反转条件尚缺 ${Math.max(1, 3 - reversal.points)} 项共振，暂不建议入场。等待 KDJ/StochRSI 金叉死叉或吞没/长下影等反转确认后再行动。`;
   } else {
-    if (bearAlign) {
-      plan = `${meta.base} 当前为${analysis.label}信号（${analysis.score}）。均线空头排列（EMA20<50<100<200），建议顺势做空：价格反弹至 EMA20 附近分批做空，${stopText}，目标按 2 倍风险收益比设置。`;
-    } else if (bullAlign) {
-      plan = `${meta.base} 当前指标偏空，但均线仍为多头排列，属于逆势信号，建议放弃或轻仓，等 EMA20 下穿 EMA50 后再做空。`;
-    } else {
-      plan = `${meta.base} 当前为${analysis.label}信号（${analysis.score}），但均线方向尚未统一，建议轻仓试探，等 EMA20 与 EMA50 方向一致后加仓。`;
-    }
+    planEl.textContent = `${meta.base} 当前无超买/超卖信号，建议空仓等待。策略只在出现高胜率反转信号（≥3 项共振）时入场，其余时间保持观望。`;
   }
-  if (volumeSpike != null && volumeSpike >= 1.5) {
-    plan += ' 当前成交量放大，信号可信度提升。';
-  }
-  if (smAgrees) {
-    plan += ' 聪明钱方向同步，可正常执行。';
-  } else if (smOpposes) {
-    plan += ' 但聪明钱方向相反，建议降低仓位并严格执行止损。';
-  }
-  planEl.textContent = plan;
+  return;
 }
 
 function renderWatchlist() {
@@ -2425,7 +2391,7 @@ function detectHighWinReversal(klines, indicators, i) {
 }
 
 function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, capital = 10000) {
-  // 高胜率反转主策略回测（极值+共振+形态，多条件共振才入场）
+  // 高胜率反转主策略回测：均线排列 + 回踩 EMA20 + ATR 风控
   const start = 34;
   let longEquity = capital / 2;
   let shortEquity = capital / 2;
@@ -2438,24 +2404,30 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
   const firstTime = klines[start].time;
   const atrSeries = calcATRSeries(klines, 14);
 
+  const emaAligned = (i, bull) => {
+    const ema20 = indicators.ema20[i];
+    const ema50 = indicators.ema50[i];
+    const ema100 = indicators.ema100[i];
+    const ema200 = indicators.ema200[i];
+    if (ema20 == null || ema50 == null || ema100 == null || ema200 == null) return false;
+    return bull
+      ? ema20 > ema50 && ema50 > ema100 && ema100 > ema200
+      : ema20 < ema50 && ema50 < ema100 && ema100 < ema200;
+  };
+  const nearEma = (i, price) => {
+    const ema20 = indicators.ema20[i];
+    const atr = atrSeries[i] || price * 0.01;
+    return ema20 != null && Math.abs(price - ema20) <= Math.max(atr * 0.8, price * 0.006);
+  };
   const canLong = (i) => {
-    const r = detectHighWinReversal(klines, indicators, i);
-    if (r.direction !== 'long' || r.points < 3) return false;
-    // 强趋势过滤：ADX 空头趋势且强劲时不抄底（避免接飞刀）
-    const adxCur = indicators.adx ? indicators.adx.adx[i] : null;
-    const plusDi = indicators.adx ? indicators.adx.plusDi[i] : null;
-    const minusDi = indicators.adx ? indicators.adx.minusDi[i] : null;
-    if (adxCur != null && plusDi != null && minusDi != null && adxCur >= 30 && minusDi > plusDi) return false;
-    return true;
+    const signal = analyzeAt(indicators, i);
+    const price = klines[i].close;
+    return signal.score >= threshold && emaAligned(i, true) && nearEma(i, price);
   };
   const canShort = (i) => {
-    const r = detectHighWinReversal(klines, indicators, i);
-    if (r.direction !== 'short' || r.points < 3) return false;
-    const adxCur = indicators.adx ? indicators.adx.adx[i] : null;
-    const plusDi = indicators.adx ? indicators.adx.plusDi[i] : null;
-    const minusDi = indicators.adx ? indicators.adx.minusDi[i] : null;
-    if (adxCur != null && plusDi != null && minusDi != null && adxCur >= 30 && plusDi > minusDi) return false;
-    return true;
+    const signal = analyzeAt(indicators, i);
+    const price = klines[i].close;
+    return signal.score <= -threshold && emaAligned(i, false) && nearEma(i, price);
   };
 
   const closeLong = (i, pos, price, reason) => {
@@ -2499,64 +2471,56 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
     if (!longPos && canLong(i)) {
       longEquity *= 1 - feeRate;
       const atr = atrSeries[i] || price * 0.01;
+      const look = klines.slice(Math.max(0, i - 24), i + 1);
+      const recentLow = Math.min(...look.map((k) => k.low));
+      const risk = Math.max(atr * 1.5, Math.max(0, price - recentLow) * 0.6);
       longPos = {
         entryPrice: price,
         entryTime: klines[i].time,
         entryIndex: i,
         entryEquity: longEquity,
-        stopPct: Math.max(0.02, (1.8 * atr) / price),
-        targetPct: Math.max(0.04, (2.5 * atr) / price)
+        stopPrice: price - risk,
+        targetPrice: price + risk * 2
       };
     }
     if (!shortPos && canShort(i)) {
       shortEquity *= 1 - feeRate;
       const atr = atrSeries[i] || price * 0.01;
+      const look = klines.slice(Math.max(0, i - 24), i + 1);
+      const recentHigh = Math.max(...look.map((k) => k.high));
+      const risk = Math.max(atr * 1.5, Math.max(0, recentHigh - price) * 0.6);
       shortPos = {
         entryPrice: price,
         entryTime: klines[i].time,
         entryIndex: i,
         entryEquity: shortEquity,
-        stopPct: Math.max(0.02, (1.8 * atr) / price),
-        targetPct: Math.max(0.04, (2.5 * atr) / price)
+        stopPrice: price + risk,
+        targetPrice: price - risk * 2
       };
     }
 
     if (longPos) {
-      const stopPrice = longPos.entryPrice * (1 - longPos.stopPct);
-      if (klines[i].low <= stopPrice) {
-        closeLong(i, longPos, stopPrice, 'stop');
+      if (klines[i].low <= longPos.stopPrice) {
+        closeLong(i, longPos, longPos.stopPrice, 'stop');
         longPos = null;
-      } else if (klines[i].high >= longPos.entryPrice * (1 + longPos.targetPct)) {
-        closeLong(i, longPos, longPos.entryPrice * (1 + longPos.targetPct), 'target');
+      } else if (klines[i].high >= longPos.targetPrice) {
+        closeLong(i, longPos, longPos.targetPrice, 'target');
         longPos = null;
-      } else if (indicators.closes[i] != null && indicators.bb.middle[i] != null && indicators.closes[i] >= indicators.bb.middle[i]) {
-        closeLong(i, longPos, price, 'mid');
-        longPos = null;
-      } else if (indicators.rsi[i] != null && indicators.rsi[i] >= 55) {
-        closeLong(i, longPos, price, 'rsi');
-        longPos = null;
-      } else if (signal.score >= threshold) {
-        closeLong(i, longPos, price, 'signal');
+      } else if (signal.score <= -threshold || !emaAligned(i, true)) {
+        closeLong(i, longPos, price, 'trend');
         longPos = null;
       }
     }
 
     if (shortPos) {
-      const stopPrice = shortPos.entryPrice * (1 + shortPos.stopPct);
-      if (klines[i].high >= stopPrice) {
-        closeShort(i, shortPos, stopPrice, 'stop');
+      if (klines[i].high >= shortPos.stopPrice) {
+        closeShort(i, shortPos, shortPos.stopPrice, 'stop');
         shortPos = null;
-      } else if (klines[i].low <= shortPos.entryPrice * (1 - shortPos.targetPct)) {
-        closeShort(i, shortPos, shortPos.entryPrice * (1 - shortPos.targetPct), 'target');
+      } else if (klines[i].low <= shortPos.targetPrice) {
+        closeShort(i, shortPos, shortPos.targetPrice, 'target');
         shortPos = null;
-      } else if (indicators.closes[i] != null && indicators.bb.middle[i] != null && indicators.closes[i] <= indicators.bb.middle[i]) {
-        closeShort(i, shortPos, price, 'mid');
-        shortPos = null;
-      } else if (indicators.rsi[i] != null && indicators.rsi[i] <= 45) {
-        closeShort(i, shortPos, price, 'rsi');
-        shortPos = null;
-      } else if (signal.score <= -threshold) {
-        closeShort(i, shortPos, price, 'signal');
+      } else if (signal.score >= threshold || !emaAligned(i, false)) {
+        closeShort(i, shortPos, price, 'trend');
         shortPos = null;
       }
     }

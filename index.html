@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d151a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CoinPulse">
+  <title>CoinPulse 币圈信号监控</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=4">
+  <script src="vendor/lucide.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><span>⌁</span></div>
+        <div>
+          <h1>CoinPulse</h1>
+          <p>MACD · KDJ · RSI</p>
+        </div>
+      </div>
+
+      <section class="overview-section">
+        <div class="section-head">
+          <h2>市场概览</h2>
+          <span class="count-badge" id="marketCount">0</span>
+        </div>
+        <div class="overview-stats" id="overviewStats"></div>
+      </section>
+
+      <section class="watchlist-section">
+        <div class="section-head">
+          <h2>自选列表</h2>
+          <button class="icon-btn small" id="addSymbolBtn" aria-label="添加自选" title="添加自选">
+            <i data-lucide="plus"></i>
+          </button>
+        </div>
+        <div class="add-row hidden" id="addRow">
+          <input id="symbolInput" placeholder="BTCUSDT" maxlength="20" autocomplete="off" spellcheck="false">
+          <button class="btn primary" id="confirmAddBtn">添加</button>
+          <button class="btn ghost" id="cancelAddBtn">取消</button>
+        </div>
+        <div class="watchlist" id="watchlist"></div>
+      </section>
+
+      <footer class="sidebar-foot">
+        <div class="conn-state"><span class="dot" id="sideDot"></span><span id="sideConnText">连接中</span></div>
+        <span id="lastUpdateText">等待数据</span>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="asset">
+          <div class="asset-icon" id="assetIcon">₿</div>
+          <div>
+            <div class="asset-title-row">
+              <h2 id="symbolTitle">BTCUSDT</h2>
+              <span class="badge spot">现货</span>
+            </div>
+            <div class="asset-subtitle" id="assetSubtitle">Bitcoin / TetherUS</div>
+          </div>
+        </div>
+
+        <div class="price-block">
+          <div class="price" id="priceDisplay">--</div>
+          <div class="change" id="changeDisplay">--</div>
+        </div>
+
+        <div class="top-actions">
+          <div class="tf-switch" id="tfSwitch" role="group" aria-label="周期">
+            <button data-tf="1h">1h</button>
+            <button data-tf="4h" class="active">4h</button>
+            <button data-tf="1d">1d</button>
+          </div>
+          <button class="icon-btn" id="refreshBtn" aria-label="立即刷新" title="立即刷新">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+          <button class="icon-btn toggle on" id="autoRefreshBtn" aria-label="自动刷新" title="自动刷新">
+            <i data-lucide="radio"></i>
+          </button>
+          <button class="icon-btn toggle" id="notifyBtn" aria-label="信号提醒" title="信号提醒">
+            <i data-lucide="bell"></i>
+          </button>
+          <button class="icon-btn" id="installBtn" aria-label="安装App" title="安装App">
+            <i data-lucide="download"></i>
+          </button>
+          <div class="conn-state top"><span class="dot" id="connDot"></span><span id="connText">连接中</span></div>
+        </div>
+      </header>
+
+      <section class="signal-banner" id="signalBanner">
+        <div class="banner-icon" id="bannerIcon">↗</div>
+        <div class="banner-main">
+          <div class="banner-top">
+            <span class="banner-label" id="bannerLabel">震荡观望</span>
+            <span class="banner-score" id="bannerScore">0</span>
+          </div>
+          <p id="bannerReason">等待更明确的信号</p>
+        </div>
+        <div class="banner-meta">
+          <div class="meta-cell">
+            <span>MACD</span>
+            <strong id="bannerMacd">--</strong>
+          </div>
+          <div class="meta-cell">
+            <span>KDJ</span>
+            <strong id="bannerKdj">--</strong>
+          </div>
+          <div class="meta-cell">
+            <span>RSI</span>
+            <strong id="bannerRsi">--</strong>
+          </div>
+          <div class="meta-cell">
+            <span>BB</span>
+            <strong id="bannerBb">--</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel strategy-panel" id="strategyPanel">
+        <div class="panel-head">
+          <div>
+            <h3>交易策略</h3>
+            <p id="strategyMeta">等待行情数据</p>
+          </div>
+          <span class="signal-chip" id="strategyTag">--</span>
+        </div>
+        <div class="strategy-body">
+          <div class="strategy-plan" id="strategyPlan">正在生成策略，等待行情数据加载。</div>
+          <div class="strategy-grid">
+            <div class="strategy-cell">
+              <span>方向</span>
+              <strong id="strategyDirection">--</strong>
+            </div>
+            <div class="strategy-cell">
+              <span>入场</span>
+              <strong id="strategyEntry">--</strong>
+            </div>
+            <div class="strategy-cell">
+              <span>止损</span>
+              <strong id="strategyStop">--</strong>
+            </div>
+            <div class="strategy-cell">
+              <span>目标</span>
+              <strong id="strategyTarget">--</strong>
+            </div>
+            <div class="strategy-cell">
+              <span>仓位</span>
+              <strong id="strategySize">--</strong>
+            </div>
+          </div>
+        </div>
+        <p class="strategy-note">随行情自动更新 · 仅作参考，不构成投资建议</p>
+      </section>
+
+      <div class="dashboard">
+        <section class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <h3 id="chartTitle">价格走势</h3>
+              <p id="chartSubtitle">K线 · EMA</p>
+            </div>
+            <div class="chart-legend">
+              <span class="legend ema-20">EMA 20</span>
+              <span class="legend ema-50">EMA 50</span>
+              <span class="legend ema-100">EMA 100</span>
+              <span class="legend ema-200">EMA 200</span>
+              <span class="legend bb">BB 20</span>
+            </div>
+          </div>
+          <div class="chart-wrap" id="chartWrap">
+            <canvas id="priceChart"></canvas>
+          </div>
+        </section>
+
+        <aside class="right-rail">
+          <section class="panel stat-panel">
+            <div class="panel-head">
+              <h3>关键数据</h3>
+            </div>
+            <div class="stats-grid" id="statsGrid"></div>
+          </section>
+
+          <section class="panel signal-log-panel">
+            <div class="panel-head">
+              <h3>信号记录</h3>
+              <button class="icon-btn small" id="clearLogBtn" aria-label="清空记录" title="清空记录">
+                <i data-lucide="trash-2"></i>
+              </button>
+            </div>
+            <div class="signal-log" id="signalLog"></div>
+          </section>
+        </aside>
+
+        <section class="panel smart-money-panel">
+          <div class="panel-head">
+            <div>
+              <h3>聪明钱检测</h3>
+              <p id="smartSubtitle">大额成交 · 资金流向</p>
+            </div>
+            <span class="signal-chip" id="smartChip">--</span>
+          </div>
+          <div class="smart-money-body">
+            <div class="smart-score-block">
+              <div class="smart-score-top">
+                <div>
+                  <span>净流向</span>
+                  <strong id="smartNetFlow">--</strong>
+                </div>
+                <span class="smart-ratio" id="smartRatio">--</span>
+              </div>
+              <div class="smart-gauge">
+                <div class="gauge-track">
+                  <div class="gauge-fill" id="smartGaugeFill"></div>
+                  <div class="gauge-marker"></div>
+                </div>
+                <div class="gauge-labels"><span>流出</span><span>0</span><span>流入</span></div>
+              </div>
+              <div class="smart-stats" id="smartStats"></div>
+            </div>
+            <div class="smart-trades">
+              <div class="smart-trade-head">
+                <span>最近大额成交</span>
+                <span id="smartWindow">--</span>
+              </div>
+              <div class="large-trades" id="largeTrades"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel micro-panel">
+          <div class="panel-head">
+            <div>
+              <h3>15m 微观信号</h3>
+              <p id="microSubtitle">主动买卖 · 大单流向 · VWAP</p>
+            </div>
+            <span class="signal-chip" id="microChip">--</span>
+          </div>
+          <div class="micro-body">
+            <div class="micro-gauge">
+              <div class="micro-score-top">
+                <span>盘口动能</span>
+                <strong id="microScore">--</strong>
+              </div>
+              <div class="gauge-track">
+                <div class="gauge-fill" id="microGaugeFill"></div>
+                <div class="gauge-marker"></div>
+              </div>
+              <div class="gauge-labels"><span>做空</span><span>0</span><span>做多</span></div>
+            </div>
+            <div class="micro-stats" id="microStats"></div>
+            <div class="micro-reasons" id="microReasons"></div>
+          </div>
+        </section>
+
+        <section class="indicator-grid">
+          <article class="panel indicator-panel macd-panel">
+            <div class="panel-head">
+              <h3>MACD</h3>
+              <span class="signal-chip" id="macdChip">--</span>
+            </div>
+            <canvas id="macdChart"></canvas>
+            <div class="indicator-stats" id="macdStats"></div>
+          </article>
+
+          <article class="panel indicator-panel kdj-panel">
+            <div class="panel-head">
+              <h3>KDJ</h3>
+              <span class="signal-chip" id="kdjChip">--</span>
+            </div>
+            <canvas id="kdjChart"></canvas>
+            <div class="indicator-stats" id="kdjStats"></div>
+          </article>
+
+          <article class="panel indicator-panel rsi-panel">
+            <div class="panel-head">
+              <h3>RSI</h3>
+              <span class="signal-chip" id="rsiChip">--</span>
+            </div>
+            <canvas id="rsiChart"></canvas>
+            <div class="indicator-stats" id="rsiStats"></div>
+          </article>
+
+          <article class="panel indicator-panel adx-panel">
+            <div class="panel-head">
+              <h3>ADX</h3>
+              <span class="signal-chip" id="adxChip">--</span>
+            </div>
+            <canvas id="adxChart"></canvas>
+            <div class="indicator-stats" id="adxStats"></div>
+          </article>
+
+          <article class="panel indicator-panel srsi-panel">
+            <div class="panel-head">
+              <h3>StochRSI</h3>
+              <span class="signal-chip" id="stochRsiChip">--</span>
+            </div>
+            <canvas id="stochRsiChart"></canvas>
+            <div class="indicator-stats" id="stochRsiStats"></div>
+          </article>
+        </section>
+
+        <section class="panel backtest-panel">
+          <div class="panel-head">
+            <div>
+              <h3>策略回测</h3>
+              <p id="backtestSample">等待运行回测</p>
+            </div>
+            <div class="backtest-controls">
+              <select id="btInterval" aria-label="回测周期">
+                <option value="1h">1h</option>
+                <option value="4h" selected>4h</option>
+                <option value="1d">1d</option>
+              </select>
+              <select id="btThreshold" aria-label="信号阈值">
+                <option value="2">信号 ≥ 2</option>
+                <option value="3">信号 ≥ 3</option>
+                <option value="4" selected>信号 ≥ 4</option>
+              </select>
+              <select id="btMode" aria-label="策略模式">
+                <option value="trend">趋势过滤</option>
+                <option value="dual">多空双开</option>
+                <option value="revert" selected>高胜率反转</option>
+                <option value="score">基础信号</option>
+              </select>
+              <select id="btBars" aria-label="样本K线">
+                <option value="1000">1000根</option>
+                <option value="2000" selected>2000根</option>
+                <option value="3000">3000根</option>
+                <option value="5000">5000根</option>
+                <option value="10000">10000根</option>
+                <option value="20000">20000根</option>
+              </select>
+              <button class="btn primary" id="runBacktestBtn">运行回测</button>
+            </div>
+          </div>
+          <div class="backtest-body">
+            <div class="backtest-chart">
+              <canvas id="backtestChart"></canvas>
+            </div>
+            <div class="bt-stats" id="backtestSummary"></div>
+            <div class="bt-trades">
+              <div class="smart-trade-head">
+                <span>最近交易</span>
+                <span id="backtestTradeCount">--</span>
+              </div>
+              <div class="bt-trade-list" id="backtestTradeList"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js?v=10"></script>
+</body>
+</html>

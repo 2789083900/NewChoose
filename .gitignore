@@ -1,0 +1,7 @@
+signal_watch.config.json
+signal_watch.state.json
+signal_watch.log
+signal_watch.out.log
+signal_watch.err.log
+__pycache__/
+*.pyc

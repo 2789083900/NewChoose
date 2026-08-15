@@ -1,0 +1,43 @@
+{
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "ADAUSDT",
+    "DOGEUSDT",
+    "LINKUSDT",
+    "AVAXUSDT",
+    "TONUSDT",
+    "SUIUSDT",
+    "PEPEUSDT"
+  ],
+  "intervals": [
+    "4h"
+  ],
+  "threshold": 4,
+  "refresh_seconds": 300,
+  "dashboard_url": "",
+  "channels": {
+    "dingtalk": {
+      "webhook": ""
+    },
+    "wecom": {
+      "webhook": ""
+    },
+    "serverchan": {
+      "sendkey": ""
+    },
+    "pushplus": {
+      "token": ""
+    },
+    "bark": {
+      "server": "https://api.day.app",
+      "key": ""
+    },
+    "generic": {
+      "webhook": ""
+    }
+  }
+}

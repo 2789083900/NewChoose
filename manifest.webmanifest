@@ -1,0 +1,25 @@
+{
+  "name": "CoinPulse 币圈信号监控",
+  "short_name": "CoinPulse",
+  "description": "MACD / KDJ / RSI 币圈信号监控与交易策略",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d151a",
+  "theme_color": "#0d151a",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

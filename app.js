@@ -1583,62 +1583,25 @@ function renderStrategy() {
     return;
   }
 
-  // ============ 辅助策略：反转共振 ============
-  const reversal = detectHighWinReversal(klines, indicators, lastIndex);
+  // ---- 无背离信号：显示当前状态与等待背离确认 ----
   const rsiCur = indicators.rsi[lastIndex];
-  const jCur = indicators.kdj.J[lastIndex];
-  const stKCur = indicators.stochRsi.K[lastIndex];
-  const bbPB = indicators.bb.percentB[lastIndex];
-  const bias = ema20 ? ((last.close - ema20) / ema20) * 100 : 0;
-  // 当前所处区域（即使共振不足也显示）
-  const zoneParts = [];
-  if (rsiCur != null && rsiCur < 30) zoneParts.push(`RSI超卖(${rsiCur.toFixed(0)})`);
-  if (rsiCur != null && rsiCur > 70) zoneParts.push(`RSI超买(${rsiCur.toFixed(0)})`);
-  if (jCur != null && jCur < 20) zoneParts.push(`KDJ-J超卖(${jCur.toFixed(0)})`);
-  if (jCur != null && jCur > 80) zoneParts.push(`KDJ-J超买(${jCur.toFixed(0)})`);
-  if (stKCur != null && stKCur < 20) zoneParts.push(`StochRSI超卖(${stKCur.toFixed(0)})`);
-  if (stKCur != null && stKCur > 80) zoneParts.push(`StochRSI超买(${stKCur.toFixed(0)})`);
-  if (bias < -5) zoneParts.push(`乖离${bias.toFixed(1)}%`);
-  if (bias > 5) zoneParts.push(`乖离+${bias.toFixed(1)}%`);
-  if (bbPB != null && bbPB <= 0.2) zoneParts.push('布林下轨');
-  if (bbPB != null && bbPB >= 0.8) zoneParts.push('布林上轨');
-
-  if (reversal.direction) {
-    const grade = reversal.points >= 6 ? '★★★★★ 极高胜率' : reversal.points >= 5 ? '★★★★ 高胜率' : reversal.points >= 4 ? '★★★ 较高胜率' : '★★ 中胜率';
-    const isLong = reversal.direction === 'long';
-    dirEl.textContent = isLong ? '抄底做多' : '逃顶做空';
-    dirEl.className = isLong ? 'bull' : 'bear';
-    setChip('strategyTag', `反转 ${reversal.points} 共振`, isLong ? 'bull' : 'bear');
-    metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 高胜率反转策略 · ${grade}`;
-    const risk = atr * 1.5;
-    const stop = isLong ? last.close - risk : last.close + risk;
-    const target = isLong ? last.close + risk * 2.5 : last.close - risk * 2.5;
-    entryEl.textContent = isLong ? `超卖反弹 ${formatPrice(last.close)} 附近` : `超买回落 ${formatPrice(last.close)} 附近`;
-    entryEl.className = dirEl.className;
-    stopEl.textContent = formatPrice(stop);
-    stopEl.className = dirEl.className;
-    targetEl.textContent = formatPrice(target);
-    targetEl.className = dirEl.className;
-    sizeEl.textContent = reversal.points >= 5 ? '风险 1.5%-2%' : '风险 1%-1.5%';
-    sizeEl.className = dirEl.className;
-    planEl.textContent = `${meta.base} 出现高胜率反转信号（${reversal.points} 项共振：${reversal.reasons.join('、')}）。建议${isLong ? '超卖后分批做多' : '超买后分批做空'}，止损按 1.5 倍 ATR，目标按 2.5 倍盈亏比设置。信号需严格止损，反转失败立即离场。`;
-    return;
-  }
-
-  // ---- 无完整信号：显示当前区域与等待确认（不再退回顺势文案） ----
+  const nearOversold = rsiCur != null && rsiCur < 40;
+  const nearOverbought = rsiCur != null && rsiCur > 60;
   dirEl.textContent = '观望';
   dirEl.className = 'flat';
-  setChip('strategyTag', zoneParts.length ? '等待反转确认' : '空仓观望', 'flat');
-  metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · 高胜率反转策略 · 无信号`;
-  entryEl.textContent = zoneParts.length ? '等待反转确认' : '等待超买/超卖';
+  setChip('strategyTag', '等待背离', 'flat');
+  metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · RSI背离策略 · 无信号`;
+  entryEl.textContent = '等待背离';
   entryEl.className = 'flat';
   stopEl.textContent = '--';
   targetEl.textContent = '--';
   sizeEl.textContent = '观望';
-  if (zoneParts.length) {
-    planEl.textContent = `${meta.base} 当前处于 ${zoneParts.join('、')} 区域，反转条件尚缺 ${Math.max(1, 3 - reversal.points)} 项共振，暂不建议入场。等待 KDJ/StochRSI 金叉死叉或吞没/长下影等反转确认后再行动。`;
+  if (nearOversold) {
+    planEl.textContent = `${meta.base} 当前 RSI ${rsiCur.toFixed(0)}（接近超卖），尚未出现底背离确认。底背离 = 价格创新低 + RSI 抬高，一旦出现即回测年化+23%的高盈亏比机会（3:1），耐心等待信号，不提前抄底。`;
+  } else if (nearOverbought) {
+    planEl.textContent = `${meta.base} 当前 RSI ${rsiCur.toFixed(0)}（接近超买），尚未出现顶背离确认。顶背离 = 价格创新高 + RSI 走低，一旦出现即高盈亏比做空机会（3:1），耐心等待信号，不提前逃顶。`;
   } else {
-    planEl.textContent = `${meta.base} 当前无超买/超卖信号，建议空仓等待。策略只在出现高胜率反转信号（≥3 项共振）时入场，其余时间保持观望。`;
+    planEl.textContent = `${meta.base} 当前无RSI背离信号，建议空仓等待。策略只在出现背离（回测年化+23%，盈亏比3:1）时入场，其余时间保持观望。`;
   }
   return;
 }

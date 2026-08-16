@@ -45,7 +45,7 @@
   "BNBUSDT|1d|div": "none",
   "XRPUSDT|1h|bias": "none",
   "XRPUSDT|1d|div": "none",
-  "ADAUSDT|1h|bias": "long",
+  "ADAUSDT|1h|bias": "none",
   "ADAUSDT|1d|div": "none",
   "DOGEUSDT|1h|bias": "none",
   "DOGEUSDT|1d|div": "none",
@@ -57,6 +57,6 @@
   "TONUSDT|1d|div": "none",
   "SUIUSDT|1h|bias": "none",
   "SUIUSDT|1d|div": "none",
-  "PEPEUSDT|1h|bias": "long",
+  "PEPEUSDT|1h|bias": "none",
   "PEPEUSDT|1d|div": "none"
 }

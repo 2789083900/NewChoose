@@ -58,5 +58,7 @@
   "SUIUSDT|1h|bias": "none",
   "SUIUSDT|1d|div": "none",
   "PEPEUSDT|1h|bias": "none",
-  "PEPEUSDT|1d|div": "none"
+  "PEPEUSDT|1d|div": "none",
+  "open_trades": [],
+  "closed_trades": []
 }

@@ -1,38 +1,14 @@
 {
-  "generated_at": "2026-08-17 23:11:16",
-  "total": 1,
-  "wins": 1,
+  "generated_at": "2026-08-17 23:37:11",
+  "total": 0,
+  "wins": 0,
   "losses": 0,
   "open_count": 0,
-  "win_rate": 100.0,
-  "total_pnl_pct": 8.91,
-  "avg_win": 8.91,
+  "win_rate": 0,
+  "total_pnl_pct": 0,
+  "avg_win": 0,
   "avg_loss": 0,
   "payoff": 0,
-  "by_symbol": [
-    {
-      "symbol": "XRPUSDT",
-      "total": 1,
-      "wins": 1,
-      "losses": 0,
-      "pnl": 8.91
-    }
-  ],
-  "trades": [
-    {
-      "id": "XRPUSDT|1d|2026-08-17 23:10:57",
-      "symbol": "XRPUSDT",
-      "interval": "1d",
-      "direction": "long",
-      "entry": 1.01,
-      "stop": 0.976986,
-      "target": 1.1,
-      "opened_at": "2026-08-17 23:10:57",
-      "status": "closed",
-      "result": "止盈",
-      "pnl_pct": 8.91,
-      "closed_at": "2026-08-17 23:11:16",
-      "exit": 1.1
-    }
-  ]
+  "by_symbol": [],
+  "trades": []
 }

@@ -383,11 +383,26 @@
             <div id="btOverviewTable" class="bt-table-wrap"></div>
           </div>
         </section>
+
+        <section class="panel backtest-panel" id="tradePanel">
+          <div class="panel-head">
+            <div>
+              <h3>📋 实盘交易记录（推送信号自动跟踪）</h3>
+              <p id="tradeMeta">加载交易统计中...</p>
+            </div>
+            <button class="btn primary" id="refreshTradeBtn">刷新数据</button>
+          </div>
+          <div class="bt-overview-body">
+            <div id="tradeSummary" class="trade-summary"></div>
+            <div id="tradeBySymbol" class="bt-table-wrap"></div>
+            <div id="tradeList" class="bt-trades-list"></div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>

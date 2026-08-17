@@ -28,13 +28,13 @@
   "SOLUSDT|4h|div": "none",
   "BNBUSDT|4h|div": "none",
   "XRPUSDT|4h|div": "none",
-  "ADAUSDT|4h|div": "none",
+  "ADAUSDT|4h|div": "long",
   "DOGEUSDT|4h|div": "none",
   "LINKUSDT|4h|div": "none",
   "AVAXUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "SUIUSDT|4h|div": "none",
-  "PEPEUSDT|4h|div": "long",
+  "PEPEUSDT|4h|div": "none",
   "BTCUSDT|1h|bias": "none",
   "BTCUSDT|1d|div": "none",
   "ETHUSDT|1h|bias": "none",
@@ -59,6 +59,22 @@
   "SUIUSDT|1d|div": "none",
   "PEPEUSDT|1h|bias": "none",
   "PEPEUSDT|1d|div": "none",
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "ADAUSDT|4h|2026-08-17 16:09:40",
+      "symbol": "ADAUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 0.1753,
+      "stop": 0.172386,
+      "target": 0.185014,
+      "opened_at": "2026-08-17 16:09:40",
+      "entry_ts": 1786982984110,
+      "status": "open",
+      "result": null,
+      "pnl_pct": null,
+      "closed_at": null
+    }
+  ],
   "closed_trades": []
 }

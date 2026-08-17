@@ -1116,6 +1116,7 @@ def register_trade(event, config):
         "stop": stop,
         "target": target,
         "opened_at": event["time"],
+        "entry_ts": int(time.time() * 1000),  # 入场时的时间戳（毫秒），结算时只检查之后的K线
         "status": "open",
         "result": None,
         "pnl_pct": None,
@@ -1141,24 +1142,46 @@ def settle_trades(state, config):
             remaining.append(trade)  # 拉不到数据，保留下轮再查
             continue
         closes = [k["close"] for k in klines]
-        high = max(k["high"] for k in klines[-30:])
-        low = min(k["low"] for k in klines[-30:])
         entry = trade["entry"] or closes[-1]
         stop = trade["stop"]
         target = trade["target"]
+        entry_ts = trade.get("entry_ts") or 0
 
-        # 检查是否触达止损/目标（近30根K线范围内）
-        if stop and low <= stop and (target is None or high < target):
-            exit_price = stop
-            result = "止损"
-            pnl_pct = (stop - entry) / entry * 100 if trade["direction"] == "long" else (entry - stop) / entry * 100
-        elif target and high >= target and (stop is None or low > stop):
-            exit_price = target
-            result = "止盈"
-            pnl_pct = (target - entry) / entry * 100 if trade["direction"] == "long" else (entry - target) / entry * 100
-        else:
+        # 只检查入场时间之后的K线（避免用入场前的历史价格误判）
+        future = [k for k in klines if k["time"] >= entry_ts]
+        if not future:
             remaining.append(trade)
             continue
+
+        # 按时间顺序检查：先触达哪个算哪个（真实持仓逻辑）
+        exit_price = None
+        result = None
+        for k in future:
+            high = k["high"]
+            low = k["low"]
+            if trade["direction"] == "long":
+                if stop is not None and low <= stop:
+                    exit_price, result = stop, "止损"
+                    break
+                if target is not None and high >= target:
+                    exit_price, result = target, "止盈"
+                    break
+            else:
+                if stop is not None and high >= stop:
+                    exit_price, result = stop, "止损"
+                    break
+                if target is not None and low <= target:
+                    exit_price, result = target, "止盈"
+                    break
+
+        if exit_price is None:
+            remaining.append(trade)
+            continue
+
+        if trade["direction"] == "long":
+            pnl_pct = (exit_price - entry) / entry * 100
+        else:
+            pnl_pct = (entry - exit_price) / entry * 100
 
         trade["status"] = "closed"
         trade["result"] = result

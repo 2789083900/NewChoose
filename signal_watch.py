@@ -36,7 +36,7 @@ DEFAULT_SYMBOLS = [
 INTERVAL_BARS = {"15m": 96, "1h": 24, "4h": 6, "1d": 1}
 
 
-def http_get_json(url, timeout=9):
+def http_get_json(url, timeout=5):
     req = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "User-Agent": "CoinPulse/1.0"}
@@ -916,49 +916,74 @@ def build_reversal_message(event, config):
     return "\n".join(lines)
 
 
+def _scan_one(symbol, interval, state):
+    """单个币/周期的扫描（供并发调用）"""
+    try:
+        klines, provider = fetch_klines_with_fallback(symbol, interval)
+        indicators = compute_indicators(klines)
+        # ===== 按周期选策略（回测验证） =====
+        # 1h/15m → 乖离回归(+12.1%) | 4h/1d → RSI背离(+23%)
+        if interval in ("1h", "15m"):
+            direction, reasons, strategy_text = detect_bias_regression(klines, indicators)
+            st_key = f"{symbol}|{interval}|bias"
+            label = "乖离做多" if direction == "long" else "乖离做空"
+        else:
+            direction, reasons = detect_rsi_divergence_slice(klines, indicators, len(klines) - 1)
+            strategy_text = build_rsi_divergence_text(klines, indicators, direction) if direction else ""
+            st_key = f"{symbol}|{interval}|div"
+            label = "背离做多" if direction == "long" else "背离做空"
+        prev_sig = state.get(st_key)
+        event = None
+        if direction is not None and prev_sig != direction:
+            event = {
+                "symbol": symbol,
+                "interval": interval,
+                "label": label,
+                "direction": direction,
+                "score": 0.0,
+                "reason": " · ".join(reasons),
+                "strategy": strategy_text,
+                "price": format_price(klines[-1]["close"]),
+                "change": get_change(klines, interval),
+                "provider": provider,
+                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "points": 4,
+                "grade": "回测年化+12%~+23%",
+                "divergence": True
+            }
+        state[st_key] = direction if direction is not None else "none"
+        return event
+    except Exception as exc:
+        logging.warning("%s %s 获取失败: %s", symbol, interval, exc)
+        return None
+
+
 def scan_once(config, state):
     events = []
     symbols = config.get("symbols") or DEFAULT_SYMBOLS
     intervals = config.get("intervals") or ["1h"]
 
-    for symbol in symbols:
-        for interval in intervals:
-            key = f"{symbol}|{interval}"
-            try:
-                klines, provider = fetch_klines_with_fallback(symbol, interval)
-                indicators = compute_indicators(klines)
-                # ===== 按周期选策略（回测验证） =====
-                # 1h/15m → 乖离回归(+12.1%) | 4h/1d → RSI背离(+23%)
-                if interval in ("1h", "15m"):
-                    direction, reasons, strategy_text = detect_bias_regression(klines, indicators)
-                    st_key = f"{symbol}|{interval}|bias"
-                    label = "乖离做多" if direction == "long" else "乖离做空"
-                else:
-                    direction, reasons = detect_rsi_divergence_slice(klines, indicators, len(klines) - 1)
-                    strategy_text = build_rsi_divergence_text(klines, indicators, direction) if direction else ""
-                    st_key = f"{symbol}|{interval}|div"
-                    label = "背离做多" if direction == "long" else "背离做空"
-                prev_sig = state.get(st_key)
-                if direction is not None and prev_sig != direction:
-                    events.append({
-                        "symbol": symbol,
-                        "interval": interval,
-                        "label": label,
-                        "direction": direction,
-                        "score": 0.0,
-                        "reason": " · ".join(reasons),
-                        "strategy": strategy_text,
-                        "price": format_price(klines[-1]["close"]),
-                        "change": get_change(klines, interval),
-                        "provider": provider,
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "points": 4,
-                        "grade": "回测年化+12%~+23%",
-                        "divergence": True
-                    })
-                state[st_key] = direction if direction is not None else "none"
-            except Exception as exc:
-                logging.warning("%s %s 获取失败: %s", symbol, interval, exc)
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+    except ImportError:
+        ThreadPoolExecutor = None
+
+    tasks = [(s, iv) for s in symbols for iv in intervals]
+    if ThreadPoolExecutor:
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            futures = [pool.submit(_scan_one, s, iv, state) for s, iv in tasks]
+            for f in futures:
+                try:
+                    ev = f.result(timeout=30)
+                    if ev:
+                        events.append(ev)
+                except Exception as exc:
+                    logging.warning("并发扫描任务异常: %s", exc)
+    else:
+        for s, iv in tasks:
+            ev = _scan_one(s, iv, state)
+            if ev:
+                events.append(ev)
     return events
 
 

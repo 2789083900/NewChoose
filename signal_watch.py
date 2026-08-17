@@ -576,13 +576,17 @@ def load_config():
 
 def load_state():
     if not os.path.exists(STATE_PATH):
-        return {}
+        return {"open_trades": [], "closed_trades": []}
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {"open_trades": [], "closed_trades": []}
+        data.setdefault("open_trades", [])
+        data.setdefault("closed_trades", [])
+        return data
     except (OSError, ValueError):
-        return {}
+        return {"open_trades": [], "closed_trades": []}
 
 
 def save_state(state):
@@ -1068,6 +1072,143 @@ def process_events(events, config):
             content = build_message(event, config)
         send_notification(title, content, config)
         logging.info("发现信号: %s", content.replace("\n", " / "))
+        register_trade(event, config)
+
+
+# ---------------------------------------------------------------------------
+# 交易跟踪：信号建档 → 触达止损/目标自动结算 → 统计
+# ---------------------------------------------------------------------------
+
+TRADE_STATS_PATH = os.path.join(BASE_DIR, "trade_stats.json")
+
+
+def register_trade(event, config):
+    """信号推送时登记一笔未平仓交易（从 strategy 文本解析出入场/止损/目标）"""
+    state = load_state()
+    trades = state.setdefault("open_trades", [])
+    # 提取价格：策略文本里已有，解析出来
+    try:
+        price = float(str(event["price"]).replace(",", ""))
+    except (ValueError, TypeError):
+        price = None
+    strategy = event.get("strategy", "")
+    entry = stop = target = None
+    # 从策略文本解析：入场点位 ≈ X（...）
+    import re as _re
+    m_entry = _re.search(r"入场点位[≈≈]?\s*([\d.]+)", strategy)
+    m_stop = _re.search(r"止损\s*([\d.]+)", strategy)
+    m_target = _re.search(r"目标\s*([\d.]+)", strategy)
+    if m_entry:
+        entry = float(m_entry.group(1))
+    if m_stop:
+        stop = float(m_stop.group(1))
+    if m_target:
+        target = float(m_target.group(1))
+    if entry is None:
+        entry = price
+
+    trade = {
+        "id": f"{event['symbol']}|{event['interval']}|{event['time']}",
+        "symbol": event["symbol"],
+        "interval": event["interval"],
+        "direction": event.get("direction", ""),
+        "entry": entry,
+        "stop": stop,
+        "target": target,
+        "opened_at": event["time"],
+        "status": "open",
+        "result": None,
+        "pnl_pct": None,
+        "closed_at": None,
+    }
+    # 避免重复登记同一信号
+    if not any(t["id"] == trade["id"] for t in trades):
+        trades.append(trade)
+        save_state(state)
+
+
+def settle_trades(state, config):
+    """用最新行情结算未平仓交易：触达止损=亏，触达目标=赚"""
+    open_trades = state.get("open_trades", [])
+    if not open_trades:
+        return []
+    settled = []
+    remaining = []
+    for trade in open_trades:
+        try:
+            klines, _prov = fetch_klines_with_fallback(trade["symbol"], trade["interval"])
+        except Exception:
+            remaining.append(trade)  # 拉不到数据，保留下轮再查
+            continue
+        closes = [k["close"] for k in klines]
+        high = max(k["high"] for k in klines[-30:])
+        low = min(k["low"] for k in klines[-30:])
+        entry = trade["entry"] or closes[-1]
+        stop = trade["stop"]
+        target = trade["target"]
+
+        # 检查是否触达止损/目标（近30根K线范围内）
+        if stop and low <= stop and (target is None or high < target):
+            exit_price = stop
+            result = "止损"
+            pnl_pct = (stop - entry) / entry * 100 if trade["direction"] == "long" else (entry - stop) / entry * 100
+        elif target and high >= target and (stop is None or low > stop):
+            exit_price = target
+            result = "止盈"
+            pnl_pct = (target - entry) / entry * 100 if trade["direction"] == "long" else (entry - target) / entry * 100
+        else:
+            remaining.append(trade)
+            continue
+
+        trade["status"] = "closed"
+        trade["result"] = result
+        trade["pnl_pct"] = round(pnl_pct, 2)
+        trade["exit"] = exit_price
+        trade["closed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        state.setdefault("closed_trades", []).append(trade)
+        settled.append(trade)
+        logging.info("交易结算: %s %s %s 盈亏%+.2f%%", trade["symbol"], trade["interval"], result, pnl_pct)
+
+    state["open_trades"] = remaining
+    if settled:
+        save_state(state)
+        write_trade_stats(state)
+    return settled
+
+
+def write_trade_stats(state):
+    """把已结算交易汇总写入 trade_stats.json（看板读取）"""
+    closed = state.get("closed_trades", [])
+    stats = {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "total": len(closed),
+        "wins": sum(1 for t in closed if t.get("result") == "止盈"),
+        "losses": sum(1 for t in closed if t.get("result") == "止损"),
+        "open_count": len(state.get("open_trades", [])),
+    }
+    stats["win_rate"] = round(stats["wins"] / stats["total"] * 100, 1) if stats["total"] else 0
+    total_pnl = sum(t.get("pnl_pct") or 0 for t in closed)
+    stats["total_pnl_pct"] = round(total_pnl, 2)
+    avg_win = sum(t.get("pnl_pct") or 0 for t in closed if t.get("result") == "止盈")
+    avg_loss = sum(t.get("pnl_pct") or 0 for t in closed if t.get("result") == "止损")
+    stats["avg_win"] = round(avg_win / stats["wins"], 2) if stats["wins"] else 0
+    stats["avg_loss"] = round(avg_loss / stats["losses"], 2) if stats["losses"] else 0
+    stats["payoff"] = round(abs(stats["avg_win"] / stats["avg_loss"]), 2) if stats["avg_loss"] else 0
+    # 按周期/币种分组
+    by_symbol = {}
+    for t in closed:
+        by_symbol.setdefault(t["symbol"], {"total": 0, "wins": 0, "losses": 0, "pnl": 0.0})
+        g = by_symbol[t["symbol"]]
+        g["total"] += 1
+        g["wins"] += 1 if t.get("result") == "止盈" else 0
+        g["losses"] += 1 if t.get("result") == "止损" else 0
+        g["pnl"] = round(g["pnl"] + (t.get("pnl_pct") or 0), 2)
+    stats["by_symbol"] = [
+        {"symbol": s, **v} for s, v in sorted(by_symbol.items(), key=lambda x: -x[1]["pnl"])
+    ]
+    stats["trades"] = closed[-50:]  # 最近50笔
+    with open(TRADE_STATS_PATH, "w", encoding="utf-8") as f:
+        json.dump(stats, f, ensure_ascii=False, indent=2)
 
 
 def send_startup_message(config):
@@ -1128,9 +1269,13 @@ def main():
     while True:
         try:
             config = load_config()
+            state = load_state()
             events = scan_once(config, state)
             save_state(state)
             process_events(events, config)
+            # 结算未平仓交易（用最新行情）
+            state = load_state()
+            settle_trades(state, config)
         except Exception as exc:
             logging.exception("扫描失败: %s", exc)
         time.sleep(max(10, float(config.get("refresh_seconds", 30))))

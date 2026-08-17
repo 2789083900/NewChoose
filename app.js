@@ -1840,6 +1840,60 @@ function loadBacktestOverview() {
     });
 }
 
+function loadTradeStats() {
+  const metaEl = $('tradeMeta');
+  const summaryEl = $('tradeSummary');
+  const bySymEl = $('tradeBySymbol');
+  const listEl = $('tradeList');
+  if (!metaEl) return;
+  fetchJSON('trade_stats.json', 15000)
+    .then((stats) => {
+      if (!stats || !stats.total) {
+        metaEl.textContent = '暂无已结算交易（新信号推送后自动建档跟踪）';
+        summaryEl.innerHTML = '<div class="empty-smart">还没有交易记录。每次推送信号会自动登记，价格触达止损/目标即自动结算。</div>';
+        bySymEl.innerHTML = '';
+        listEl.innerHTML = '';
+        return;
+      }
+      const wrCls = stats.win_rate >= 40 ? 'bull' : stats.win_rate >= 30 ? '' : 'bear';
+      const pnlCls = stats.total_pnl_pct > 0 ? 'bull' : 'bear';
+      const payCls = stats.payoff >= 2 ? 'bull' : stats.payoff >= 1.2 ? '' : 'bear';
+      metaEl.textContent = `生成于 ${stats.generated_at} · 未平仓 ${stats.open_count} 笔`;
+      summaryEl.innerHTML = `
+        <div class="trade-cards">
+          <div class="trade-card"><span>总交易</span><strong>${stats.total}</strong></div>
+          <div class="trade-card"><span>胜率</span><strong class="${wrCls}">${stats.win_rate}%</strong></div>
+          <div class="trade-card"><span>盈亏比</span><strong class="${payCls}">${stats.payoff}</strong></div>
+          <div class="trade-card"><span>累计盈亏</span><strong class="${pnlCls}">${stats.total_pnl_pct > 0 ? '+' : ''}${stats.total_pnl_pct}%</strong></div>
+          <div class="trade-card"><span>均盈</span><strong class="bull">+${stats.avg_win}%</strong></div>
+          <div class="trade-card"><span>均亏</span><strong class="bear">${stats.avg_loss}%</strong></div>
+        </div>`;
+      bySymEl.innerHTML = `
+        <table class="bt-table">
+          <thead><tr><th>币种</th><th>交易</th><th>胜</th><th>负</th><th>累计盈亏</th></tr></thead>
+          <tbody>${stats.by_symbol.map((g) => `
+            <tr><td class="sym">${escapeHtml(g.symbol.replace('USDT', ''))}</td><td>${g.total}</td><td class="bull">${g.wins}</td><td class="bear">${g.losses}</td><td class="${g.pnl > 0 ? 'bull' : 'bear'}">${g.pnl > 0 ? '+' : ''}${g.pnl}%</td></tr>`).join('')}
+          </tbody>
+        </table>`;
+      const rows = stats.trades.slice().reverse().map((t) => {
+        const cls = t.result === '止盈' ? 'bull' : 'bear';
+        return `<div class="log-item">
+          <span class="log-time">${escapeHtml(t.closed_at || '')}</span>
+          <div class="log-main">
+            <div class="log-symbol">${escapeHtml(t.symbol.replace('USDT', ''))} · ${t.interval} · ${t.direction === 'long' ? '多' : '空'}</div>
+            <div class="log-reason">入场 ${t.entry} → 出场 ${t.exit ?? '--'} · ${t.result}</div>
+          </div>
+          <span class="signal-chip ${cls}">${t.pnl_pct > 0 ? '+' : ''}${t.pnl_pct}%</span>
+        </div>`;
+      }).join('');
+      listEl.innerHTML = `<div class="smart-trade-head"><span>最近交易</span><span>共${stats.total}笔</span></div><div class="bt-trade-list">${rows || '<div class="empty-smart">暂无交易</div>'}</div>`;
+    })
+    .catch((err) => {
+      metaEl.textContent = `交易统计加载失败：${err.message}`;
+      summaryEl.innerHTML = '<div class="empty-smart">请确认 trade_stats.json 已上传（本地 watcher 自动生成）</div>';
+    });
+}
+
 function renderSignalLog() {
   el.innerHTML = state.log
     .map((item) => {
@@ -3349,6 +3403,9 @@ function bindEvents() {
   const refreshBt = $('refreshBtBtn');
   if (refreshBt) refreshBt.addEventListener('click', loadBacktestOverview);
 
+  const refreshTrade = $('refreshTradeBtn');
+  if (refreshTrade) refreshTrade.addEventListener('click', loadTradeStats);
+
   window.addEventListener('resize', () => {
     clearTimeout(window.__resizeTimer);
     window.__resizeTimer = setTimeout(() => {
@@ -3426,6 +3483,7 @@ function init() {
   renderBacktest(null);
   drawBacktestChart();
   loadBacktestOverview();
+  loadTradeStats();
   refreshAll();
   startAuto();
 }

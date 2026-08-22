@@ -27,7 +27,7 @@
   "ETHUSDT|4h|div": "short",
   "SOLUSDT|4h|div": "short",
   "BNBUSDT|4h|div": "short",
-  "XRPUSDT|4h|div": "short",
+  "XRPUSDT|4h|div": "none",
   "ADAUSDT|4h|div": "short",
   "DOGEUSDT|4h|div": "short",
   "LINKUSDT|4h|div": "short",

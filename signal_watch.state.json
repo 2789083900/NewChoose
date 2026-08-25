@@ -56,7 +56,7 @@
   "TONUSDT|1h|bias": "none",
   "TONUSDT|1d|div": "none",
   "SUIUSDT|1h|bias": "none",
-  "SUIUSDT|1d|div": "short",
+  "SUIUSDT|1d|div": "none",
   "PEPEUSDT|1h|bias": "none",
   "PEPEUSDT|1d|div": "short",
   "open_trades": [

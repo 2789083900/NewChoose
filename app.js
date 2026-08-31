@@ -1895,6 +1895,8 @@ function loadTradeStats() {
 }
 
 function renderSignalLog() {
+  const el = $('signalLog');
+  if (!el) return;
   el.innerHTML = state.log
     .map((item) => {
       const date = new Date(item.time);

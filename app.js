@@ -41,9 +41,17 @@ const TOKEN_META = {
 };
 
 const INTERVAL_BARS = { '15m': 96, '1h': 24, '4h': 6, '1d': 1 };
+const INTERVAL_MS = { '15m': 15 * 60 * 1000, '1h': 60 * 60 * 1000, '4h': 4 * 60 * 60 * 1000, '1d': 24 * 60 * 60 * 1000 };
 const TURTLE_DEFAULT_ACCOUNT = 10000;
 const TURTLE_RISK_FRACTION = 0.01;
 const TURTLE_MAX_UNITS = 4;
+const TURTLE_FILTER_DEFAULTS = {
+  closedCandlesOnly: true,
+  higherTimeframe: true,
+  higherEmaPeriod: 200,
+  breakoutBufferN: 0.1,
+  requireHigherTimeframe: true
+};
 
 const PROVIDERS = [
   {
@@ -135,6 +143,8 @@ const state = {
   symbol: 'BTCUSDT',
   interval: '4h',
   data: null,
+  higherData: null,
+  higherTrend: null,
   indicators: null,
   analysis: null,
   watchlist: normalizeWatchlist(readJSON('coinpulse.watchlist', DEFAULT_WATCHLIST)),
@@ -215,7 +225,7 @@ async function fetchKlinesWithFallback(symbol, interval, limit = 320) {
   const errors = [];
   for (const provider of PROVIDERS) {
     try {
-      const klines = await provider.get(symbol, interval, limit);
+      const klines = filterClosedKlines(await provider.get(symbol, interval, limit), interval);
       if (Array.isArray(klines) && klines.length > 50) {
         return { klines, provider: provider.label };
       }
@@ -260,7 +270,7 @@ async function fetchKlinesForBacktest(symbol, interval, total = 2000) {
         deduped.push(k);
       }
     }
-    return { klines: deduped.slice(-total), provider: 'Binance' };
+    return { klines: filterClosedKlines(deduped.slice(-total), interval), provider: 'Binance' };
   } catch (err) {
     return fetchKlinesWithFallback(symbol, interval, Math.min(total, 1000));
   }
@@ -369,6 +379,12 @@ function calcATRSeries(klines, period = 14) {
   return atr;
 }
 
+function filterClosedKlines(klines, interval, now = Date.now()) {
+  const duration = INTERVAL_MS[interval];
+  if (!duration || !Array.isArray(klines)) return klines || [];
+  return klines.filter((kline) => Number(kline.time) + duration <= now);
+}
+
 function turtleRequiredBars(interval, system = 'system2') {
   const params = turtleParams(system, interval);
   return Math.max(params.entryBars, params.nPeriod) + 5;
@@ -382,11 +398,11 @@ async function fetchKlinesForStrategy(symbol, interval, system = state.turtleSys
   if (required <= 320) {
     return fetchKlinesWithFallback(symbol, interval, 320);
   }
-  const result = await fetchKlinesForBacktest(symbol, interval, required);
+  const result = await fetchKlinesForBacktest(symbol, interval, required + 1);
   if (result.klines.length < required) {
     throw new Error(`海龟${system === 'system1' ? 'S1' : 'S2'}需要至少${required}根K线，当前仅${result.klines.length}根`);
   }
-  return result;
+  return { ...result, klines: result.klines.slice(-required) };
 }
 
 function calcNSeries(klines, period = 20) {
@@ -397,6 +413,86 @@ function calcNSeries(klines, period = 20) {
 function getTurtleAccount() {
   const value = Number(state.turtleAccount);
   return Number.isFinite(value) && value > 0 ? value : TURTLE_DEFAULT_ACCOUNT;
+}
+
+function turtleFilterOptions(options = {}) {
+  const merged = { ...TURTLE_FILTER_DEFAULTS, ...options };
+  merged.higherEmaPeriod = Math.max(20, Number(merged.higherEmaPeriod) || TURTLE_FILTER_DEFAULTS.higherEmaPeriod);
+  merged.breakoutBufferN = Math.max(0, Number(merged.breakoutBufferN) || 0);
+  return merged;
+}
+
+function higherTimeframe(interval) {
+  return { '15m': '1h', '1h': '4h', '4h': '1d' }[interval] || null;
+}
+
+function higherTimeframeTrend(klines, period = 200) {
+  if (!Array.isArray(klines) || !klines.length) return null;
+  const values = klines.map((kline) => kline.close);
+  const emaSeries = ema(values, period);
+  const latestEma = emaSeries[emaSeries.length - 1];
+  const latestClose = values[values.length - 1];
+  if (!Number.isFinite(latestEma) || !Number.isFinite(latestClose)) return null;
+  if (latestClose > latestEma) return 'long';
+  if (latestClose < latestEma) return 'short';
+  return null;
+}
+
+function aggregateKlines(klines, interval) {
+  const duration = INTERVAL_MS[interval];
+  if (!duration) return [];
+  const groups = new Map();
+  for (const kline of klines) {
+    const bucket = Math.floor(kline.time / duration) * duration;
+    let item = groups.get(bucket);
+    if (!item) {
+      item = { time: bucket, open: kline.open, high: kline.high, low: kline.low, close: kline.close, volume: 0 };
+      groups.set(bucket, item);
+    }
+    item.high = Math.max(item.high, kline.high);
+    item.low = Math.min(item.low, kline.low);
+    item.close = kline.close;
+    item.volume += kline.volume || 0;
+  }
+  return [...groups.values()].sort((a, b) => a.time - b.time);
+}
+
+function createHistoricalHigherTrendLookup(klines, interval, period = 200) {
+  const higher = higherTimeframe(interval);
+  if (!higher) return null;
+  const higherBars = aggregateKlines(klines, higher);
+  const emaSeries = ema(higherBars.map((kline) => kline.close), period);
+  const ends = [];
+  const trends = [];
+  for (let i = 0; i < higherBars.length; i += 1) {
+    if (!Number.isFinite(emaSeries[i])) continue;
+    const close = higherBars[i].close;
+    ends.push(higherBars[i].time + INTERVAL_MS[higher]);
+    trends.push(close > emaSeries[i] ? 'long' : close < emaSeries[i] ? 'short' : null);
+  }
+  return {
+    at(time) {
+      let low = 0;
+      let high = ends.length - 1;
+      let found = -1;
+      while (low <= high) {
+        const middle = Math.floor((low + high) / 2);
+        if (ends[middle] <= time) {
+          found = middle;
+          low = middle + 1;
+        } else {
+          high = middle - 1;
+        }
+      }
+      return found >= 0 ? trends[found] : null;
+    }
+  };
+}
+
+async function fetchHigherTimeframe(symbol, interval) {
+  const higher = higherTimeframe(interval);
+  if (!higher) return { klines: [], provider: '' };
+  return fetchKlinesWithFallback(symbol, higher, 320);
 }
 
 function turtleParams(system = 'system2', interval = '1d') {
@@ -420,24 +516,37 @@ function turtleLevels(klines, index, system = 'system2', interval = '1d') {
   };
 }
 
-function detectTurtleBreakout(klines, index, system = 'system2', interval = '1d') {
+function detectTurtleBreakout(klines, index, system = 'system2', interval = '1d', nOverride = null, options = {}, higherTrend = null) {
   const levels = turtleLevels(klines, index, system, interval);
   if (!levels) return { direction: null, levels: null };
   const bar = klines[index];
-  if (bar.close > levels.entryHigh) return { direction: 'long', levels };
-  if (bar.close < levels.entryLow) return { direction: 'short', levels };
-  return { direction: null, levels };
+  const filters = turtleFilterOptions(options);
+  const higherEnabled = filters.higherTimeframe && higherTimeframe(interval);
+  const n = Number.isFinite(nOverride) ? nOverride : calcNSeries(klines, levels.nPeriod)[index];
+  const buffer = Number.isFinite(n) ? filters.breakoutBufferN * n : 0;
+  let direction = null;
+  if (bar.close > levels.entryHigh + buffer) direction = 'long';
+  if (bar.close < levels.entryLow - buffer) direction = 'short';
+  if (!direction) return { direction: null, levels, n };
+  if (higherEnabled && higherTrend !== null && higherTrend !== direction) {
+    return { direction: null, levels, n, filtered: true, filterReason: '高周期趋势过滤反向突破' };
+  }
+  if (higherEnabled && filters.requireHigherTimeframe && higherTrend === null) {
+    return { direction: null, levels, n, filtered: true, filterReason: '高周期趋势不可用' };
+  }
+  return { direction, levels, n };
 }
 
-function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', account = TURTLE_DEFAULT_ACCOUNT, interval = '1d') {
+function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', account = TURTLE_DEFAULT_ACCOUNT, interval = '1d', higherTrend = null, options = {}) {
   const params = turtleParams(system, interval);
+  const filters = turtleFilterOptions(options);
   const levels = turtleLevels(klines, index, system, interval);
   const n = calcNSeries(klines, params.nPeriod)[index];
   const price = klines[index] && klines[index].close;
   if (!levels || !Number.isFinite(n) || !Number.isFinite(price) || n <= 0) {
     return { status: 'warming', label: '数据预热', plan: `需要至少 ${Math.max(params.entryBars, params.nPeriod) + 5} 根已完成K线计算${params.label}与20周期N。` };
   }
-  const breakout = detectTurtleBreakout(klines, index, system, interval);
+  const breakout = detectTurtleBreakout(klines, index, system, interval, n, filters, higherTrend);
   const direction = breakout.direction;
   const unitQty = (account * TURTLE_RISK_FRACTION) / n;
   const entry = direction === 'long' ? levels.entryHigh : direction === 'short' ? levels.entryLow : null;
@@ -445,8 +554,12 @@ function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', 
   const exit = direction === 'long' ? levels.exitLow : direction === 'short' ? levels.exitHigh : null;
   const nextAdd = direction === 'long' ? entry + 0.5 * n : direction === 'short' ? entry - 0.5 * n : null;
   const maxUnits = TURTLE_MAX_UNITS;
+  const status = direction ? 'breakout' : breakout.filtered ? 'filtered' : 'waiting';
+  const filterText = higherTimeframe(interval)
+    ? `高周期${higherTimeframe(interval)} EMA${filters.higherEmaPeriod}${higherTrend === 'long' ? '多头' : higherTrend === 'short' ? '空头' : '不可用'}`
+    : '无更高周期过滤';
   return {
-    status: direction ? 'breakout' : 'waiting',
+    status,
     label: levels.label,
     direction,
     n,
@@ -459,9 +572,13 @@ function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', 
     exit,
     nextAdd,
     levels,
+    higherTrend,
+    filterReason: breakout.filterReason,
     plan: direction
-      ? `${levels.label} ${direction === 'long' ? '向上' : '向下'}突破已确认。首单位按账户1% N风险计算；每顺向0.5N加1单位，最多4单位；全部仓位以最新单位±2N止损，并在${levels.exitDays}周期反向突破时退出。`
-      : `${levels.label} 等待突破：上破 ${formatPrice(levels.entryHigh)} 做多，下破 ${formatPrice(levels.entryLow)} 做空。N=${formatPrice(n)}；未突破前不持仓。`
+      ? `${levels.label} ${direction === 'long' ? '向上' : '向下'}突破已确认（收盘价超过通道${filters.breakoutBufferN}N）。${filterText}；首单位按账户1% N风险计算；每顺向0.5N加1单位，最多4单位；全部仓位以最新单位±2N止损，并在${levels.exitDays}周期反向突破时退出。`
+      : breakout.filtered
+        ? `${levels.label} 已出现突破，但${breakout.filterReason}，暂不入场。${filterText}。`
+        : `${levels.label} 等待突破：收盘价需上破 ${formatPrice(levels.entryHigh + filters.breakoutBufferN * n)} 做多，下破 ${formatPrice(levels.entryLow - filters.breakoutBufferN * n)} 做空。${filterText}；N=${formatPrice(n)}；未突破前不持仓。`
   };
 }
 
@@ -1762,7 +1879,7 @@ function renderStrategy() {
 
 function renderTurtleStrategy() {
   const meta = getMeta(state.symbol);
-  const plan = buildTurtlePlan(state.data, state.data.length - 1, state.turtleSystem, getTurtleAccount(), state.interval);
+  const plan = buildTurtlePlan(state.data, state.data.length - 1, state.turtleSystem, getTurtleAccount(), state.interval, state.higherTrend);
   const tag = $('strategyTag');
   const metaEl = $('strategyMeta');
   const planEl = $('strategyPlan');
@@ -1776,7 +1893,7 @@ function renderTurtleStrategy() {
 
   $('strategyTitle').textContent = '海龟趋势交易策略';
   metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · ${plan.label || '海龟趋势'} · N=20周期 ATR`;
-  setChip('strategyTag', plan.status === 'breakout' ? (isLong ? '突破做多' : '突破做空') : plan.label || '数据预热', cls);
+  setChip('strategyTag', plan.status === 'breakout' ? (isLong ? '突破做多' : '突破做空') : plan.status === 'filtered' ? '过滤观望' : plan.label || '数据预热', cls);
   planEl.textContent = plan.plan;
   dirEl.textContent = plan.status === 'breakout' ? (isLong ? '趋势做多' : '趋势做空') : '观望';
   dirEl.className = cls;
@@ -1936,7 +2053,7 @@ function renderTurtleDashboard() {
   const signals = [];
   let ready = 0;
   for (const snap of results) {
-    const plan = buildTurtlePlan(snap.klines, snap.klines.length - 1, state.turtleSystem, getTurtleAccount(), '4h');
+    const plan = buildTurtlePlan(snap.klines, snap.klines.length - 1, state.turtleSystem, getTurtleAccount(), '4h', snap.higherTrend);
     if (plan.status === 'breakout') signals.push({ snap, plan });
     else if (plan.status !== 'warming') ready += 1;
   }
@@ -3038,7 +3155,11 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
 
 function backtestTurtle(klines, feeRate = 0.001, capital = TURTLE_DEFAULT_ACCOUNT, system = 'system2', interval = '1d') {
   const params = turtleParams(system, interval);
+  const filters = turtleFilterOptions();
   const nSeries = calcNSeries(klines, params.nPeriod);
+  const higherLookup = filters.higherTimeframe
+    ? createHistoricalHigherTrendLookup(klines, interval, filters.higherEmaPeriod)
+    : null;
   const start = Math.max(params.nPeriod, params.entryBars);
   if (klines.length <= start) {
     throw new Error(`${params.label}至少需要${start + 1}根K线，当前仅${klines.length}根`);
@@ -3103,7 +3224,8 @@ function backtestTurtle(klines, feeRate = 0.001, capital = TURTLE_DEFAULT_ACCOUN
     }
 
     if (!position && !exitedThisBar) {
-      const breakout = detectTurtleBreakout(klines, i, system, interval);
+      const higherTrend = higherLookup ? higherLookup.at(bar.time) : null;
+      const breakout = detectTurtleBreakout(klines, i, system, interval, n, filters, higherTrend);
       if (breakout.direction && !(params.skipWinningBreakout && system1Outcome[breakout.direction])) {
         const entryPrice = breakout.direction === 'long' ? levels.entryHigh : levels.entryLow;
         const quantity = (equity * TURTLE_RISK_FRACTION) / n;
@@ -3553,7 +3675,19 @@ async function loadMain() {
   setConn('loading');
   try {
     const { klines, provider } = await fetchKlinesForStrategy(state.symbol, state.interval);
+    let higherData = null;
+    if (state.strategyMode === 'turtle' && higherTimeframe(state.interval)) {
+      try {
+        higherData = (await fetchHigherTimeframe(state.symbol, state.interval)).klines;
+      } catch {
+        higherData = null;
+      }
+    }
     state.data = klines;
+    state.higherData = higherData;
+    state.higherTrend = higherData
+      ? higherTimeframeTrend(higherData, TURTLE_FILTER_DEFAULTS.higherEmaPeriod)
+      : null;
     state.provider = provider;
     state.indicators = computeIndicators(klines);
     state.analysis = analyzeIndicators(klines, state.indicators);
@@ -3584,6 +3718,12 @@ async function scanWatchlist() {
       state.watchlist.map(async (symbol) => {
         try {
           const { klines } = await fetchKlinesForStrategy(symbol, '4h');
+          let higherData = null;
+          try {
+            higherData = (await fetchHigherTimeframe(symbol, '4h')).klines;
+          } catch {
+            higherData = null;
+          }
           const indicators = computeIndicators(klines);
           const analysis = analyzeIndicators(klines, indicators);
           return {
@@ -3591,6 +3731,9 @@ async function scanWatchlist() {
             analysis,
             indicators,
             klines,
+            higherTrend: higherData
+              ? higherTimeframeTrend(higherData, TURTLE_FILTER_DEFAULTS.higherEmaPeriod)
+              : null,
             last: klines[klines.length - 1].close,
             change: getChange(klines, '4h'),
             closes: klines.slice(-48).map((k) => k.close)

@@ -15,6 +15,7 @@
 - 海龟趋势模式：S1 20/10 或 S2 55/20 唐奇安突破
 - 海龟 N（20周期 ATR）波动率仓位：账户1%/N，最多4单位
 - 海龟规则：突破入场、每0.5N加仓、2N止损、10/20周期反向突破退出
+- 海龟过滤：只用已收盘K线、相邻高周期EMA200方向过滤、收盘价超过通道0.1N才确认突破
 
 ## 运行
 
@@ -47,6 +48,13 @@ CoinPulse 支持安装到手机主屏幕，像 App 一样全屏打开：
   "turtle_system": "system2",
   "account_value": 10000,
   "risk_fraction": 0.01,
+  "filters": {
+    "closed_candles_only": true,
+    "higher_timeframe": true,
+    "higher_ema_period": 200,
+    "breakout_buffer_n": 0.1,
+    "require_higher_timeframe": true
+  },
   "limits": {
     "max_symbol_units": 4,
     "max_strong_group_units": 6,
@@ -55,6 +63,8 @@ CoinPulse 支持安装到手机主屏幕，像 App 一样全屏打开：
   }
 }
 ```
+
+默认情况下，4h 信号会参考 1d EMA200，1h 参考 4h EMA200，15m 参考 1h EMA200；日线没有更高周期过滤。高周期方向与突破方向相反时只记录为过滤观望，不推送入场信号。`breakout_buffer_n` 可调整突破确认距离，设为 `0` 即恢复不加缓冲的突破条件。
 
 `mode` 改为 `legacy` 可恢复原来的 1h/15m 乖离回归、4h/1d RSI 背离推送。海龟 S1 的“盈利突破跳过”状态会保存在 `signal_watch.state.json`。
 

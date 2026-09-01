@@ -34,9 +34,47 @@ DEFAULT_SYMBOLS = [
 ]
 
 INTERVAL_BARS = {"15m": 96, "1h": 24, "4h": 6, "1d": 1}
+INTERVAL_MS = {"15m": 15 * 60 * 1000, "1h": 60 * 60 * 1000, "4h": 4 * 60 * 60 * 1000, "1d": 24 * 60 * 60 * 1000}
 TURTLE_N_PERIOD = 20
 TURTLE_RISK_FRACTION = 0.01
 TURTLE_MAX_UNITS = 4
+TURTLE_FILTER_DEFAULTS = {
+    "closed_candles_only": True,
+    "higher_timeframe": True,
+    "higher_ema_period": 200,
+    "breakout_buffer_n": 0.1,
+    "require_higher_timeframe": True,
+}
+
+
+def filter_closed_klines(klines, interval, now_ms=None):
+    """只保留已经结束的K线，避免使用当前仍在形成的K线。"""
+    interval_ms = INTERVAL_MS.get(interval)
+    if not interval_ms:
+        return klines
+    current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    return [k for k in klines if int(k["time"]) + interval_ms <= current_ms]
+
+
+def higher_timeframe(interval):
+    return {"15m": "1h", "1h": "4h", "4h": "1d"}.get(interval)
+
+
+def turtle_filter_options(strategy_config=None):
+    raw = (strategy_config or {}).get("filters") or {}
+    options = dict(TURTLE_FILTER_DEFAULTS)
+    options["closed_candles_only"] = bool(raw.get("closed_candles_only", options["closed_candles_only"]))
+    options["higher_timeframe"] = bool(raw.get("higher_timeframe", options["higher_timeframe"]))
+    options["require_higher_timeframe"] = bool(raw.get("require_higher_timeframe", options["require_higher_timeframe"]))
+    try:
+        options["higher_ema_period"] = max(20, int(raw.get("higher_ema_period", options["higher_ema_period"])))
+    except (TypeError, ValueError):
+        options["higher_ema_period"] = TURTLE_FILTER_DEFAULTS["higher_ema_period"]
+    try:
+        options["breakout_buffer_n"] = max(0.0, float(raw.get("breakout_buffer_n", options["breakout_buffer_n"])))
+    except (TypeError, ValueError):
+        options["breakout_buffer_n"] = TURTLE_FILTER_DEFAULTS["breakout_buffer_n"]
+    return options
 
 
 def http_get_json(url, timeout=5):
@@ -147,11 +185,13 @@ PROVIDERS = [
 ]
 
 
-def fetch_klines_with_fallback(symbol, interval):
+def fetch_klines_with_fallback(symbol, interval, closed_only=True):
     errors = []
     for name, fetcher in PROVIDERS:
         try:
             klines = fetcher(symbol, interval)
+            if closed_only:
+                klines = filter_closed_klines(klines, interval)
             if isinstance(klines, list) and len(klines) > 50:
                 return klines, name
             raise RuntimeError("数据不足")
@@ -203,17 +243,19 @@ def turtle_required_bars(interval, system="system2"):
     return max(params["entry_bars"], params["n_period"]) + 5
 
 
-def fetch_klines_for_strategy(symbol, interval, system="system2"):
+def fetch_klines_for_strategy(symbol, interval, system="system2", closed_only=True):
     required = turtle_required_bars(interval, system)
     if required <= 320:
-        return fetch_klines_with_fallback(symbol, interval)
+        return fetch_klines_with_fallback(symbol, interval, closed_only)
     try:
-        klines = fetch_binance_history(symbol, interval, required)
+        klines = filter_closed_klines(
+            fetch_binance_history(symbol, interval, required + 1), interval
+        )
         if len(klines) >= required:
-            return klines, "binance-history"
+            return klines[-required:], "binance-history"
     except Exception as exc:
         logging.warning("%s %s 海龟历史数据分页失败: %s", symbol, interval, exc)
-    klines, provider = fetch_klines_with_fallback(symbol, interval)
+    klines, provider = fetch_klines_with_fallback(symbol, interval, closed_only)
     if len(klines) < required:
         raise RuntimeError(f"海龟{system}需要至少{required}根K线，当前仅{len(klines)}根")
     return klines, provider
@@ -355,24 +397,41 @@ def turtle_levels(klines, idx, system="system2", interval="1d"):
     }
 
 
+def higher_timeframe_trend(klines, period=200):
+    """返回高周期方向：long/short/None。"""
+    closes = [k["close"] for k in klines]
+    series = ema(closes, period)
+    if not series or series[-1] is None:
+        return None
+    if closes[-1] > series[-1]:
+        return "long"
+    if closes[-1] < series[-1]:
+        return "short"
+    return None
+
+
 def build_turtle_signal(
     klines, system="system2", account_value=10000,
-    risk_fraction=TURTLE_RISK_FRACTION, interval="1d", system1_blocked=False
+    risk_fraction=TURTLE_RISK_FRACTION, interval="1d", system1_blocked=False,
+    filter_options=None, higher_trend=None
 ):
     idx = len(klines) - 1
     params = turtle_params(system, interval)
+    filters = dict(TURTLE_FILTER_DEFAULTS)
+    filters.update(filter_options or {})
     levels = turtle_levels(klines, idx, system, interval)
     n = calc_n_series(klines, params["n_period"])[idx]
     if levels is None or n is None or n <= 0:
         return None, [], None
     price = klines[idx]["close"]
-    if price > levels["entry_high"]:
+    breakout_buffer = float(filters.get("breakout_buffer_n", 0.0)) * n
+    if price > levels["entry_high"] + breakout_buffer:
         direction = "long"
         entry = levels["entry_high"]
         stop = entry - 2 * n
         next_add = entry + 0.5 * n
         exit_level = levels["exit_low"]
-    elif price < levels["entry_low"]:
+    elif price < levels["entry_low"] - breakout_buffer:
         direction = "short"
         entry = levels["entry_low"]
         stop = entry + 2 * n
@@ -387,6 +446,19 @@ def build_turtle_signal(
         return None, ["S1跳过上一次盈利突破"], {
             "levels": levels, "n": n, "price": price, "blocked": True
         }
+    if filters.get("higher_timeframe", True) and higher_timeframe(interval):
+        if higher_trend is None and filters.get("require_higher_timeframe", True):
+            return None, ["高周期EMA趋势不可用，暂不入场"], {
+                "levels": levels, "n": n, "price": price, "filtered": True,
+                "filter_reason": "高周期EMA趋势不可用，暂不入场"
+            }
+        if higher_trend in ("long", "short") and higher_trend != direction:
+            trend_label = "多头" if higher_trend == "long" else "空头"
+            reason = f"高周期EMA{int(filters.get('higher_ema_period', 200))}为{trend_label}，过滤反向突破"
+            return None, [reason], {
+                "levels": levels, "n": n, "price": price, "filtered": True,
+                "filter_reason": reason
+            }
     unit_quantity = account_value * risk_fraction / n
     plan = {
         "system": system,
@@ -774,6 +846,7 @@ def load_config():
             "turtle_system": "system2",
             "account_value": 10000,
             "risk_fraction": 0.01,
+            "filters": dict(TURTLE_FILTER_DEFAULTS),
             "limits": {
                 "max_symbol_units": 4,
                 "max_strong_group_units": 6,
@@ -1151,19 +1224,36 @@ def _scan_one(symbol, interval, state, config):
         strategy_config = config.get("strategy") or {}
         mode = strategy_config.get("mode", "turtle")
         turtle_system = strategy_config.get("turtle_system", "system2")
+        filter_options = turtle_filter_options(strategy_config)
         klines, provider = (
-            fetch_klines_for_strategy(symbol, interval, turtle_system)
-            if mode == "turtle" else fetch_klines_with_fallback(symbol, interval)
+            fetch_klines_for_strategy(
+                symbol, interval, turtle_system, filter_options["closed_candles_only"]
+            )
+            if mode == "turtle" else fetch_klines_with_fallback(
+                symbol, interval, filter_options["closed_candles_only"]
+            )
         )
         indicators = compute_indicators(klines)
         if mode == "turtle":
             system = turtle_system
             account_value = float(strategy_config.get("account_value", 10000))
             risk_fraction = float(strategy_config.get("risk_fraction", TURTLE_RISK_FRACTION))
+            higher_trend = None
+            higher_interval = higher_timeframe(interval)
+            if filter_options["higher_timeframe"] and higher_interval:
+                try:
+                    higher_klines, _higher_provider = fetch_klines_with_fallback(
+                        symbol, higher_interval, filter_options["closed_candles_only"]
+                    )
+                    higher_trend = higher_timeframe_trend(
+                        higher_klines, filter_options["higher_ema_period"]
+                    )
+                except Exception as exc:
+                    logging.warning("%s %s 高周期趋势获取失败: %s", symbol, interval, exc)
             st_key = f"{symbol}|{interval}|turtle|{system}"
             direction, reasons, trade_plan = build_turtle_signal(
                 klines, system, account_value, risk_fraction, interval,
-                bool(state.get(f"{st_key}|blocked"))
+                bool(state.get(f"{st_key}|blocked")), filter_options, higher_trend
             )
             if trade_plan and trade_plan.get("blocked"):
                 # S1 only skips the next same-system breakout after a win.
@@ -1524,7 +1614,8 @@ def settle_trades(state, config):
         try:
             if trade.get("strategy_type") == "turtle":
                 klines, _prov = fetch_klines_for_strategy(
-                    trade["symbol"], trade["interval"], trade.get("system", "system2")
+                    trade["symbol"], trade["interval"], trade.get("system", "system2"),
+                    turtle_filter_options(config.get("strategy") or {})["closed_candles_only"]
                 )
             else:
                 klines, _prov = fetch_klines_with_fallback(trade["symbol"], trade["interval"])

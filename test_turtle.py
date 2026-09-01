@@ -18,6 +18,64 @@ def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
 
 
 class TurtleCoreTests(unittest.TestCase):
+    def test_filter_closed_klines_excludes_current_bar(self):
+        day = 86400000
+        klines = make_bars(2)
+        closed = sw.filter_closed_klines(klines, "1d", now_ms=2 * day + 3600000)
+        self.assertEqual(len(closed), 1)
+        self.assertEqual(closed[0]["time"], day)
+
+    def test_breakout_requires_buffer_beyond_channel(self):
+        klines = make_bars(60)
+        klines.append({
+            "time": 61 * 86400000,
+            "open": 100,
+            "high": 101.2,
+            "low": 99.5,
+            "close": 101.05,
+            "volume": 1,
+        })
+        direction, _, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "1d",
+            filter_options={"higher_timeframe": False, "breakout_buffer_n": 0.1}
+        )
+        self.assertIsNone(direction)
+        self.assertEqual(plan["wait"].split()[0], "上破")
+
+    def test_higher_timeframe_trend_uses_ema_direction(self):
+        rising = make_bars(210, close=100, high=101, low=99)
+        for index, bar in enumerate(rising):
+            value = 100 + index * 0.2
+            bar["close"] = value
+            bar["open"] = value
+            bar["high"] = value + 1
+            bar["low"] = value - 1
+        falling = list(reversed([
+            {**bar, "time": (210 - i) * 86400000}
+            for i, bar in enumerate(rising)
+        ]))
+        self.assertEqual(sw.higher_timeframe_trend(rising, 200), "long")
+        self.assertEqual(sw.higher_timeframe_trend(falling, 200), "short")
+
+    def test_opposite_higher_timeframe_trend_blocks_breakout(self):
+        klines = make_bars(330)
+        klines.append({
+            "time": 331 * 86400000,
+            "open": 100,
+            "high": 103,
+            "low": 99.5,
+            "close": 102,
+            "volume": 1,
+        })
+        direction, reasons, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "4h",
+            filter_options={"higher_timeframe": True, "breakout_buffer_n": 0.1},
+            higher_trend="short"
+        )
+        self.assertIsNone(direction)
+        self.assertTrue(plan["filtered"])
+        self.assertIn("过滤反向突破", reasons[0])
+
     def test_system2_uses_previous_55_bars_and_20_period_n(self):
         klines = make_bars(60)
         klines.append({

@@ -67,6 +67,13 @@ jobs:
                   "turtle_system": "system2",
                   "account_value": 10000,
                   "risk_fraction": 0.01,
+                  "filters": {
+                      "closed_candles_only": True,
+                      "higher_timeframe": True,
+                      "higher_ema_period": 200,
+                      "breakout_buffer_n": 0.1,
+                      "require_higher_timeframe": True
+                  },
                   "limits": {
                       "max_symbol_units": 4,
                       "max_strong_group_units": 6,

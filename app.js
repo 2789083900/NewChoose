@@ -41,6 +41,9 @@ const TOKEN_META = {
 };
 
 const INTERVAL_BARS = { '15m': 96, '1h': 24, '4h': 6, '1d': 1 };
+const TURTLE_DEFAULT_ACCOUNT = 10000;
+const TURTLE_RISK_FRACTION = 0.01;
+const TURTLE_MAX_UNITS = 4;
 
 const PROVIDERS = [
   {
@@ -152,7 +155,10 @@ const state = {
   toastTimer: null,
   notify: readJSON('coinpulse.notify', false),
   audioCtx: null,
-  deferredPrompt: null
+  deferredPrompt: null,
+  strategyMode: readJSON('coinpulse.strategyMode', 'turtle'),
+  turtleSystem: readJSON('coinpulse.turtleSystem', 'system2'),
+  turtleAccount: Number(readJSON('coinpulse.turtleAccount', TURTLE_DEFAULT_ACCOUNT))
 };
 
 function readJSON(key, fallback) {
@@ -361,6 +367,102 @@ function calcATRSeries(klines, period = 14) {
     atr[i] = (atr[i - 1] * (period - 1) + trs[i - 1]) / period;
   }
   return atr;
+}
+
+function turtleRequiredBars(interval, system = 'system2') {
+  const params = turtleParams(system, interval);
+  return Math.max(params.entryBars, params.nPeriod) + 5;
+}
+
+async function fetchKlinesForStrategy(symbol, interval, system = state.turtleSystem) {
+  if (state.strategyMode !== 'turtle') {
+    return fetchKlinesWithFallback(symbol, interval, 320);
+  }
+  const required = turtleRequiredBars(interval, system);
+  if (required <= 320) {
+    return fetchKlinesWithFallback(symbol, interval, 320);
+  }
+  const result = await fetchKlinesForBacktest(symbol, interval, required);
+  if (result.klines.length < required) {
+    throw new Error(`海龟${system === 'system1' ? 'S1' : 'S2'}需要至少${required}根K线，当前仅${result.klines.length}根`);
+  }
+  return result;
+}
+
+function calcNSeries(klines, period = 20) {
+  // The Turtle N is Wilder-smoothed true range, not a percentage volatility proxy.
+  return calcATRSeries(klines, period);
+}
+
+function getTurtleAccount() {
+  const value = Number(state.turtleAccount);
+  return Number.isFinite(value) && value > 0 ? value : TURTLE_DEFAULT_ACCOUNT;
+}
+
+function turtleParams(system = 'system2', interval = '1d') {
+  const barsPerDay = INTERVAL_BARS[interval] || 1;
+  return system === 'system1'
+    ? { key: 'system1', label: '海龟 S1 20/10', entryDays: 20, exitDays: 10, entryBars: 20 * barsPerDay, exitBars: 10 * barsPerDay, nPeriod: 20 * barsPerDay, skipWinningBreakout: true }
+    : { key: 'system2', label: '海龟 S2 55/20', entryDays: 55, exitDays: 20, entryBars: 55 * barsPerDay, exitBars: 20 * barsPerDay, nPeriod: 20 * barsPerDay, skipWinningBreakout: false };
+}
+
+function turtleLevels(klines, index, system = 'system2', interval = '1d') {
+  const params = turtleParams(system, interval);
+  if (index < params.entryBars || index < params.exitBars || index >= klines.length) return null;
+  const entryWindow = klines.slice(index - params.entryBars, index);
+  const exitWindow = klines.slice(index - params.exitBars, index);
+  return {
+    ...params,
+    entryHigh: Math.max(...entryWindow.map((k) => k.high)),
+    entryLow: Math.min(...entryWindow.map((k) => k.low)),
+    exitHigh: Math.max(...exitWindow.map((k) => k.high)),
+    exitLow: Math.min(...exitWindow.map((k) => k.low))
+  };
+}
+
+function detectTurtleBreakout(klines, index, system = 'system2', interval = '1d') {
+  const levels = turtleLevels(klines, index, system, interval);
+  if (!levels) return { direction: null, levels: null };
+  const bar = klines[index];
+  if (bar.close > levels.entryHigh) return { direction: 'long', levels };
+  if (bar.close < levels.entryLow) return { direction: 'short', levels };
+  return { direction: null, levels };
+}
+
+function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', account = TURTLE_DEFAULT_ACCOUNT, interval = '1d') {
+  const params = turtleParams(system, interval);
+  const levels = turtleLevels(klines, index, system, interval);
+  const n = calcNSeries(klines, params.nPeriod)[index];
+  const price = klines[index] && klines[index].close;
+  if (!levels || !Number.isFinite(n) || !Number.isFinite(price) || n <= 0) {
+    return { status: 'warming', label: '数据预热', plan: `需要至少 ${Math.max(params.entryBars, params.nPeriod) + 5} 根已完成K线计算${params.label}与20周期N。` };
+  }
+  const breakout = detectTurtleBreakout(klines, index, system, interval);
+  const direction = breakout.direction;
+  const unitQty = (account * TURTLE_RISK_FRACTION) / n;
+  const entry = direction === 'long' ? levels.entryHigh : direction === 'short' ? levels.entryLow : null;
+  const stop = direction === 'long' ? entry - 2 * n : direction === 'short' ? entry + 2 * n : null;
+  const exit = direction === 'long' ? levels.exitLow : direction === 'short' ? levels.exitHigh : null;
+  const nextAdd = direction === 'long' ? entry + 0.5 * n : direction === 'short' ? entry - 0.5 * n : null;
+  const maxUnits = TURTLE_MAX_UNITS;
+  return {
+    status: direction ? 'breakout' : 'waiting',
+    label: levels.label,
+    direction,
+    n,
+    unitQty,
+    unitNotional: unitQty * price,
+    maxQty: unitQty * TURTLE_MAX_UNITS,
+    maxUnits,
+    entry,
+    stop,
+    exit,
+    nextAdd,
+    levels,
+    plan: direction
+      ? `${levels.label} ${direction === 'long' ? '向上' : '向下'}突破已确认。首单位按账户1% N风险计算；每顺向0.5N加1单位，最多4单位；全部仓位以最新单位±2N止损，并在${levels.exitDays}周期反向突破时退出。`
+      : `${levels.label} 等待突破：上破 ${formatPrice(levels.entryHigh)} 做多，下破 ${formatPrice(levels.entryLow)} 做空。N=${formatPrice(n)}；未突破前不持仓。`
+  };
 }
 
 function calcADX(klines, period = 14) {
@@ -1535,6 +1637,12 @@ function renderStrategy() {
 
   if (!state.data || !state.analysis || !state.indicators) return;
 
+  if (state.strategyMode === 'turtle') {
+    renderTurtleStrategy();
+    return;
+  }
+  $('strategyTitle').textContent = 'RSI背离交易策略';
+
   const meta = getMeta(state.symbol);
   const klines = state.data;
   const analysis = state.analysis;
@@ -1652,6 +1760,36 @@ function renderStrategy() {
   return;
 }
 
+function renderTurtleStrategy() {
+  const meta = getMeta(state.symbol);
+  const plan = buildTurtlePlan(state.data, state.data.length - 1, state.turtleSystem, getTurtleAccount(), state.interval);
+  const tag = $('strategyTag');
+  const metaEl = $('strategyMeta');
+  const planEl = $('strategyPlan');
+  const dirEl = $('strategyDirection');
+  const entryEl = $('strategyEntry');
+  const stopEl = $('strategyStop');
+  const targetEl = $('strategyTarget');
+  const sizeEl = $('strategySize');
+  const isLong = plan.direction === 'long';
+  const cls = isLong ? 'bull' : plan.direction === 'short' ? 'bear' : 'flat';
+
+  $('strategyTitle').textContent = '海龟趋势交易策略';
+  metaEl.textContent = `${meta.base} · ${state.interval.toUpperCase()} · ${plan.label || '海龟趋势'} · N=20周期 ATR`;
+  setChip('strategyTag', plan.status === 'breakout' ? (isLong ? '突破做多' : '突破做空') : plan.label || '数据预热', cls);
+  planEl.textContent = plan.plan;
+  dirEl.textContent = plan.status === 'breakout' ? (isLong ? '趋势做多' : '趋势做空') : '观望';
+  dirEl.className = cls;
+  entryEl.textContent = plan.status === 'breakout' ? formatPrice(plan.entry) : plan.levels ? `上 ${formatPrice(plan.levels.entryHigh)} / 下 ${formatPrice(plan.levels.entryLow)}` : '--';
+  entryEl.className = cls;
+  stopEl.textContent = plan.status === 'breakout' ? formatPrice(plan.stop) : '--';
+  stopEl.className = cls;
+  targetEl.textContent = plan.status === 'breakout' ? `${formatPrice(plan.nextAdd)} 加仓 / ${formatPrice(plan.exit)} 退出` : plan.levels ? `20/10期退出通道` : '--';
+  targetEl.className = cls;
+  sizeEl.textContent = Number.isFinite(plan.unitQty) ? `${formatQuantity(plan.unitQty)} / 单位，最多${plan.maxUnits || TURTLE_MAX_UNITS}单位` : '--';
+  sizeEl.className = cls;
+}
+
 function renderWatchlist() {
   const list = $('watchlist');
   list.innerHTML = '';
@@ -1694,6 +1832,10 @@ function renderRsiDashboard() {
   const tagEl = $('rsiTag');
   const planEl = $('rsiPlan');
   if (!listEl) return;
+  if (state.strategyMode === 'turtle') {
+    renderTurtleDashboard();
+    return;
+  }
   const results = Object.values(state.scanResults).filter((r) => r.indicators && r.klines);
   if (!results.length) {
     listEl.innerHTML = '<div class="empty-smart">正在扫描RSI背离...</div>';
@@ -1780,6 +1922,52 @@ function renderRsiDashboard() {
     planEl.textContent = `全部 ${total} 个币种当前均无${stratName}信号，${watching} 个观望。${useBias ? '乖离回归：短线偏离EMA20超2.2×ATR时反向，回测年化+12%。' : '背离信号出现频率低，但一旦出现即高盈亏比机会（3:1），耐心等待。'}`;
     listEl.innerHTML = `<div class="empty-smart">当前无${stratName}信号，保持观望 📡</div>`;
   }
+}
+
+function renderTurtleDashboard() {
+  const listEl = $('rsiList');
+  const tagEl = $('rsiTag');
+  const planEl = $('rsiPlan');
+  const results = Object.values(state.scanResults).filter((r) => r.klines);
+  if (!results.length) {
+    listEl.innerHTML = '<div class="empty-smart">正在扫描海龟突破...</div>';
+    return;
+  }
+  const signals = [];
+  let ready = 0;
+  for (const snap of results) {
+    const plan = buildTurtlePlan(snap.klines, snap.klines.length - 1, state.turtleSystem, getTurtleAccount(), '4h');
+    if (plan.status === 'breakout') signals.push({ snap, plan });
+    else if (plan.status !== 'warming') ready += 1;
+  }
+  const params = turtleParams(state.turtleSystem, '4h');
+  tagEl.textContent = signals.length ? `突破 ${signals.length} 个` : '无突破';
+  tagEl.className = `signal-chip ${signals.length ? 'bull' : 'flat'}`;
+  planEl.textContent = signals.length
+    ? `${params.label} 当前触发：按1% N风险建首单位，0.5N递增加仓，2N止损。`
+    : `${params.label}：${ready} 个标的已就绪，等待 ${params.entryDays} 周期通道突破。`;
+  listEl.innerHTML = signals.length ? signals.map(({ snap, plan }) => {
+    const isLong = plan.direction === 'long';
+    return `
+      <div class="rsi-item" data-symbol="${escapeHtml(snap.symbol)}">
+        <div class="rsi-head">
+          <span class="watch-icon">${escapeHtml(getMeta(snap.symbol).icon)}</span>
+          <span class="watch-name"><strong>${escapeHtml(snap.symbol.replace('USDT', ''))}</strong></span>
+          <span class="signal-chip ${isLong ? 'bull' : 'bear'}">${isLong ? '向上突破' : '向下突破'}</span>
+        </div>
+        <div class="rsi-body">
+          <div class="rsi-reason">N ${formatPrice(plan.n)} · 首单位 ${formatQuantity(plan.unitQty)} · 最多4单位</div>
+          <div class="rsi-grid">
+            <span>入场 ${formatPrice(plan.entry)}</span>
+            <span>2N止损 ${formatPrice(plan.stop)}</span>
+            <span>0.5N加仓 ${formatPrice(plan.nextAdd)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('') : '<div class="empty-smart">当前无海龟通道突破，保持观望。</div>';
+  listEl.querySelectorAll('.rsi-item').forEach((el) => {
+    el.addEventListener('click', () => selectSymbol(el.dataset.symbol));
+  });
 }
 
 function loadBacktestOverview() {
@@ -2848,7 +3036,165 @@ function backtestRevertDual(klines, indicators, threshold = 4, feeRate = 0.001, 
   };
 }
 
-function backtest(klines, indicators, threshold = 4, feeRate = 0.001, capital = 10000, mode = 'trend') {
+function backtestTurtle(klines, feeRate = 0.001, capital = TURTLE_DEFAULT_ACCOUNT, system = 'system2', interval = '1d') {
+  const params = turtleParams(system, interval);
+  const nSeries = calcNSeries(klines, params.nPeriod);
+  const start = Math.max(params.nPeriod, params.entryBars);
+  if (klines.length <= start) {
+    throw new Error(`${params.label}至少需要${start + 1}根K线，当前仅${klines.length}根`);
+  }
+  let equity = capital;
+  let position = null;
+  const trades = [];
+  const curve = [];
+  let peak = capital;
+  let maxDrawdown = 0;
+  const system1Outcome = { long: false, short: false };
+
+  const closePosition = (i, exitPrice, exitReason) => {
+    const grossPnl = position.direction === 'long'
+      ? (exitPrice - position.avgEntry) * position.quantity
+      : (position.avgEntry - exitPrice) * position.quantity;
+    const exitFee = exitPrice * position.quantity * feeRate;
+    equity += grossPnl - exitFee;
+    const netReturn = (equity - position.equityAtEntry) / position.equityAtEntry;
+    trades.push({
+      side: position.direction,
+      entryTime: position.entryTime,
+      exitTime: klines[i].time,
+      entryPrice: position.avgEntry,
+      exitPrice,
+      netReturn,
+      grossReturn: grossPnl / Math.max(1, position.avgEntry * position.quantity),
+      bars: i - position.entryIndex,
+      units: position.units.length,
+      exitReason,
+      closed: true
+    });
+    if (params.skipWinningBreakout) system1Outcome[position.direction] = netReturn > 0;
+    position = null;
+  };
+
+  for (let i = start; i < klines.length; i += 1) {
+    const bar = klines[i];
+    const levels = turtleLevels(klines, i, system, interval);
+    const n = nSeries[i];
+    if (!levels || !Number.isFinite(n) || n <= 0) continue;
+    let enteredThisBar = false;
+    let exitedThisBar = false;
+
+    if (position) {
+      const stopPrice = position.direction === 'long'
+        ? position.lastUnitPrice - 2 * position.lastN
+        : position.lastUnitPrice + 2 * position.lastN;
+      const exitTriggered = position.direction === 'long'
+        ? bar.low <= levels.exitLow
+        : bar.high >= levels.exitHigh;
+      const stopTriggered = position.direction === 'long'
+        ? bar.low <= stopPrice
+        : bar.high >= stopPrice;
+      if (stopTriggered) {
+        closePosition(i, stopPrice, '2N止损');
+        exitedThisBar = true;
+      } else if (exitTriggered) {
+        closePosition(i, position.direction === 'long' ? levels.exitLow : levels.exitHigh, `${params.exitDays}期通道退出`);
+        exitedThisBar = true;
+      }
+    }
+
+    if (!position && !exitedThisBar) {
+      const breakout = detectTurtleBreakout(klines, i, system, interval);
+      if (breakout.direction && !(params.skipWinningBreakout && system1Outcome[breakout.direction])) {
+        const entryPrice = breakout.direction === 'long' ? levels.entryHigh : levels.entryLow;
+        const quantity = (equity * TURTLE_RISK_FRACTION) / n;
+        const entryFee = entryPrice * quantity * feeRate;
+        equity -= entryFee;
+        position = {
+          direction: breakout.direction,
+          entryTime: bar.time,
+          entryIndex: i,
+          equityAtEntry: equity + entryFee,
+          quantity,
+          avgEntry: entryPrice,
+          lastUnitPrice: entryPrice,
+          lastN: n,
+          units: [{ price: entryPrice, quantity, n }]
+        };
+        enteredThisBar = true;
+      }
+    }
+
+    if (position && !enteredThisBar) {
+      while (position.units.length < TURTLE_MAX_UNITS) {
+        const nextPrice = position.direction === 'long'
+          ? position.lastUnitPrice + 0.5 * position.lastN
+          : position.lastUnitPrice - 0.5 * position.lastN;
+        const reached = position.direction === 'long' ? bar.high >= nextPrice : bar.low <= nextPrice;
+        if (!reached) break;
+        const quantity = (equity * TURTLE_RISK_FRACTION) / n;
+        const fee = nextPrice * quantity * feeRate;
+        equity -= fee;
+        const totalCost = position.avgEntry * position.quantity + nextPrice * quantity;
+        position.quantity += quantity;
+        position.avgEntry = totalCost / position.quantity;
+        position.lastUnitPrice = nextPrice;
+        position.lastN = n;
+        position.units.push({ price: nextPrice, quantity, n });
+      }
+    }
+
+    const markedEquity = position
+      ? equity + (position.direction === 'long'
+        ? (bar.close - position.avgEntry) * position.quantity
+        : (position.avgEntry - bar.close) * position.quantity)
+      : equity;
+    curve.push({ time: bar.time, equity: markedEquity });
+    peak = Math.max(peak, markedEquity);
+    maxDrawdown = Math.min(maxDrawdown, (markedEquity - peak) / peak);
+  }
+
+  if (position) {
+    const last = klines.length - 1;
+    closePosition(last, klines[last].close, '样本结束');
+    trades[trades.length - 1].closed = false;
+  }
+
+  const firstTime = klines[start].time;
+  const lastTime = klines[klines.length - 1].time;
+  const firstClose = klines[start].close;
+  const buyHoldCurve = klines.slice(start).map((k) => ({ time: k.time, equity: capital * (1 - feeRate) * (k.close / firstClose) }));
+  const closedTrades = trades.filter((t) => t.closed);
+  const wins = closedTrades.filter((t) => t.netReturn > 0);
+  const losses = closedTrades.filter((t) => t.netReturn <= 0);
+  const grossProfit = wins.reduce((sum, t) => sum + t.netReturn, 0);
+  const grossLoss = Math.abs(losses.reduce((sum, t) => sum + t.netReturn, 0));
+  const days = Math.max(1, (lastTime - firstTime) / 86400000);
+  return {
+    curve,
+    buyHoldCurve,
+    trades,
+    totalReturn: (equity / capital - 1) * 100,
+    buyHoldReturn: ((1 - feeRate) * (klines[klines.length - 1].close / firstClose) - 1) * 100,
+    maxDrawdown: maxDrawdown * 100,
+    winRate: closedTrades.length ? (wins.length / closedTrades.length) * 100 : 0,
+    closedTrades: closedTrades.length,
+    openTrades: trades.length - closedTrades.length,
+    profitFactor: grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 99 : 0,
+    avgWin: wins.length ? (grossProfit / wins.length) * 100 : 0,
+    avgLoss: losses.length ? (-grossLoss / losses.length) * 100 : 0,
+    avgNet: closedTrades.length ? (closedTrades.reduce((sum, t) => sum + t.netReturn, 0) / closedTrades.length) * 100 : 0,
+    annualized: (Math.pow(equity / capital, 365 / days) - 1) * 100,
+    mode: system === 'system1' ? 'turtle1' : 'turtle',
+    firstTime,
+    lastTime,
+    turtle: { ...params, riskFraction: TURTLE_RISK_FRACTION, maxUnits: TURTLE_MAX_UNITS }
+  };
+}
+
+function backtest(klines, indicators, threshold = 4, feeRate = 0.001, capital = 10000, mode = 'trend', interval = '1d') {
+  if (mode === 'turtle' || mode === 'turtle1') {
+    return backtestTurtle(klines, feeRate, capital, mode === 'turtle1' ? 'system1' : 'system2', interval);
+  }
   if (mode === 'dual') {
     return backtestDual(klines, indicators, threshold, feeRate, capital);
   }
@@ -3042,6 +3388,10 @@ function renderBacktest(result) {
 
   const modeLabel = result.mode === 'dual'
     ? '多空双开'
+    : result.mode === 'turtle'
+      ? '海龟 S2 55/20'
+      : result.mode === 'turtle1'
+        ? '海龟 S1 20/10'
     : result.mode === 'trendRisk'
       ? '趋势 + ATR风控'
       : result.mode === 'fast'
@@ -3082,7 +3432,7 @@ function renderBacktest(result) {
         <div class="bt-trade-row">
           <span class="trade-time">${trade.side === 'short' ? '空' : '多'} ${formatDateShort(trade.entryTime)}</span>
           <span class="trade-time">${formatDateShort(trade.exitTime)}</span>
-          <span class="trade-qty">${trade.bars}根</span>
+          <span class="trade-qty">${trade.units ? `${trade.units}单位 · ` : ''}${trade.bars}根</span>
           <span class="trade-value ${cls}">${trade.netReturn >= 0 ? '+' : ''}${(trade.netReturn * 100).toFixed(2)}%</span>
         </div>
       `;
@@ -3167,7 +3517,7 @@ async function runBacktest() {
       throw new Error('历史数据不足');
     }
     const indicators = computeIndicators(klines);
-    const result = backtest(klines, indicators, threshold, 0.001, 10000, mode);
+    const result = backtest(klines, indicators, threshold, 0.001, getTurtleAccount(), mode, interval);
     result.symbol = symbol;
     result.interval = interval;
     result.threshold = threshold;
@@ -3202,7 +3552,7 @@ async function loadMain() {
   state.mainLoading = true;
   setConn('loading');
   try {
-    const { klines, provider } = await fetchKlinesWithFallback(state.symbol, state.interval);
+    const { klines, provider } = await fetchKlinesForStrategy(state.symbol, state.interval);
     state.data = klines;
     state.provider = provider;
     state.indicators = computeIndicators(klines);
@@ -3233,7 +3583,7 @@ async function scanWatchlist() {
     const settled = await Promise.allSettled(
       state.watchlist.map(async (symbol) => {
         try {
-          const { klines } = await fetchKlinesWithFallback(symbol, '4h');
+          const { klines } = await fetchKlinesForStrategy(symbol, '4h');
           const indicators = computeIndicators(klines);
           const analysis = analyzeIndicators(klines, indicators);
           return {
@@ -3316,6 +3666,27 @@ function bindEvents() {
     $('autoRefreshBtn').classList.toggle('on', state.auto);
     if (state.auto) startAuto();
     else stopAuto();
+  });
+
+  $('strategyMode').addEventListener('change', (event) => {
+    state.strategyMode = event.target.value;
+    writeJSON('coinpulse.strategyMode', state.strategyMode);
+    renderStrategy();
+    renderRsiDashboard();
+  });
+  $('turtleSystem').addEventListener('change', (event) => {
+    state.turtleSystem = event.target.value;
+    writeJSON('coinpulse.turtleSystem', state.turtleSystem);
+    renderStrategy();
+    renderRsiDashboard();
+  });
+  $('turtleAccount').addEventListener('change', (event) => {
+    const value = Number(event.target.value);
+    state.turtleAccount = Number.isFinite(value) && value > 0 ? value : TURTLE_DEFAULT_ACCOUNT;
+    event.target.value = String(state.turtleAccount);
+    writeJSON('coinpulse.turtleAccount', state.turtleAccount);
+    renderStrategy();
+    renderRsiDashboard();
   });
 
   $('notifyBtn').addEventListener('click', async () => {
@@ -3467,6 +3838,9 @@ function stopAuto() {
 }
 
 function init() {
+  $('strategyMode').value = state.strategyMode;
+  $('turtleSystem').value = state.turtleSystem;
+  $('turtleAccount').value = String(getTurtleAccount());
   bindEvents();
   setNotifyButton();
   if ('serviceWorker' in navigator) {

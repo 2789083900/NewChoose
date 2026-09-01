@@ -34,6 +34,9 @@ DEFAULT_SYMBOLS = [
 ]
 
 INTERVAL_BARS = {"15m": 96, "1h": 24, "4h": 6, "1d": 1}
+TURTLE_N_PERIOD = 20
+TURTLE_RISK_FRACTION = 0.01
+TURTLE_MAX_UNITS = 4
 
 
 def http_get_json(url, timeout=5):
@@ -157,6 +160,65 @@ def fetch_klines_with_fallback(symbol, interval):
     raise RuntimeError(" / ".join(errors))
 
 
+def fetch_binance_history(symbol, interval, total):
+    """分页拉取海龟所需的历史长度（4h S2 需要超过默认320根）。"""
+    rows = []
+    cursor = int(time.time() * 1000)
+    page_size = min(1000, total)
+    while len(rows) < total and cursor > 0:
+        url = (
+            "https://data-api.binance.vision/api/v3/klines?"
+            f"symbol={urllib.parse.quote(symbol)}&interval={interval}"
+            f"&limit={page_size}&endTime={cursor}"
+        )
+        page = http_get_json(url)
+        if not isinstance(page, list) or not page:
+            break
+        rows = page + rows
+        if len(page) < page_size:
+            break
+        cursor = int(page[0][0]) - 1
+    parsed = [
+        {
+            "time": int(row[0]),
+            "open": float(row[1]),
+            "high": float(row[2]),
+            "low": float(row[3]),
+            "close": float(row[4]),
+            "volume": float(row[5])
+        }
+        for row in rows
+    ]
+    deduped = []
+    seen = set()
+    for kline in sorted(parsed, key=lambda item: item["time"]):
+        if kline["time"] not in seen:
+            seen.add(kline["time"])
+            deduped.append(kline)
+    return deduped[-total:]
+
+
+def turtle_required_bars(interval, system="system2"):
+    params = turtle_params(system, interval)
+    return max(params["entry_bars"], params["n_period"]) + 5
+
+
+def fetch_klines_for_strategy(symbol, interval, system="system2"):
+    required = turtle_required_bars(interval, system)
+    if required <= 320:
+        return fetch_klines_with_fallback(symbol, interval)
+    try:
+        klines = fetch_binance_history(symbol, interval, required)
+        if len(klines) >= required:
+            return klines, "binance-history"
+    except Exception as exc:
+        logging.warning("%s %s 海龟历史数据分页失败: %s", symbol, interval, exc)
+    klines, provider = fetch_klines_with_fallback(symbol, interval)
+    if len(klines) < required:
+        raise RuntimeError(f"海龟{system}需要至少{required}根K线，当前仅{len(klines)}根")
+    return klines, provider
+
+
 def ema(values, period):
     result = [None] * len(values)
     if len(values) < period:
@@ -240,6 +302,156 @@ def calc_atr_slice(klines, idx, period=14):
             abs(klines[i]["low"] - prev_close)
         ))
     return sum(true_ranges) / len(true_ranges)
+
+
+def calc_n_series(klines, period=TURTLE_N_PERIOD):
+    """海龟 N：20周期真实波幅的 Wilder 平滑值。"""
+    values = [None] * len(klines)
+    if len(klines) <= period:
+        return values
+    ranges = []
+    for i in range(1, len(klines)):
+        prev_close = klines[i - 1]["close"]
+        ranges.append(max(
+            klines[i]["high"] - klines[i]["low"],
+            abs(klines[i]["high"] - prev_close),
+            abs(klines[i]["low"] - prev_close)
+        ))
+    current = sum(ranges[:period]) / period
+    values[period] = current
+    for i in range(period + 1, len(klines)):
+        current = (current * (period - 1) + ranges[i - 1]) / period
+        values[i] = current
+    return values
+
+
+def turtle_params(system, interval="1d"):
+    bars_per_day = INTERVAL_BARS.get(interval, 1)
+    if system == "system1":
+        return {
+            "key": "system1", "label": "海龟S1 20/10", "entry_days": 20, "exit_days": 10,
+            "entry_bars": 20 * bars_per_day, "exit_bars": 10 * bars_per_day,
+            "n_period": 20 * bars_per_day, "skip_winning_breakout": True
+        }
+    return {
+        "key": "system2", "label": "海龟S2 55/20", "entry_days": 55, "exit_days": 20,
+        "entry_bars": 55 * bars_per_day, "exit_bars": 20 * bars_per_day,
+        "n_period": 20 * bars_per_day, "skip_winning_breakout": False
+    }
+
+
+def turtle_levels(klines, idx, system="system2", interval="1d"):
+    params = turtle_params(system, interval)
+    if idx < params["entry_bars"] or idx < params["exit_bars"]:
+        return None
+    entry_window = klines[idx - params["entry_bars"]:idx]
+    exit_window = klines[idx - params["exit_bars"]:idx]
+    return {
+        **params,
+        "entry_high": max(k["high"] for k in entry_window),
+        "entry_low": min(k["low"] for k in entry_window),
+        "exit_high": max(k["high"] for k in exit_window),
+        "exit_low": min(k["low"] for k in exit_window),
+    }
+
+
+def build_turtle_signal(
+    klines, system="system2", account_value=10000,
+    risk_fraction=TURTLE_RISK_FRACTION, interval="1d", system1_blocked=False
+):
+    idx = len(klines) - 1
+    params = turtle_params(system, interval)
+    levels = turtle_levels(klines, idx, system, interval)
+    n = calc_n_series(klines, params["n_period"])[idx]
+    if levels is None or n is None or n <= 0:
+        return None, [], None
+    price = klines[idx]["close"]
+    if price > levels["entry_high"]:
+        direction = "long"
+        entry = levels["entry_high"]
+        stop = entry - 2 * n
+        next_add = entry + 0.5 * n
+        exit_level = levels["exit_low"]
+    elif price < levels["entry_low"]:
+        direction = "short"
+        entry = levels["entry_low"]
+        stop = entry + 2 * n
+        next_add = entry - 0.5 * n
+        exit_level = levels["exit_high"]
+    else:
+        return None, [], {
+            "levels": levels, "n": n, "price": price,
+            "wait": f"上破 {format_price(levels['entry_high'])} 做多 / 下破 {format_price(levels['entry_low'])} 做空"
+        }
+    if system == "system1" and system1_blocked:
+        return None, ["S1跳过上一次盈利突破"], {
+            "levels": levels, "n": n, "price": price, "blocked": True
+        }
+    unit_quantity = account_value * risk_fraction / n
+    plan = {
+        "system": system,
+        "entry": entry,
+        "stop": stop,
+        "next_add": next_add,
+        "exit_level": exit_level,
+        "n": n,
+        "unit_quantity": unit_quantity,
+        "max_quantity": unit_quantity * TURTLE_MAX_UNITS,
+        "exit_days": levels["exit_days"],
+    }
+    reason = [f"{levels['label']}{'向上' if direction == 'long' else '向下'}突破", f"N={format_price(n)}"]
+    return direction, reason, plan
+
+
+def build_turtle_strategy_text(direction, plan):
+    side = "做多" if direction == "long" else "做空"
+    max_units = int(plan.get("max_units") or TURTLE_MAX_UNITS)
+    return (
+        f"{plan['system']} {side}，入场点位 ≈ {format_price(plan['entry'])}\n"
+        f"止损 {format_price(plan['stop'])}（2N）\n"
+        f"每 0.5N 至 {format_price(plan['next_add'])} 加 1 单位，"
+        f"首单位 {format_price(plan['unit_quantity'])}，最多{max_units}单位；"
+        f"{plan['exit_days']}周期反向突破 {format_price(plan['exit_level'])} 全平"
+    )
+
+
+def turtle_unit_capacity(symbol, direction, state, config):
+    """按单市场、相关组和单方向上限计算本次至少可开的单位数。"""
+    strategy = config.get("strategy") or {}
+    limits = strategy.get("limits") or {}
+    max_symbol = int(limits.get("max_symbol_units", TURTLE_MAX_UNITS))
+    max_strong = int(limits.get("max_strong_group_units", 6))
+    max_weak = int(limits.get("max_weak_group_units", 10))
+    max_direction = int(limits.get("max_direction_units", 12))
+    open_trades = [
+        t for t in state.get("open_trades", [])
+        if t.get("strategy_type") == "turtle" and t.get("direction") == direction
+    ]
+    symbol_units = sum(int(t.get("units") or 1) for t in open_trades if t.get("symbol") == symbol)
+    direction_units = sum(int(t.get("units") or 1) for t in open_trades)
+    correlation = strategy.get("correlation") or {}
+    strong_groups = correlation.get("strong_groups") or [DEFAULT_SYMBOLS]
+    weak_groups = correlation.get("weak_groups") or []
+
+    def find_group(groups):
+        for group in groups:
+            if symbol in group:
+                return set(group)
+        return set()
+
+    strong_group = find_group(strong_groups)
+    weak_group = find_group(weak_groups) if not strong_group else set()
+    group_units = sum(
+        int(t.get("units") or 1)
+        for t in open_trades
+        if t.get("symbol") in (strong_group or weak_group)
+    )
+    caps = [max_symbol - symbol_units, max_direction - direction_units]
+    if strong_group:
+        caps.append(max_strong - group_units)
+    elif weak_group:
+        caps.append(max_weak - group_units)
+    return max(0, min(caps))
 
 
 def compute_bollinger(klines, period=20, mult=2.0):
@@ -557,6 +769,19 @@ def load_config():
         "threshold": 2,
         "refresh_seconds": 30,
         "dashboard_url": "http://192.168.10.13:5173",
+        "strategy": {
+            "mode": "turtle",
+            "turtle_system": "system2",
+            "account_value": 10000,
+            "risk_fraction": 0.01,
+            "limits": {
+                "max_symbol_units": 4,
+                "max_strong_group_units": 6,
+                "max_weak_group_units": 10,
+                "max_direction_units": 12
+            },
+            "correlation": {"strong_groups": [], "weak_groups": []}
+        },
         "channels": {
             "dingtalk": {"webhook": ""},
             "wecom": {"webhook": ""},
@@ -920,22 +1145,54 @@ def build_reversal_message(event, config):
     return "\n".join(lines)
 
 
-def _scan_one(symbol, interval, state):
+def _scan_one(symbol, interval, state, config):
     """单个币/周期的扫描（供并发调用）"""
     try:
-        klines, provider = fetch_klines_with_fallback(symbol, interval)
+        strategy_config = config.get("strategy") or {}
+        mode = strategy_config.get("mode", "turtle")
+        turtle_system = strategy_config.get("turtle_system", "system2")
+        klines, provider = (
+            fetch_klines_for_strategy(symbol, interval, turtle_system)
+            if mode == "turtle" else fetch_klines_with_fallback(symbol, interval)
+        )
         indicators = compute_indicators(klines)
-        # ===== 按周期选策略（回测验证） =====
-        # 1h/15m → 乖离回归(+12.1%) | 4h/1d → RSI背离(+23%)
-        if interval in ("1h", "15m"):
+        if mode == "turtle":
+            system = turtle_system
+            account_value = float(strategy_config.get("account_value", 10000))
+            risk_fraction = float(strategy_config.get("risk_fraction", TURTLE_RISK_FRACTION))
+            st_key = f"{symbol}|{interval}|turtle|{system}"
+            direction, reasons, trade_plan = build_turtle_signal(
+                klines, system, account_value, risk_fraction, interval,
+                bool(state.get(f"{st_key}|blocked"))
+            )
+            if trade_plan and trade_plan.get("blocked"):
+                # S1 only skips the next same-system breakout after a win.
+                state[f"{st_key}|blocked"] = False
+            if direction and trade_plan:
+                capacity = turtle_unit_capacity(symbol, direction, state, config)
+                if capacity < 1:
+                    direction = None
+                    reasons = ["组合风险上限已满"]
+                    trade_plan["blocked"] = True
+                else:
+                    trade_plan["max_units"] = min(TURTLE_MAX_UNITS, capacity)
+            strategy_text = build_turtle_strategy_text(direction, trade_plan) if direction else ""
+            label = "海龟突破做多" if direction == "long" else "海龟突破做空"
+            grade = turtle_params(system, interval)["label"]
+        # ===== 保留原有策略，可通过 strategy.mode=legacy 恢复 =====
+        elif interval in ("1h", "15m"):
             direction, reasons, strategy_text = detect_bias_regression(klines, indicators)
             st_key = f"{symbol}|{interval}|bias"
             label = "乖离做多" if direction == "long" else "乖离做空"
+            trade_plan = None
+            grade = "回测年化+12%~+23%"
         else:
             direction, reasons = detect_rsi_divergence_slice(klines, indicators, len(klines) - 1)
             strategy_text = build_rsi_divergence_text(klines, indicators, direction) if direction else ""
             st_key = f"{symbol}|{interval}|div"
             label = "背离做多" if direction == "long" else "背离做空"
+            trade_plan = None
+            grade = "回测年化+12%~+23%"
         prev_sig = state.get(st_key)
         event = None
         if direction is not None and prev_sig != direction:
@@ -951,9 +1208,12 @@ def _scan_one(symbol, interval, state):
                 "change": get_change(klines, interval),
                 "provider": provider,
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "bar_time": klines[-1]["time"],
                 "points": 4,
-                "grade": "回测年化+12%~+23%",
-                "divergence": True
+                "grade": grade,
+                "divergence": mode != "turtle",
+                "turtle": mode == "turtle",
+                "trade_plan": trade_plan
             }
         state[st_key] = direction if direction is not None else "none"
         return event
@@ -975,7 +1235,7 @@ def scan_once(config, state):
     tasks = [(s, iv) for s in symbols for iv in intervals]
     if ThreadPoolExecutor:
         with ThreadPoolExecutor(max_workers=10) as pool:
-            futures = [pool.submit(_scan_one, s, iv, state) for s, iv in tasks]
+            futures = [pool.submit(_scan_one, s, iv, state, config) for s, iv in tasks]
             for f in futures:
                 try:
                     ev = f.result(timeout=30)
@@ -985,7 +1245,7 @@ def scan_once(config, state):
                     logging.warning("并发扫描任务异常: %s", exc)
     else:
         for s, iv in tasks:
-            ev = _scan_one(s, iv, state)
+            ev = _scan_one(s, iv, state, config)
             if ev:
                 events.append(ev)
     return events
@@ -1059,9 +1319,30 @@ def build_divergence_message(event, config):
     return "\n".join(lines)
 
 
+def build_turtle_message(event, config):
+    direction = "突破做多" if event["direction"] == "long" else "突破做空"
+    plan = event.get("trade_plan") or {}
+    lines = [
+        f"海龟突破信号 {event['symbol']} {event['interval']}",
+        f"{plan.get('system', event['grade'])} · {direction}",
+        f"现价 {event['price']}（{event['change']:+.2f}%）",
+        f"依据：{event['reason']}",
+        f"{event['strategy']}",
+        f"规则：首单位风险=账户1% · 每0.5N加1单位 · 最多{int(plan.get('max_units') or TURTLE_MAX_UNITS)}单位 · 2N止损",
+        f"时间：{event['time']}"
+    ]
+    dashboard_url = config.get("dashboard_url")
+    if dashboard_url:
+        lines.append(f"看板：{dashboard_url}")
+    return "\n".join(lines)
+
+
 def process_events(events, config):
     for event in events:
-        if event.get("divergence"):
+        if event.get("turtle"):
+            title = f"CoinPulse {event['symbol']} 海龟突破{event['label']}"
+            content = build_turtle_message(event, config)
+        elif event.get("divergence"):
             title = f"CoinPulse {event['symbol']} RSI背离{event['label']}"
             content = build_divergence_message(event, config)
         elif event.get("direction") in ("long", "short") and event.get("points"):
@@ -1083,7 +1364,7 @@ TRADE_STATS_PATH = os.path.join(BASE_DIR, "trade_stats.json")
 
 
 def register_trade(event, config):
-    """信号推送时登记一笔未平仓交易（从 strategy 文本解析出入场/止损/目标）"""
+    """信号推送时登记一笔未平仓交易，优先使用结构化策略字段。"""
     state = load_state()
     trades = state.setdefault("open_trades", [])
     # 提取价格：策略文本里已有，解析出来
@@ -1093,6 +1374,10 @@ def register_trade(event, config):
         price = None
     strategy = event.get("strategy", "")
     entry = stop = target = None
+    trade_plan = event.get("trade_plan") or {}
+    if event.get("turtle") and trade_plan:
+        entry = trade_plan.get("entry")
+        stop = trade_plan.get("stop")
     # 从策略文本解析：入场点位 ≈ X（...）
     import re as _re
     m_entry = _re.search(r"入场点位[≈≈]?\s*([\d.]+)", strategy)
@@ -1122,10 +1407,109 @@ def register_trade(event, config):
         "pnl_pct": None,
         "closed_at": None,
     }
+    if event.get("turtle") and trade_plan:
+        trade.update({
+            "strategy_type": "turtle",
+            "system": trade_plan.get("system"),
+            "n": trade_plan.get("n"),
+            "stop_n": 2.0,
+            "add_n": 0.5,
+            "max_units": int(trade_plan.get("max_units") or TURTLE_MAX_UNITS),
+            "units": 1,
+            "unit_quantity": trade_plan.get("unit_quantity"),
+            "unit_entries": [{"price": entry, "n": trade_plan.get("n")}],
+            "latest_entry": entry,
+            "next_add": trade_plan.get("next_add"),
+            "exit_period": trade_plan.get("exit_days"),
+            "bar_time": event.get("bar_time")
+        })
     # 避免重复登记同一信号
     if not any(t["id"] == trade["id"] for t in trades):
         trades.append(trade)
         save_state(state)
+
+
+def manage_turtle_trade(trade, klines):
+    """按 0.5N 加仓，并按最新单位的 2N 止损/反向通道退出。"""
+    interval = trade.get("interval", "1d")
+    system = trade.get("system", "system2")
+    params = turtle_params(system, interval)
+    n_series = calc_n_series(klines, params["n_period"])
+    entry_bar = trade.get("bar_time") or trade.get("entry_ts") or 0
+    last_managed_bar = trade.get("last_managed_bar") or entry_bar
+    entries = list(trade.get("unit_entries") or [{"price": trade["entry"], "n": trade.get("n")}])
+    n = float(trade.get("n") or 0)
+    if n <= 0:
+        return None
+    direction = trade.get("direction")
+    max_units = int(trade.get("max_units") or TURTLE_MAX_UNITS)
+    add_n = float(trade.get("add_n") or 0.5)
+    stop_n = float(trade.get("stop_n") or 2.0)
+    unit_quantity = float(trade.get("unit_quantity") or 0)
+    exit_price = None
+    result = None
+    exit_time = None
+
+    for index, kline in enumerate(klines):
+        if kline["time"] <= last_managed_bar:
+            continue
+        current_n = n_series[index] or n
+        latest_entry = float(entries[-1]["price"])
+        latest_n = float(entries[-1].get("n") or current_n)
+        stop = latest_entry - stop_n * latest_n if direction == "long" else latest_entry + stop_n * latest_n
+        stop_hit = kline["low"] <= stop if direction == "long" else kline["high"] >= stop
+        if stop_hit:
+            exit_price, result, exit_time = stop, "止损", kline["time"]
+            break
+
+        prior = klines[max(0, index - params["exit_bars"]):index]
+        if len(prior) >= params["exit_bars"]:
+            exit_level = min(k["low"] for k in prior) if direction == "long" else max(k["high"] for k in prior)
+            exit_hit = kline["low"] <= exit_level if direction == "long" else kline["high"] >= exit_level
+            if exit_hit:
+                exit_price, result, exit_time = exit_level, "通道退出", kline["time"]
+                break
+
+        # 先处理止损/退出，再处理同一根K线的加仓，避免对盘中顺序作乐观假设。
+        while len(entries) < max_units:
+            latest_entry = float(entries[-1]["price"])
+            next_add = latest_entry + add_n * current_n if direction == "long" else latest_entry - add_n * current_n
+            reached = kline["high"] >= next_add if direction == "long" else kline["low"] <= next_add
+            if not reached:
+                break
+            entries.append({"price": next_add, "n": current_n})
+
+    trade["unit_entries"] = entries
+    if klines:
+        trade["last_managed_bar"] = klines[-1]["time"]
+    trade["units"] = len(entries)
+    trade["latest_entry"] = entries[-1]["price"]
+    latest_n = float(entries[-1].get("n") or n)
+    trade["next_add"] = (
+        entries[-1]["price"] + add_n * latest_n if len(entries) < max_units
+        else None
+    )
+    trade["stop"] = (
+        entries[-1]["price"] - stop_n * latest_n if direction == "long"
+        else entries[-1]["price"] + stop_n * latest_n
+    )
+    if exit_price is None:
+        return None
+
+    total_quantity = unit_quantity * len(entries)
+    weighted_entry = sum(item["price"] for item in entries) / len(entries)
+    pnl_pct = (
+        (exit_price - weighted_entry) / weighted_entry * 100
+        if direction == "long" else (weighted_entry - exit_price) / weighted_entry * 100
+    )
+    trade["entry"] = weighted_entry
+    trade["exit"] = exit_price
+    trade["result"] = result
+    trade["pnl_pct"] = round(pnl_pct, 2)
+    trade["closed_at"] = datetime.fromtimestamp(exit_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
+    trade["exit_ts"] = exit_time
+    trade["quantity"] = total_quantity
+    return trade
 
 
 def settle_trades(state, config):
@@ -1135,12 +1519,45 @@ def settle_trades(state, config):
         return []
     settled = []
     remaining = []
+    state_changed = False
     for trade in open_trades:
         try:
-            klines, _prov = fetch_klines_with_fallback(trade["symbol"], trade["interval"])
+            if trade.get("strategy_type") == "turtle":
+                klines, _prov = fetch_klines_for_strategy(
+                    trade["symbol"], trade["interval"], trade.get("system", "system2")
+                )
+            else:
+                klines, _prov = fetch_klines_with_fallback(trade["symbol"], trade["interval"])
         except Exception:
             remaining.append(trade)  # 拉不到数据，保留下轮再查
             continue
+        if trade.get("strategy_type") == "turtle":
+            before_state = (
+                trade.get("units"), trade.get("last_managed_bar"),
+                trade.get("stop"), trade.get("next_add")
+            )
+            settled_trade = manage_turtle_trade(trade, klines)
+            after_state = (
+                trade.get("units"), trade.get("last_managed_bar"),
+                trade.get("stop"), trade.get("next_add")
+            )
+            state_changed = state_changed or before_state != after_state
+            if settled_trade is None:
+                remaining.append(trade)
+                continue
+            trade["status"] = "closed"
+            state.setdefault("closed_trades", []).append(trade)
+            if trade.get("system") == "system1":
+                state[
+                    f"{trade['symbol']}|{trade['interval']}|turtle|system1|blocked"
+                ] = (trade.get("pnl_pct") or 0) > 0
+            settled.append(trade)
+            logging.info(
+                "海龟交易结算: %s %s %s 盈亏%+.2f%%",
+                trade["symbol"], trade["interval"], trade["result"], trade["pnl_pct"]
+            )
+            continue
+
         closes = [k["close"] for k in klines]
         entry = trade["entry"] or closes[-1]
         stop = trade["stop"]
@@ -1148,7 +1565,7 @@ def settle_trades(state, config):
         entry_ts = trade.get("entry_ts") or 0
 
         # 只检查入场时间之后的K线（避免用入场前的历史价格误判）
-        future = [k for k in klines if k["time"] >= entry_ts]
+        future = [k for k in klines if k["time"] > entry_ts]
         if not future:
             remaining.append(trade)
             continue
@@ -1193,8 +1610,9 @@ def settle_trades(state, config):
         logging.info("交易结算: %s %s %s 盈亏%+.2f%%", trade["symbol"], trade["interval"], result, pnl_pct)
 
     state["open_trades"] = remaining
-    if settled:
+    if settled or state_changed:
         save_state(state)
+    if settled:
         write_trade_stats(state)
     return settled
 
@@ -1205,15 +1623,15 @@ def write_trade_stats(state):
     stats = {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "total": len(closed),
-        "wins": sum(1 for t in closed if t.get("result") == "止盈"),
-        "losses": sum(1 for t in closed if t.get("result") == "止损"),
+        "wins": sum(1 for t in closed if (t.get("pnl_pct") or 0) > 0),
+        "losses": sum(1 for t in closed if (t.get("pnl_pct") or 0) <= 0),
         "open_count": len(state.get("open_trades", [])),
     }
     stats["win_rate"] = round(stats["wins"] / stats["total"] * 100, 1) if stats["total"] else 0
     total_pnl = sum(t.get("pnl_pct") or 0 for t in closed)
     stats["total_pnl_pct"] = round(total_pnl, 2)
-    avg_win = sum(t.get("pnl_pct") or 0 for t in closed if t.get("result") == "止盈")
-    avg_loss = sum(t.get("pnl_pct") or 0 for t in closed if t.get("result") == "止损")
+    avg_win = sum(t.get("pnl_pct") or 0 for t in closed if (t.get("pnl_pct") or 0) > 0)
+    avg_loss = sum(t.get("pnl_pct") or 0 for t in closed if (t.get("pnl_pct") or 0) <= 0)
     stats["avg_win"] = round(avg_win / stats["wins"], 2) if stats["wins"] else 0
     stats["avg_loss"] = round(avg_loss / stats["losses"], 2) if stats["losses"] else 0
     stats["payoff"] = round(abs(stats["avg_win"] / stats["avg_loss"]), 2) if stats["avg_loss"] else 0
@@ -1223,8 +1641,8 @@ def write_trade_stats(state):
         by_symbol.setdefault(t["symbol"], {"total": 0, "wins": 0, "losses": 0, "pnl": 0.0})
         g = by_symbol[t["symbol"]]
         g["total"] += 1
-        g["wins"] += 1 if t.get("result") == "止盈" else 0
-        g["losses"] += 1 if t.get("result") == "止损" else 0
+        g["wins"] += 1 if (t.get("pnl_pct") or 0) > 0 else 0
+        g["losses"] += 1 if (t.get("pnl_pct") or 0) <= 0 else 0
         g["pnl"] = round(g["pnl"] + (t.get("pnl_pct") or 0), 2)
     stats["by_symbol"] = [
         {"symbol": s, **v} for s, v in sorted(by_symbol.items(), key=lambda x: -x[1]["pnl"])

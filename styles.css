@@ -1513,6 +1513,22 @@ button {
   outline: none;
 }
 
+.backtest-controls input {
+  width: 96px;
+  height: 34px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #0f161b;
+  color: var(--text);
+  font: 12px var(--mono);
+  outline: none;
+}
+
+.backtest-controls input:focus {
+  border-color: var(--cyan);
+}
+
 .backtest-controls select:focus {
   border-color: var(--cyan);
 }
@@ -1862,6 +1878,11 @@ button {
   }
 
   .backtest-controls select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .backtest-controls input {
     flex: 1;
     min-width: 0;
   }

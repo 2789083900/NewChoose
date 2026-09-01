@@ -62,6 +62,22 @@ jobs:
               "threshold": 4,
               "refresh_seconds": 300,
               "dashboard_url": os.environ.get("DASHBOARD_URL", ""),
+              "strategy": {
+                  "mode": "turtle",
+                  "turtle_system": "system2",
+                  "account_value": 10000,
+                  "risk_fraction": 0.01,
+                  "limits": {
+                      "max_symbol_units": 4,
+                      "max_strong_group_units": 6,
+                      "max_weak_group_units": 10,
+                      "max_direction_units": 12
+                  },
+                  "correlation": {
+                      "strong_groups": [],
+                      "weak_groups": []
+                  }
+              },
               "channels": {
                   "dingtalk": {"webhook": os.environ.get("DINGTALK_WEBHOOK", "")},
                   "wecom": {"webhook": os.environ.get("WECOM_WEBHOOK", "")},

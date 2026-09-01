@@ -12,5 +12,17 @@
   "LINKUSDT|4h|div": "none",
   "SUIUSDT|4h|div": "none",
   "PEPEUSDT|4h|div": "none",
-  "TONUSDT|4h|div": "none"
+  "TONUSDT|4h|div": "none",
+  "TONUSDT|4h|turtle|system2": "none",
+  "BTCUSDT|4h|turtle|system2": "none",
+  "ETHUSDT|4h|turtle|system2": "none",
+  "XRPUSDT|4h|turtle|system2": "none",
+  "DOGEUSDT|4h|turtle|system2": "none",
+  "AVAXUSDT|4h|turtle|system2": "none",
+  "SOLUSDT|4h|turtle|system2": "none",
+  "ADAUSDT|4h|turtle|system2": "none",
+  "BNBUSDT|4h|turtle|system2": "none",
+  "LINKUSDT|4h|turtle|system2": "none",
+  "SUIUSDT|4h|turtle|system2": "none",
+  "PEPEUSDT|4h|turtle|system2": "none"
 }

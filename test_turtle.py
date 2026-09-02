@@ -18,12 +18,24 @@ def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
 
 
 class TurtleCoreTests(unittest.TestCase):
+    CONFIRMATION_OFF = {
+        "adx_enabled": False,
+        "volume_confirmation": False,
+        "volatility_filter": False,
+    }
+
     def test_filter_closed_klines_excludes_current_bar(self):
         day = 86400000
         klines = make_bars(2)
         closed = sw.filter_closed_klines(klines, "1d", now_ms=2 * day + 3600000)
         self.assertEqual(len(closed), 1)
         self.assertEqual(closed[0]["time"], day)
+
+    def test_reliability_filter_defaults_keep_adx_optional(self):
+        options = sw.turtle_filter_options({})
+        self.assertFalse(options["adx_enabled"])
+        self.assertTrue(options["volume_confirmation"])
+        self.assertTrue(options["volatility_filter"])
 
     def test_breakout_requires_buffer_beyond_channel(self):
         klines = make_bars(60)
@@ -37,7 +49,7 @@ class TurtleCoreTests(unittest.TestCase):
         })
         direction, _, plan = sw.build_turtle_signal(
             klines, "system2", 10000, 0.01, "1d",
-            filter_options={"higher_timeframe": False, "breakout_buffer_n": 0.1}
+            filter_options={"higher_timeframe": False, "breakout_buffer_n": 0.1, **self.CONFIRMATION_OFF}
         )
         self.assertIsNone(direction)
         self.assertEqual(plan["wait"].split()[0], "上破")
@@ -69,7 +81,7 @@ class TurtleCoreTests(unittest.TestCase):
         })
         direction, reasons, plan = sw.build_turtle_signal(
             klines, "system2", 10000, 0.01, "4h",
-            filter_options={"higher_timeframe": True, "breakout_buffer_n": 0.1},
+            filter_options={"higher_timeframe": True, "breakout_buffer_n": 0.1, **self.CONFIRMATION_OFF},
             higher_trend="short"
         )
         self.assertIsNone(direction)
@@ -86,7 +98,9 @@ class TurtleCoreTests(unittest.TestCase):
             "close": 102,
             "volume": 1,
         })
-        direction, reasons, plan = sw.build_turtle_signal(klines, "system2", 10000, 0.01, "1d")
+        direction, reasons, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "1d", filter_options=self.CONFIRMATION_OFF
+        )
         self.assertEqual(direction, "long")
         self.assertGreater(plan["n"], 0)
         self.assertLess(plan["stop"], plan["entry"])
@@ -109,7 +123,9 @@ class TurtleCoreTests(unittest.TestCase):
             "close": 102,
             "volume": 1,
         })
-        direction, _, plan = sw.build_turtle_signal(history, "system2", 10000, 0.01, "1d")
+        direction, _, plan = sw.build_turtle_signal(
+            history, "system2", 10000, 0.01, "1d", filter_options=self.CONFIRMATION_OFF
+        )
         self.assertEqual(direction, "long")
         trade = {
             "symbol": "TESTUSDT",
@@ -172,6 +188,24 @@ class TurtleCoreTests(unittest.TestCase):
         }
         self.assertEqual(sw.turtle_unit_capacity("SOLUSDT", "long", state, config), 4)
         self.assertEqual(sw.turtle_unit_capacity("BTCUSDT", "long", state, config), 0)
+
+    def test_confirmation_filters_block_weak_breakout(self):
+        klines = make_bars(60)
+        klines.append({
+            "time": 61 * 86400000,
+            "open": 100,
+            "high": 103,
+            "low": 99.5,
+            "close": 102,
+            "volume": 0.1,
+        })
+        direction, reasons, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "1d",
+            filter_options={"higher_timeframe": False, "adx_min": 20, "volume_min_ratio": 1.0}
+        )
+        self.assertIsNone(direction)
+        self.assertTrue(plan["filtered"])
+        self.assertTrue(any("ADX" in reason or "成交量" in reason for reason in reasons))
 
 
 if __name__ == "__main__":

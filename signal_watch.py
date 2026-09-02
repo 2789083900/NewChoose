@@ -44,6 +44,16 @@ TURTLE_FILTER_DEFAULTS = {
     "higher_ema_period": 200,
     "breakout_buffer_n": 0.1,
     "require_higher_timeframe": True,
+    # 这些确认层默认开启，但每项都可以单独关闭，便于回测和实盘对比。
+    "adx_enabled": False,
+    "adx_period": 14,
+    "adx_min": 20.0,
+    "volume_confirmation": True,
+    "volume_period": 20,
+    "volume_min_ratio": 1.0,
+    "volatility_filter": True,
+    "min_atr_pct": 0.002,
+    "max_atr_pct": 0.12,
 }
 
 
@@ -74,6 +84,33 @@ def turtle_filter_options(strategy_config=None):
         options["breakout_buffer_n"] = max(0.0, float(raw.get("breakout_buffer_n", options["breakout_buffer_n"])))
     except (TypeError, ValueError):
         options["breakout_buffer_n"] = TURTLE_FILTER_DEFAULTS["breakout_buffer_n"]
+    options["adx_enabled"] = bool(raw.get("adx_enabled", options["adx_enabled"]))
+    try:
+        options["adx_period"] = max(5, int(raw.get("adx_period", options["adx_period"])))
+    except (TypeError, ValueError):
+        options["adx_period"] = TURTLE_FILTER_DEFAULTS["adx_period"]
+    try:
+        options["adx_min"] = max(0.0, float(raw.get("adx_min", options["adx_min"])))
+    except (TypeError, ValueError):
+        options["adx_min"] = TURTLE_FILTER_DEFAULTS["adx_min"]
+    options["volume_confirmation"] = bool(raw.get("volume_confirmation", options["volume_confirmation"]))
+    try:
+        options["volume_period"] = max(5, int(raw.get("volume_period", options["volume_period"])))
+    except (TypeError, ValueError):
+        options["volume_period"] = TURTLE_FILTER_DEFAULTS["volume_period"]
+    try:
+        options["volume_min_ratio"] = max(0.0, float(raw.get("volume_min_ratio", options["volume_min_ratio"])))
+    except (TypeError, ValueError):
+        options["volume_min_ratio"] = TURTLE_FILTER_DEFAULTS["volume_min_ratio"]
+    options["volatility_filter"] = bool(raw.get("volatility_filter", options["volatility_filter"]))
+    try:
+        options["min_atr_pct"] = max(0.0, float(raw.get("min_atr_pct", options["min_atr_pct"])))
+    except (TypeError, ValueError):
+        options["min_atr_pct"] = TURTLE_FILTER_DEFAULTS["min_atr_pct"]
+    try:
+        options["max_atr_pct"] = max(options["min_atr_pct"], float(raw.get("max_atr_pct", options["max_atr_pct"])))
+    except (TypeError, ValueError):
+        options["max_atr_pct"] = TURTLE_FILTER_DEFAULTS["max_atr_pct"]
     return options
 
 
@@ -410,6 +447,53 @@ def higher_timeframe_trend(klines, period=200):
     return None
 
 
+def turtle_confirmation_filters(klines, idx, direction, n, filters):
+    """突破后的低成本确认层；只使用 idx 及之前的已完成K线。"""
+    reasons = []
+    metrics = {}
+
+    if filters.get("adx_enabled", True):
+        period = int(filters.get("adx_period", 14))
+        adx_data = calc_adx(klines[:idx + 1], period)
+        adx = adx_data["adx"][-1]
+        plus_di = adx_data["plusDi"][-1]
+        minus_di = adx_data["minusDi"][-1]
+        metrics.update({"adx": adx, "plusDi": plus_di, "minusDi": minus_di})
+        if adx is None or plus_di is None or minus_di is None:
+            reasons.append("ADX数据不足")
+        elif adx < float(filters.get("adx_min", 20.0)):
+            reasons.append(f"ADX{adx:.1f}低于{float(filters.get('adx_min', 20.0)):.0f}")
+        elif (direction == "long" and plus_di <= minus_di) or (direction == "short" and minus_di <= plus_di):
+            reasons.append("ADX方向未与突破一致")
+
+    if filters.get("volume_confirmation", True):
+        period = int(filters.get("volume_period", 20))
+        if idx < period:
+            reasons.append("成交量历史不足")
+        else:
+            current_volume = float(klines[idx].get("volume") or 0)
+            previous_volumes = [float(k.get("volume") or 0) for k in klines[idx - period:idx]]
+            average_volume = sum(previous_volumes) / period if previous_volumes else 0
+            ratio = current_volume / average_volume if average_volume > 0 else 0
+            metrics["volumeRatio"] = ratio
+            minimum = float(filters.get("volume_min_ratio", 1.0))
+            if ratio < minimum:
+                reasons.append(f"成交量仅为均量{ratio:.2f}倍")
+
+    if filters.get("volatility_filter", True):
+        close = float(klines[idx].get("close") or 0)
+        atr_pct = n / close if close > 0 else 0
+        metrics["atrPct"] = atr_pct
+        minimum = float(filters.get("min_atr_pct", 0.002))
+        maximum = float(filters.get("max_atr_pct", 0.12))
+        if atr_pct < minimum:
+            reasons.append(f"波动率过低（ATR仅{atr_pct * 100:.2f}%）")
+        elif atr_pct > maximum:
+            reasons.append(f"波动率过高（ATR达{atr_pct * 100:.2f}%）")
+
+    return reasons, metrics
+
+
 def build_turtle_signal(
     klines, system="system2", account_value=10000,
     risk_fraction=TURTLE_RISK_FRACTION, interval="1d", system1_blocked=False,
@@ -459,6 +543,15 @@ def build_turtle_signal(
                 "levels": levels, "n": n, "price": price, "filtered": True,
                 "filter_reason": reason
             }
+    confirmation_reasons, confirmation_metrics = turtle_confirmation_filters(
+        klines, idx, direction, n, filters
+    )
+    if confirmation_reasons:
+        reason = "；".join(confirmation_reasons)
+        return None, confirmation_reasons, {
+            "levels": levels, "n": n, "price": price, "filtered": True,
+            "filter_reason": reason, "filter_metrics": confirmation_metrics
+        }
     unit_quantity = account_value * risk_fraction / n
     plan = {
         "system": system,

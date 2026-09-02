@@ -51,7 +51,16 @@ const TURTLE_FILTER_DEFAULTS = {
   higherTimeframe: true,
   higherEmaPeriod: 200,
   breakoutBufferN: 0.1,
-  requireHigherTimeframe: true
+  requireHigherTimeframe: true,
+  adxEnabled: false,
+  adxPeriod: 14,
+  adxMin: 20,
+  volumeConfirmation: true,
+  volumePeriod: 20,
+  volumeMinRatio: 1,
+  volatilityFilter: true,
+  minAtrPct: 0.002,
+  maxAtrPct: 0.12
 };
 
 const PROVIDERS = [
@@ -422,6 +431,15 @@ function turtleFilterOptions(options = {}) {
   const merged = { ...TURTLE_FILTER_DEFAULTS, ...options };
   merged.higherEmaPeriod = Math.max(20, Number(merged.higherEmaPeriod) || TURTLE_FILTER_DEFAULTS.higherEmaPeriod);
   merged.breakoutBufferN = Math.max(0, Number(merged.breakoutBufferN) || 0);
+  merged.adxEnabled = Boolean(merged.adxEnabled);
+  merged.adxPeriod = Math.max(5, Number(merged.adxPeriod) || TURTLE_FILTER_DEFAULTS.adxPeriod);
+  merged.adxMin = Math.max(0, Number(merged.adxMin) || 0);
+  merged.volumeConfirmation = Boolean(merged.volumeConfirmation);
+  merged.volumePeriod = Math.max(5, Number(merged.volumePeriod) || TURTLE_FILTER_DEFAULTS.volumePeriod);
+  merged.volumeMinRatio = Math.max(0, Number(merged.volumeMinRatio) || 0);
+  merged.volatilityFilter = Boolean(merged.volatilityFilter);
+  merged.minAtrPct = Math.max(0, Number(merged.minAtrPct) || 0);
+  merged.maxAtrPct = Math.max(merged.minAtrPct, Number(merged.maxAtrPct) || TURTLE_FILTER_DEFAULTS.maxAtrPct);
   return merged;
 }
 
@@ -537,7 +555,60 @@ function detectTurtleBreakout(klines, index, system = 'system2', interval = '1d'
   if (higherEnabled && filters.requireHigherTimeframe && higherTrend === null) {
     return { direction: null, levels, n, filtered: true, filterReason: '高周期趋势不可用' };
   }
+  const confirmation = turtleConfirmationFilters(klines, index, direction, n, filters);
+  if (confirmation.reasons.length) {
+    return {
+      direction: null,
+      levels,
+      n,
+      filtered: true,
+      filterReason: confirmation.reasons.join('；'),
+      filterMetrics: confirmation.metrics
+    };
+  }
   return { direction, levels, n };
+}
+
+function turtleConfirmationFilters(klines, index, direction, n, filters) {
+  const reasons = [];
+  const metrics = {};
+  if (filters.adxEnabled) {
+    const adx = calcADX(klines.slice(0, index + 1), filters.adxPeriod);
+    const last = adx.adx.length - 1;
+    const adxValue = adx.adx[last];
+    const plusDi = adx.plusDi[last];
+    const minusDi = adx.minusDi[last];
+    metrics.adx = adxValue;
+    metrics.plusDi = plusDi;
+    metrics.minusDi = minusDi;
+    if (![adxValue, plusDi, minusDi].every(Number.isFinite)) {
+      reasons.push('ADX数据不足');
+    } else if (adxValue < filters.adxMin) {
+      reasons.push(`ADX${adxValue.toFixed(1)}低于${filters.adxMin}`);
+    } else if ((direction === 'long' && plusDi <= minusDi) || (direction === 'short' && minusDi <= plusDi)) {
+      reasons.push('ADX方向未与突破一致');
+    }
+  }
+  if (filters.volumeConfirmation) {
+    if (index < filters.volumePeriod) {
+      reasons.push('成交量历史不足');
+    } else {
+      const currentVolume = Number(klines[index].volume) || 0;
+      const previous = klines.slice(index - filters.volumePeriod, index).map((k) => Number(k.volume) || 0);
+      const average = previous.reduce((sum, value) => sum + value, 0) / previous.length;
+      const ratio = average > 0 ? currentVolume / average : 0;
+      metrics.volumeRatio = ratio;
+      if (ratio < filters.volumeMinRatio) reasons.push(`成交量仅为均量${ratio.toFixed(2)}倍`);
+    }
+  }
+  if (filters.volatilityFilter) {
+    const close = Number(klines[index].close) || 0;
+    const atrPct = close > 0 ? n / close : 0;
+    metrics.atrPct = atrPct;
+    if (atrPct < filters.minAtrPct) reasons.push(`波动率过低（ATR仅${(atrPct * 100).toFixed(2)}%）`);
+    else if (atrPct > filters.maxAtrPct) reasons.push(`波动率过高（ATR达${(atrPct * 100).toFixed(2)}%）`);
+  }
+  return { reasons, metrics };
 }
 
 function buildTurtlePlan(klines, index = klines.length - 1, system = 'system2', account = TURTLE_DEFAULT_ACCOUNT, interval = '1d', higherTrend = null, options = {}) {
@@ -3671,7 +3742,10 @@ function renderBacktest(result) {
       : result.mode === 'trend'
         ? '趋势过滤'
         : '基础信号';
-  $('backtestSample').textContent = `${result.symbol || state.symbol} · ${result.interval || state.interval} · ${modeLabel} · ${result.bars || '--'}根K线 · ${formatDateShort(result.firstTime)} 至 ${formatDateShort(result.lastTime)}`;
+  const filterLabel = result.mode === 'turtle' || result.mode === 'turtle1'
+    ? 'EMA200/ADX≥20/量≥20均量/ATR区间'
+    : '';
+  $('backtestSample').textContent = `${result.symbol || state.symbol} · ${result.interval || state.interval} · ${modeLabel}${filterLabel ? ` · ${filterLabel}` : ''} · ${result.bars || '--'}根K线 · ${formatDateShort(result.firstTime)} 至 ${formatDateShort(result.lastTime)}`;
   $('backtestTradeCount').textContent = `${result.closedTrades}次完成 · ${result.openTrades}笔持仓`;
   summary.innerHTML = [
     ['策略收益', formatPct(result.totalReturn), result.totalReturn >= 0 ? 'up' : 'down'],

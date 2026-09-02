@@ -29,7 +29,16 @@
       "higher_timeframe": true,
       "higher_ema_period": 200,
       "breakout_buffer_n": 0.1,
-      "require_higher_timeframe": true
+      "require_higher_timeframe": true,
+      "adx_enabled": false,
+      "adx_period": 14,
+      "adx_min": 20,
+      "volume_confirmation": true,
+      "volume_period": 20,
+      "volume_min_ratio": 1.0,
+      "volatility_filter": true,
+      "min_atr_pct": 0.002,
+      "max_atr_pct": 0.12
     },
     "limits": {
       "max_symbol_units": 4,

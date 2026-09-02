@@ -205,6 +205,24 @@
           </div>
         </section>
 
+        <section class="panel orderflow-panel">
+          <div class="panel-head">
+            <div>
+              <h3>订单流 · Delta / CVD</h3>
+              <p id="orderflowSubtitle">本地服务 · 等待聚合数据</p>
+            </div>
+            <span class="signal-chip" id="orderflowChip">未连接</span>
+          </div>
+          <div class="orderflow-body">
+            <div class="orderflow-chart-wrap">
+              <canvas id="orderflowChart"></canvas>
+            </div>
+            <div class="orderflow-stats" id="orderflowStats">
+              <div class="empty-smart">启动本地订单流服务后显示 1 分钟聚合数据</div>
+            </div>
+          </div>
+        </section>
+
         <aside class="right-rail">
           <section class="panel stat-panel">
             <div class="panel-head">

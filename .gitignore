@@ -5,3 +5,5 @@ signal_watch.out.log
 signal_watch.err.log
 __pycache__/
 *.pyc
+orderflow/config.json
+orderflow/node_modules/

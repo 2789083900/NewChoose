@@ -45,6 +45,7 @@ const INTERVAL_MS = { '15m': 15 * 60 * 1000, '1h': 60 * 60 * 1000, '4h': 4 * 60 
 const TURTLE_DEFAULT_ACCOUNT = 10000;
 const TURTLE_RISK_FRACTION = 0.01;
 const TURTLE_MAX_UNITS = 4;
+const ORDERFLOW_API_BASE = 'http://127.0.0.1:8787';
 const TURTLE_FILTER_DEFAULTS = {
   closedCandlesOnly: true,
   higherTimeframe: true,
@@ -159,6 +160,8 @@ const state = {
   smartLoading: false,
   micro: null,
   microLoading: false,
+  orderflow: null,
+  orderflowLoading: false,
   backtest: null,
   log: readJSON('coinpulse.log', []),
   lastDetailLabel: {},
@@ -1295,6 +1298,88 @@ function drawPriceChart() {
   ctx.setLineDash([]);
 }
 
+function getOrderflowRows() {
+  const rows = state.orderflow && Array.isArray(state.orderflow.rows) ? state.orderflow.rows : [];
+  return rows
+    .map((row) => ({
+      ...row,
+      time: Number(row.time),
+      delta: Number(row.delta),
+      cvd: Number(row.cvd),
+      buyVolume: Number(row.buyVolume),
+      sellVolume: Number(row.sellVolume),
+      largeBuyVolume: Number(row.largeBuyVolume),
+      largeSellVolume: Number(row.largeSellVolume)
+    }))
+    .filter((row) => Number.isFinite(row.time) && Number.isFinite(row.delta) && Number.isFinite(row.cvd))
+    .sort((a, b) => a.time - b.time);
+}
+
+function drawOrderflowChart() {
+  const canvas = $('orderflowChart');
+  if (!canvas) return;
+  const { ctx, width, height } = setupCanvas(canvas);
+  const rows = getOrderflowRows().slice(-120);
+  if (!rows.length) {
+    drawEmptyChart(ctx, width, height, '等待本地订单流服务');
+    return;
+  }
+
+  const padL = 8;
+  const padR = 58;
+  const padT = 14;
+  const padB = 28;
+  const plotW = Math.max(1, width - padL - padR);
+  const plotH = Math.max(1, height - padT - padB);
+  const deltaMax = Math.max(1, ...rows.map((row) => Math.abs(row.delta)));
+  const cvdMin = Math.min(...rows.map((row) => row.cvd));
+  const cvdMax = Math.max(...rows.map((row) => row.cvd));
+  const cvdRange = Math.max(1, cvdMax - cvdMin);
+  const xStep = plotW / rows.length;
+  const xFor = (index) => padL + (index + 0.5) * xStep;
+  const deltaY = (value) => padT + plotH * 0.52 - (value / deltaMax) * plotH * 0.42;
+  const cvdY = (value) => padT + ((cvdMax - value) / cvdRange) * plotH;
+  const zeroY = deltaY(0);
+
+  ctx.font = '11px "Cascadia Mono", Consolas, monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const y of [padT, zeroY, padT + plotH]) {
+    ctx.strokeStyle = y === zeroY ? 'rgba(232, 238, 242, 0.25)' : 'rgba(38, 50, 59, 0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#5d6c77';
+  ctx.fillText(`CVD ${formatAxis(cvdMax)}`, width - 4, padT + 8);
+  ctx.fillText('Delta 0', width - 4, zeroY);
+  ctx.fillText(formatAxis(cvdMin), width - 4, padT + plotH - 4);
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    const barHeight = Math.max(1, Math.abs(deltaY(row.delta) - zeroY));
+    ctx.fillStyle = row.delta >= 0 ? 'rgba(45, 212, 167, 0.62)' : 'rgba(251, 95, 116, 0.62)';
+    ctx.fillRect(xFor(i) - Math.max(1, xStep * 0.62) / 2, Math.min(zeroY, deltaY(row.delta)), Math.max(1, xStep * 0.62), barHeight);
+  }
+
+  strokeLine(ctx, rows.map((row) => row.cvd), (i) => xFor(i), cvdY, '#42c8e6', 1.8);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let i = 0; i <= 4; i += 1) {
+    const index = Math.min(rows.length - 1, Math.round((i * (rows.length - 1)) / 4));
+    const date = new Date(rows[index].time);
+    ctx.fillStyle = '#5d6c77';
+    ctx.fillText(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`, xFor(index), height - 18);
+  }
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#42c8e6';
+  ctx.fillText('CVD', padL, 8);
+  ctx.fillStyle = '#2dd4a7';
+  ctx.fillText('Delta', padL + 36, 8);
+}
+
 function drawMacdChart() {
   const canvas = $('macdChart');
   const { ctx, width, height } = setupCanvas(canvas);
@@ -2306,6 +2391,69 @@ function setNotifyButton() {
     } catch {
       // icons are decorative; ignore failures
     }
+  }
+}
+
+async function fetchOrderflow(symbol) {
+  const url = `${ORDERFLOW_API_BASE}/api/orderflow/1m?symbol=${encodeURIComponent(symbol)}&limit=120`;
+  const data = await fetchJSON(url, 3500);
+  if (!data || !Array.isArray(data.rows)) throw new Error('订单流服务响应格式错误');
+  const status = await fetchJSON(`${ORDERFLOW_API_BASE}/api/orderflow/status?symbol=${encodeURIComponent(symbol)}`, 3500);
+  return { ...data, ...status };
+}
+
+function renderOrderflow() {
+  const flow = state.orderflow;
+  const statsEl = $('orderflowStats');
+  if (!flow || flow.error) {
+    setChip('orderflowChip', '未连接', 'flat');
+    $('orderflowSubtitle').textContent = flow && flow.error
+      ? '本地服务不可用 · 原有行情不受影响'
+      : '本地服务 · 等待聚合数据';
+    statsEl.innerHTML = '<div class="empty-smart">启动 orderflow 服务后显示 1 分钟聚合数据</div>';
+    drawOrderflowChart();
+    return;
+  }
+
+  const rows = getOrderflowRows();
+  const latest = rows[rows.length - 1];
+  const connected = flow.connected === true;
+  const databaseReady = flow.databaseReady === true;
+  const statusClass = connected ? 'bull' : 'flat';
+  setChip('orderflowChip', connected ? '实时' : '缓存', statusClass);
+  $('orderflowSubtitle').textContent = `${state.symbol} · 1m聚合 · ${connected ? 'Binance Futures aggTrade' : '等待实时连接'} · ${databaseReady ? 'MySQL已连接' : 'MySQL未连接'}`;
+
+  if (!latest) {
+    statsEl.innerHTML = '<div class="empty-smart">已连接服务，等待第一分钟聚合数据</div>';
+    drawOrderflowChart();
+    return;
+  }
+  const deltaClass = latest.delta >= 0 ? 'up' : 'down';
+  statsEl.innerHTML = [
+    ['最新 Delta', `${latest.delta >= 0 ? '+' : ''}${formatQuantity(latest.delta)}`, deltaClass],
+    ['累计 CVD', formatQuantity(latest.cvd), latest.cvd >= 0 ? 'up' : 'down'],
+    ['主动买量', formatQuantity(latest.buyVolume), 'up'],
+    ['主动卖量', formatQuantity(latest.sellVolume), 'down'],
+    ['大单买量', formatQuantity(latest.largeBuyVolume), 'up'],
+    ['大单卖量', formatQuantity(latest.largeSellVolume), 'down'],
+    ['成交笔数', `${Number(latest.tradeCount || 0).toLocaleString()} 笔`, ''],
+    ['数据时间', new Date(latest.time).toLocaleTimeString('zh-CN', { hour12: false }), '']
+  ]
+    .map(([label, value, cls]) => `<div class="orderflow-stat"><span>${label}</span><strong class="${cls}">${value}</strong></div>`)
+    .join('');
+  drawOrderflowChart();
+}
+
+async function loadOrderflow() {
+  if (state.orderflowLoading) return;
+  state.orderflowLoading = true;
+  try {
+    state.orderflow = await fetchOrderflow(state.symbol);
+  } catch (err) {
+    state.orderflow = { error: err.message };
+  } finally {
+    state.orderflowLoading = false;
+    renderOrderflow();
   }
 }
 
@@ -3773,6 +3921,7 @@ function refreshAll() {
   scanWatchlist();
   loadSmartMoney();
   loadMicroSignal();
+  loadOrderflow();
 }
 
 function selectSymbol(symbol) {
@@ -3783,17 +3932,21 @@ function selectSymbol(symbol) {
   state.analysis = null;
   state.smartMoney = null;
   state.micro = null;
+  state.orderflow = null;
   renderMain();
   renderWatchlist();
   renderSmartMoney();
   renderMicroSignal();
+  renderOrderflow();
   loadMain();
   loadSmartMoney();
   loadMicroSignal();
+  loadOrderflow();
 }
 
 function drawCharts() {
   drawPriceChart();
+  drawOrderflowChart();
   drawMacdChart();
   drawKdjChart();
   drawRsiChart();
@@ -3999,6 +4152,7 @@ function init() {
   renderSignalLog();
   renderSmartMoney();
   renderMicroSignal();
+  renderOrderflow();
   renderBacktest(null);
   drawBacktestChart();
   loadBacktestOverview();

@@ -1,0 +1,15 @@
+{
+  "name": "coinpulse-orderflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Binance Futures order-flow collector for CoinPulse",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.14.1",
+    "ws": "^8.18.0"
+  }
+}

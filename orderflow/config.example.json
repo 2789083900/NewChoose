@@ -1,0 +1,15 @@
+{
+  "host": "127.0.0.1",
+  "port": 8787,
+  "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+  "database": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "coinpulse",
+    "password": "change-me",
+    "database": "coinpulse"
+  },
+  "largeTradeUsd": 100000,
+  "retentionDays": 60,
+  "persistClosedMinutesOnly": true
+}

@@ -997,6 +997,63 @@ button {
   height: 100%;
 }
 
+.orderflow-panel {
+  grid-column: 1 / -1;
+}
+
+.orderflow-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 1px;
+  min-height: 246px;
+  background: var(--line);
+  border-radius: 0 0 var(--radius) var(--radius);
+  overflow: hidden;
+}
+
+.orderflow-chart-wrap {
+  position: relative;
+  min-height: 246px;
+  padding: 10px 12px 6px;
+  background: var(--panel);
+}
+
+.orderflow-chart-wrap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.orderflow-stats {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  background: var(--line);
+}
+
+.orderflow-stat {
+  min-height: 48px;
+  padding: 9px 12px;
+  background: var(--panel);
+}
+
+.orderflow-stat span {
+  display: block;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.orderflow-stat strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.orderflow-stat strong.up { color: var(--green); }
+.orderflow-stat strong.down { color: var(--red); }
+
 .right-rail {
   grid-column: 2;
   grid-row: 1;
@@ -1743,6 +1800,10 @@ button {
   .micro-panel {
     grid-column: 1;
   }
+
+  .orderflow-panel {
+    grid-column: 1;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1841,6 +1902,14 @@ button {
 
   .chart-panel {
     min-height: 420px;
+  }
+
+  .orderflow-body {
+    grid-template-columns: 1fr;
+  }
+
+  .orderflow-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .asset-icon {

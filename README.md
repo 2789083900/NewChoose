@@ -16,6 +16,7 @@
 - 海龟 N（20周期 ATR）波动率仓位：账户1%/N，最多4单位
 - 海龟规则：突破入场、每0.5N加仓、2N止损、10/20周期反向突破退出
 - 海龟过滤：只用已收盘K线、相邻高周期EMA200方向过滤、收盘价超过通道0.1N才确认突破
+- 本地订单流 Phase 1：Binance Futures `aggTrade` 持续采集、1分钟 Delta/CVD 聚合、MySQL 60天保留
 
 ## 运行
 
@@ -26,6 +27,29 @@ python -m http.server 5173
 然后打开 <http://127.0.0.1:5173>。
 
 也可以直接双击 `index.html` 在浏览器中打开。
+
+## 本地订单流服务（Phase 1）
+
+订单流采集是本地增强功能，不影响 GitHub Pages 的静态行情页面。它使用 Node.js 连接 Binance Futures `aggTrade`，只把 1 分钟聚合数据写入 MySQL；不会保存逐笔成交明细。
+
+1. 先用 MySQL 管理员账号执行 `orderflow/schema.sql`，创建数据库和表。
+2. 复制 `orderflow/config.example.json` 为 `orderflow/config.json`，填写 MySQL 用户、密码和数据库配置。
+3. 安装依赖并启动服务：
+
+```powershell
+cd orderflow
+npm install
+npm start
+```
+
+服务默认监听 `http://127.0.0.1:8787`。然后按原方式启动网页：
+
+```powershell
+cd ..
+python -m http.server 5173
+```
+
+打开 `http://127.0.0.1:5173` 后，订单流面板会显示实时连接、1分钟 Delta、CVD、主动买卖量和大单统计。MySQL 数据目录和日志位置仍由本机 MySQL 配置决定，需确保它们位于 D 盘；当前机器的 MySQL 数据目录为 `D:/MySQL/MySQL Server 8.0/Data`。
 
 ## 安装成手机 App
 

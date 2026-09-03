@@ -1,6 +1,8 @@
 import unittest
 
 import signal_watch as sw
+import track_signals
+import backtest_turtle
 
 
 def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
@@ -206,6 +208,34 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIsNone(direction)
         self.assertTrue(plan["filtered"])
         self.assertTrue(any("ADX" in reason or "成交量" in reason for reason in reasons))
+
+    def test_shadow_tracking_calculates_long_mfe_mae_and_return(self):
+        hour = 60 * 60 * 1000
+        record = {
+            "signal_bar_time": hour,
+            "interval": "1h",
+            "direction": "long",
+            "entry_price": 100,
+        }
+        klines = [
+            {"time": 2 * hour, "open": 100, "high": 110, "low": 95, "close": 105, "volume": 1},
+            {"time": 3 * hour, "open": 105, "high": 108, "low": 98, "close": 102, "volume": 1},
+        ]
+        result = track_signals.evaluate_horizon(
+            record, klines, "24h", now_ms=26 * hour
+        )
+        self.assertEqual(result["outcome"], "WIN")
+        self.assertEqual(result["entry_price"], 100.0)
+        self.assertEqual(result["entry_model"], "next_bar_open")
+        self.assertEqual(result["mfe_pct"], 10.0)
+        self.assertEqual(result["mae_pct"], -5.0)
+        self.assertEqual(result["final_return_pct"], 2.0)
+
+    def test_backtest_slippage_is_adverse_for_both_directions(self):
+        self.assertEqual(backtest_turtle.execution_price(100, "long", "entry", 0.01), 101)
+        self.assertEqual(backtest_turtle.execution_price(100, "long", "exit", 0.01), 99)
+        self.assertEqual(backtest_turtle.execution_price(100, "short", "entry", 0.01), 99)
+        self.assertEqual(backtest_turtle.execution_price(100, "short", "exit", 0.01), 101)
 
 
 if __name__ == "__main__":

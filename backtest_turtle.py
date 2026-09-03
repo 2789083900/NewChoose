@@ -9,6 +9,7 @@ the report does not drift away from the live watcher.
 import json
 import os
 import sys
+import argparse
 from bisect import bisect_right
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -17,10 +18,21 @@ import signal_watch as sw
 
 CAPITAL = 10000.0
 FEE_RATE = 0.001
+SLIPPAGE_RATE = 0.0005
 INTERVAL = "4h"
 TOTAL_BARS = 2500
 SYSTEM = "system2"
 SYMBOLS = sw.DEFAULT_SYMBOLS
+
+
+def execution_price(trigger_price, direction, action, slippage_rate):
+    """Apply adverse market slippage to an entry or exit fill."""
+    price = float(trigger_price)
+    slippage = max(0.0, float(slippage_rate))
+    is_buy = (direction == "long" and action == "entry") or (
+        direction == "short" and action == "exit"
+    )
+    return price * (1 + slippage) if is_buy else price * (1 - slippage)
 
 
 def higher_trend_lookup(daily, period=200):
@@ -43,49 +55,83 @@ def higher_trend_lookup(daily, period=200):
     return at
 
 
-def simulate(klines, daily, filters):
+def simulate(
+    klines, daily, filters, capital=CAPITAL,
+    fee_rate=FEE_RATE, slippage_rate=SLIPPAGE_RATE,
+    start_index=None, end_index=None
+):
     params = sw.turtle_params(SYSTEM, INTERVAL)
     n_series = sw.calc_n_series(klines, params["n_period"])
     higher_at = higher_trend_lookup(daily)
     start = max(params["entry_bars"], params["n_period"])
-    equity = CAPITAL
-    peak = CAPITAL
+    equity = float(capital)
+    peak = float(capital)
     max_drawdown = 0.0
     position = None
+    pending_entry = None
+    last_marked = equity
     trades = []
     candidates = 0
     filtered = 0
 
     def close_position(index, price, reason):
         nonlocal equity, position
+        fill_price = execution_price(price, position["direction"], "exit", slippage_rate)
         gross = (
-            (price - position["avg_entry"]) * position["quantity"]
+            (fill_price - position["avg_entry"]) * position["quantity"]
             if position["direction"] == "long"
-            else (position["avg_entry"] - price) * position["quantity"]
+            else (position["avg_entry"] - fill_price) * position["quantity"]
         )
-        equity += gross - price * position["quantity"] * FEE_RATE
+        equity += gross - fill_price * position["quantity"] * fee_rate
         net = (equity - position["equity_at_entry"]) / position["equity_at_entry"]
         trades.append({
             "direction": position["direction"],
             "entry_time": position["entry_time"],
             "exit_time": klines[index]["time"],
             "entry": position["avg_entry"],
-            "exit": price,
+            "exit_trigger": price,
+            "exit": fill_price,
             "return": net,
             "reason": reason,
             "units": len(position["units"]),
         })
         position = None
 
-    for index in range(start, len(klines)):
+    first_index = start if start_index is None else max(start, int(start_index))
+    last_index = len(klines) if end_index is None else min(len(klines), int(end_index))
+    for index in range(first_index, last_index):
         bar = klines[index]
         n = n_series[index]
         levels = sw.turtle_levels(klines, index, SYSTEM, INTERVAL)
         if not levels or n is None or n <= 0:
             continue
 
+        # 信号在上一根已收盘K线确认，下一根K线开盘执行，避免使用确认K线收盘价成交。
+        entered_this_bar = False
+        if pending_entry is not None and pending_entry["index"] == index and position is None:
+            signal = pending_entry
+            direction = signal["direction"]
+            entry_trigger = signal["entry_trigger"]
+            entry = execution_price(bar["open"], direction, "entry", slippage_rate)
+            quantity = equity * 0.01 / signal["n"]
+            entry_fee = entry * quantity * fee_rate
+            equity -= entry_fee
+            position = {
+                "direction": direction,
+                "entry_time": bar["time"],
+                "signal_time": signal["signal_time"],
+                "equity_at_entry": equity + entry_fee,
+                "quantity": quantity,
+                "avg_entry": entry,
+                "last_price": entry_trigger,
+                "last_n": signal["n"],
+                "units": [{"price": entry, "trigger": entry_trigger, "n": signal["n"]}],
+            }
+            pending_entry = None
+            entered_this_bar = True
+
         exited = False
-        if position:
+        if position and not entered_this_bar:
             stop = (
                 position["last_price"] - 2 * position["last_n"]
                 if position["direction"] == "long"
@@ -101,7 +147,7 @@ def simulate(klines, daily, filters):
                 close_position(index, exit_level, "通道退出")
                 exited = True
 
-        if not position and not exited:
+        if not position and not exited and pending_entry is None and index + 1 < last_index:
             higher = higher_at(bar["time"])
             breakout = sw.build_turtle_signal(
                 klines[:index + 1], SYSTEM, equity, 0.01, INTERVAL,
@@ -113,22 +159,15 @@ def simulate(klines, daily, filters):
             if breakout[0]:
                 candidates += 1
                 direction = breakout[0]
-                entry = plan["entry"]
-                quantity = equity * 0.01 / n
-                entry_fee = entry * quantity * FEE_RATE
-                equity -= entry_fee
-                position = {
+                pending_entry = {
+                    "index": index + 1,
                     "direction": direction,
-                    "entry_time": bar["time"],
-                    "equity_at_entry": equity + entry_fee,
-                    "quantity": quantity,
-                    "avg_entry": entry,
-                    "last_price": entry,
-                    "last_n": n,
-                    "units": [{"price": entry, "n": n}],
+                    "entry_trigger": plan["entry"],
+                    "signal_time": bar["time"],
+                    "n": n,
                 }
 
-        if position:
+        if position and not entered_this_bar:
             while len(position["units"]) < sw.TURTLE_MAX_UNITS:
                 next_price = (
                     position["last_price"] + 0.5 * position["last_n"]
@@ -139,28 +178,40 @@ def simulate(klines, daily, filters):
                 if not reached:
                     break
                 quantity = equity * 0.01 / n
-                equity -= next_price * quantity * FEE_RATE
-                total_cost = position["avg_entry"] * position["quantity"] + next_price * quantity
+                fill_price = execution_price(next_price, position["direction"], "entry", slippage_rate)
+                equity -= fill_price * quantity * fee_rate
+                total_cost = position["avg_entry"] * position["quantity"] + fill_price * quantity
                 position["quantity"] += quantity
                 position["avg_entry"] = total_cost / position["quantity"]
                 position["last_price"] = next_price
                 position["last_n"] = n
-                position["units"].append({"price": next_price, "n": n})
+                position["units"].append({"price": fill_price, "trigger": next_price, "n": n})
 
         marked = equity if not position else equity + (
             (bar["close"] - position["avg_entry"]) * position["quantity"]
             if position["direction"] == "long"
             else (position["avg_entry"] - bar["close"]) * position["quantity"]
         )
+        last_marked = marked
         peak = max(peak, marked)
         max_drawdown = min(max_drawdown, (marked - peak) / peak)
 
     closed = len(trades)
     wins = [trade for trade in trades if trade["return"] > 0]
     losses = [trade for trade in trades if trade["return"] <= 0]
+    max_consecutive_losses = 0
+    consecutive_losses = 0
+    for trade in trades:
+        if trade["return"] <= 0:
+            consecutive_losses += 1
+            max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
+        else:
+            consecutive_losses = 0
     gross_profit = sum(trade["return"] for trade in wins)
     gross_loss = abs(sum(trade["return"] for trade in losses))
-    days = max(1.0, (klines[-1]["time"] - klines[start]["time"]) / 86400000)
+    period_start = max(0, first_index)
+    period_end = max(period_start, min(len(klines) - 1, last_index - 1))
+    days = max(1.0, (klines[period_end]["time"] - klines[period_start]["time"]) / 86400000)
     return {
         "bars": len(klines),
         "trades": closed,
@@ -169,18 +220,22 @@ def simulate(klines, daily, filters):
         "win_rate": round(len(wins) / closed * 100, 2) if closed else 0,
         "payoff": round((gross_profit / len(wins)) / (gross_loss / len(losses)), 2) if wins and losses else 0,
         "profit_factor": round(gross_profit / gross_loss, 2) if gross_loss else (99 if gross_profit else 0),
-        "return": round((equity / CAPITAL - 1) * 100, 2),
-        "annualized": round((equity / CAPITAL) ** (365 / days) * 100 - 100, 2),
+        "ending_equity": round(last_marked, 2),
+        "return": round((last_marked / capital - 1) * 100, 2),
+        "annualized": round((last_marked / capital) ** (365 / days) * 100 - 100, 2),
         "max_drawdown": round(max_drawdown * 100, 2),
         "avg_win": round(gross_profit / len(wins) * 100, 2) if wins else 0,
         "avg_loss": round(-gross_loss / len(losses) * 100, 2) if losses else 0,
         "candidates": candidates,
         "filtered": filtered,
+        "max_consecutive_losses": max_consecutive_losses,
+        "open_position": bool(position),
+        "open_units": len(position["units"]) if position else 0,
     }
 
 
-def fetch_symbol(symbol):
-    klines = sw.fetch_binance_history(symbol, INTERVAL, TOTAL_BARS)
+def fetch_symbol(symbol, total_bars):
+    klines = sw.fetch_binance_history(symbol, INTERVAL, total_bars)
     klines = sw.filter_closed_klines(klines, INTERVAL)
     daily = sw.fetch_binance_history(symbol, "1d", 420)
     daily = sw.filter_closed_klines(daily, "1d")
@@ -189,8 +244,8 @@ def fetch_symbol(symbol):
     return klines, daily
 
 
-def run_symbol(symbol):
-    klines, daily = fetch_symbol(symbol)
+def run_symbol(symbol, args):
+    klines, daily = fetch_symbol(symbol, args.bars)
     base = dict(sw.TURTLE_FILTER_DEFAULTS)
     base.update({"adx_enabled": False, "volume_confirmation": False, "volatility_filter": False})
     variants = {
@@ -204,16 +259,88 @@ def run_symbol(symbol):
         "production_default": {**base, "volume_confirmation": True, "volatility_filter": True},
         "enhanced": {**base, "adx_enabled": True, "volume_confirmation": True, "volatility_filter": True},
     }
+    full_results = {
+        name: simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate, slippage_rate=args.slippage
+        ) for name, filters in variants.items()
+    }
+    split = max(0.0, min(0.9, args.test_ratio))
+    split_index = max(1, int(len(klines) * (1 - split)))
+    in_sample = {
+        name: simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate, slippage_rate=args.slippage,
+            end_index=split_index
+        ) for name, filters in variants.items()
+    }
+    out_of_sample = {
+        name: simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate, slippage_rate=args.slippage,
+            start_index=split_index
+        ) for name, filters in variants.items()
+    }
     return symbol, {
-        name: simulate(klines, daily, filters) for name, filters in variants.items()
+        "full": full_results,
+        "in_sample": in_sample,
+        "out_of_sample": out_of_sample,
+        "split_index": split_index,
     }
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="CoinPulse 海龟策略回测")
+    parser.add_argument("--capital", type=float, default=CAPITAL)
+    parser.add_argument("--fee-rate", type=float, default=FEE_RATE)
+    parser.add_argument("--slippage", type=float, default=SLIPPAGE_RATE)
+    parser.add_argument("--bars", type=int, default=TOTAL_BARS)
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--symbols", default=",".join(SYMBOLS))
+    parser.add_argument("--output", default="turtle_backtest_compare.json")
+    parser.add_argument(
+        "--test-ratio", type=float, default=0.3,
+        help="最后多少比例的数据作为样本外测试，默认30%"
+    )
+    return parser.parse_args()
+
+
+def aggregate(results_by_symbol):
+    """Summarize symbol means; this is not a portfolio simulation."""
+    summary = {}
+    for period in ("full", "in_sample", "out_of_sample"):
+        variants = {}
+        for symbol_result in results_by_symbol.values():
+            for variant, metrics in symbol_result.get(period, {}).items():
+                variants.setdefault(variant, []).append(metrics)
+        summary[period] = {}
+        for variant, metrics_list in variants.items():
+            trade_count = sum(item.get("trades", 0) for item in metrics_list)
+            wins = sum(item.get("wins", 0) for item in metrics_list)
+            returns = [float(item.get("return", 0)) for item in metrics_list]
+            drawdowns = [float(item.get("max_drawdown", 0)) for item in metrics_list]
+            summary[period][variant] = {
+                "symbols": len(metrics_list),
+                "trades": trade_count,
+                "wins": wins,
+                "losses": sum(item.get("losses", 0) for item in metrics_list),
+                "trade_win_rate": round(wins / trade_count * 100, 2) if trade_count else 0,
+                "mean_symbol_return": round(sum(returns) / len(returns), 2) if returns else 0,
+                "worst_symbol_drawdown": round(min(drawdowns), 2) if drawdowns else 0,
+                "mean_max_consecutive_losses": round(
+                    sum(item.get("max_consecutive_losses", 0) for item in metrics_list) / len(metrics_list), 2
+                ) if metrics_list else 0
+            }
+    return summary
+
+
 def main():
+    args = parse_args()
+    symbols = [item.strip().upper() for item in args.symbols.split(",") if item.strip()]
     results = {}
     errors = {}
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        futures = {pool.submit(run_symbol, symbol): symbol for symbol in SYMBOLS}
+    with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+        futures = {pool.submit(run_symbol, symbol, args): symbol for symbol in symbols}
         for future in as_completed(futures):
             symbol = futures[future]
             try:
@@ -228,8 +355,12 @@ def main():
         "generated_at": __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "interval": INTERVAL,
         "system": SYSTEM,
-        "bars_requested": TOTAL_BARS,
-        "fee_rate": FEE_RATE,
+        "bars_requested": args.bars,
+        "capital": args.capital,
+        "fee_rate": args.fee_rate,
+        "slippage_rate": args.slippage,
+        "test_ratio": max(0.0, min(0.9, args.test_ratio)),
+        "execution_model": "信号收盘确认，下一根K线开盘成交；按成交价施加不利滑点；手续费按成交额单边计算",
         "base": "原有规则：收盘突破 + 高周期EMA200 + 0.1N缓冲",
         "variants": {
             "base": "原有规则：收盘突破 + 高周期EMA200 + 0.1N缓冲",
@@ -241,9 +372,10 @@ def main():
             "enhanced": "原有规则 + ADX + 成交量 + ATR波动率",
         },
         "results": dict(sorted(results.items())),
+        "summary": aggregate(results),
         "errors": errors,
     }
-    output = os.path.join(sw.BASE_DIR, "turtle_backtest_compare.json")
+    output = os.path.join(sw.BASE_DIR, args.output)
     with open(output, "w", encoding="utf-8") as file:
         json.dump(report, file, ensure_ascii=False, indent=2)
     print(json.dumps(report, ensure_ascii=False, indent=2))

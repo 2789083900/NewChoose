@@ -1,0 +1,61 @@
+name: CoinPulse Turtle Backtest
+
+on:
+  schedule:
+    - cron: "17 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      bars:
+        description: "4h历史K线数量"
+        required: false
+        default: "2500"
+        type: string
+      test_ratio:
+        description: "样本外数据比例"
+        required: false
+        default: "0.3"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run turtle backtest
+        env:
+          BARS: ${{ github.event.inputs.bars || '2500' }}
+          TEST_RATIO: ${{ github.event.inputs.test_ratio || '0.3' }}
+        run: >-
+          python backtest_turtle.py
+          --bars "$BARS"
+          --test-ratio "$TEST_RATIO"
+          --fee-rate 0.001
+          --slippage 0.0005
+          --output turtle_backtest_compare.json
+
+      - name: Run tests
+        run: python -m unittest discover -v
+
+      - name: Publish report
+        shell: bash
+        run: |
+          git config user.name "coinpulse-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f turtle_backtest_compare.json
+          if git diff --cached --quiet; then
+            echo "backtest report unchanged"
+          else
+            git commit -m "chore: update turtle backtest report"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi

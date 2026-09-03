@@ -17,6 +17,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
 STATE_PATH = os.path.join(BASE_DIR, "signal_watch.state.json")
 LOG_PATH = os.path.join(BASE_DIR, "signal_watch.log")
+SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
 
 DEFAULT_SYMBOLS = [
     "BTCUSDT",
@@ -985,6 +986,64 @@ def save_state(state):
         json.dump(state, file, ensure_ascii=False, indent=2)
 
 
+def load_signal_records():
+    if not os.path.exists(SIGNAL_RECORDS_PATH):
+        return []
+    try:
+        with open(SIGNAL_RECORDS_PATH, "r", encoding="utf-8") as file:
+            data = json.load(file)
+        return data if isinstance(data, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def save_signal_records(records):
+    with open(SIGNAL_RECORDS_PATH, "w", encoding="utf-8") as file:
+        json.dump(records[-500:], file, ensure_ascii=False, indent=2)
+
+
+def record_signal_event(event):
+    """保存结构化信号，供 GitHub Actions 后续计算 24/48 小时表现。"""
+    if not event or event.get("direction") not in ("long", "short"):
+        return False
+    plan = event.get("trade_plan") or {}
+    try:
+        entry_trigger = float(plan.get("entry") or event.get("price"))
+    except (TypeError, ValueError):
+        return False
+    bar_time = int(event.get("bar_time") or 0)
+    signal_id = "|".join([
+        str(event.get("symbol") or ""),
+        str(event.get("interval") or ""),
+        str(bar_time),
+        str(event.get("direction") or ""),
+        str(plan.get("system") or event.get("label") or "")
+    ])
+    records = load_signal_records()
+    if any(item.get("id") == signal_id for item in records):
+        return False
+    records.append({
+        "id": signal_id,
+        "symbol": event.get("symbol"),
+        "interval": event.get("interval"),
+        "direction": event.get("direction"),
+        "entry_price": entry_trigger,
+        "entry_trigger": entry_trigger,
+        "entry_model": "next_bar_open",
+        "signal_bar_time": bar_time,
+        "signal_time": event.get("time"),
+        "strategy_type": "turtle" if event.get("turtle") else "legacy",
+        "system": plan.get("system"),
+        "n": plan.get("n"),
+        "provider": event.get("provider"),
+        "strategy_version": "turtle-baseline-v1",
+        "status": "pending",
+        "horizons": {"24h": None, "48h": None}
+    })
+    save_signal_records(records)
+    return True
+
+
 def post_json(url, payload, timeout=10):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -1536,6 +1595,7 @@ def process_events(events, config):
             content = build_message(event, config)
         send_notification(title, content, config)
         logging.info("发现信号: %s", content.replace("\n", " / "))
+        record_signal_event(event)
         register_trade(event, config)
 
 
@@ -1884,6 +1944,8 @@ def main():
         events = scan_once(config, state)
         save_state(state)
         process_events(events, config)
+        state = load_state()
+        settle_trades(state, config)
         return
 
     if "--test" in sys.argv:

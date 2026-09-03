@@ -18,6 +18,8 @@
 - 海龟过滤：只用已收盘K线、相邻高周期EMA200方向过滤、收盘价超过通道0.1N才确认突破
 - 海龟可靠性过滤：ADX趋势强度、成交量相对均量、ATR波动率区间均可独立开关
 - 本地订单流 Phase 1：Binance Futures `aggTrade` 持续采集、1分钟 Delta/CVD 聚合、MySQL 60天保留
+- 影子信号记录：GitHub Actions 定时追踪信号发出后 24h/48h 的 MFE、MAE 和收益表现
+- 每周海龟回测：自动比较全样本、样本内和样本外结果，默认计入 0.1% 手续费与 0.05% 滑点
 
 ## 运行
 
@@ -155,11 +157,11 @@ python signal_watch.py --test
 
 ## 云端部署（手机 App + 微信推送，不依赖电脑）
 
-如果你想在公司关电脑之后仍然正常收到信号，可以把 CoinPulse 发布到 GitHub，让云端每 5 分钟检查一次信号，网站也会自动生成一个手机能打开的公网地址。
+如果你想在公司关电脑之后仍然正常收到信号，可以把 CoinPulse 发布到 GitHub，让云端每 5 分钟检查一次信号，网站也会自动生成一个手机能打开的公网地址。当前云端流程不依赖订单流服务；订单流仍然是可选的本地增强功能。
 
 1. 打开 <https://github.com>，注册或登录 GitHub 账号。
 2. 点击右上角 `+`，选择 `New repository`，仓库名填 `coinpulse`，可见性选 `Public`（免费），然后创建。
-3. 把项目里的这些文件上传到仓库：`index.html`、`app.js`、`styles.css`、`sw.js`、`manifest.webmanifest`、`icons/`、`vendor/`、`signal_watch.py`、`signal_watch.config.template.json`、`.github/`、`.gitignore`。不要上传 `signal_watch.config.json`，里面含有你的推送密钥。
+3. 把项目里的这些文件上传到仓库：`index.html`、`app.js`、`styles.css`、`sw.js`、`manifest.webmanifest`、`icons/`、`vendor/`、`signal_watch.py`、`track_signals.py`、`signal_watch.config.template.json`、`.github/`、`.gitignore`。不要上传 `signal_watch.config.json`，里面含有你的推送密钥。
 4. 打开仓库的 `Settings` -> `Secrets and variables` -> `Actions` -> `New repository secret`，添加：
    - 名称填 `SERVERCHAN_SENDKEY`，值填你的 Server酱 SendKey（形如 `SCTxxxxx`，在 <https://sct.ftqq.com> 控制台复制）。
    - 如果你想同时用 PushPlus，可以再添加 `PUSHPLUS_TOKEN`，值在 <https://www.pushplus.plus> 用微信扫码登录后复制。
@@ -170,5 +172,9 @@ python signal_watch.py --test
 7. 在 `Actions` 页面点 `CoinPulse Cloud Monitor`，再点 `Run workflow`，勾选“Send a test WeChat push”，然后点绿色按钮运行。微信收到“CoinPulse 测试通知”就说明推送配置成功。
 8. 网站地址是 `https://你的用户名.github.io/coinpulse/`，手机浏览器打开后点“添加到主屏幕”，就能像 App 一样使用。
 9. 云端监控第一次运行只会记录当前信号状态，之后信号变化时会通过微信推送通知你。
+
+云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
+
+每周回测工作流会运行 `backtest_turtle.py`，默认把最近 30% 数据作为样本外区间，并将报告写入 `turtle_backtest_compare.json`。报告同时给出每个币种的结果和各变体汇总，包括交易胜率、平均币种收益、最差币种回撤与最大连续亏损。可以在 GitHub Actions 手动运行时调整历史K线数量和样本外比例。样本外结果只用于验证，不会自动选择最优参数。
 
 注意：密钥只会保存在 GitHub 的“Secrets”里，不会出现在代码或网页中。公网网站在中国大陆的访问稳定性受网络环境影响，如果打不开，可以再改用国内托管。

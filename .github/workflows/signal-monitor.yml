@@ -102,6 +102,10 @@ jobs:
         run: python signal_watch.py --once
         if: github.event.inputs.test_push != 'true'
 
+      - name: Track shadow signals
+        run: python track_signals.py
+        if: github.event.inputs.test_push != 'true'
+
       - name: Send test push
         run: python signal_watch.py --test
         if: github.event.inputs.test_push == 'true'
@@ -115,7 +119,11 @@ jobs:
           fi
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f signal_watch.state.json
+          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json trade_stats.json; do
+            if [ -f "$file" ]; then
+              git add -f "$file"
+            fi
+          done
           if git diff --cached --quiet; then
             echo "state unchanged"
           else

@@ -32,7 +32,41 @@
       "next_add": 729.6966173233584,
       "exit_period": 20,
       "bar_time": 1788436800000,
-      "last_managed_bar": 1788436800000
+      "last_managed_bar": 1788451200000
+    },
+    {
+      "id": "BTCUSDT|4h|2026-09-03 21:46:37",
+      "symbol": "BTCUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 81478.87,
+      "stop": 79861.2848438649,
+      "target": null,
+      "opened_at": "2026-09-03 21:46:37",
+      "entry_ts": 1788472001071,
+      "status": "open",
+      "result": null,
+      "pnl_pct": null,
+      "closed_at": null,
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 808.7925780675534,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 1,
+      "unit_quantity": 0.12364109502454858,
+      "unit_entries": [
+        {
+          "price": 81478.87,
+          "n": 808.7925780675534
+        }
+      ],
+      "latest_entry": 81478.87,
+      "next_add": 81883.26628903377,
+      "exit_period": 20,
+      "bar_time": 1788451200000,
+      "last_managed_bar": 1788451200000
     }
   ],
   "closed_trades": [],
@@ -49,14 +83,14 @@
   "PEPEUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "TONUSDT|4h|turtle|system2": "none",
-  "BTCUSDT|4h|turtle|system2": "none",
+  "BTCUSDT|4h|turtle|system2": "long",
   "ETHUSDT|4h|turtle|system2": "none",
   "XRPUSDT|4h|turtle|system2": "none",
   "DOGEUSDT|4h|turtle|system2": "none",
   "AVAXUSDT|4h|turtle|system2": "none",
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
-  "BNBUSDT|4h|turtle|system2": "long",
+  "BNBUSDT|4h|turtle|system2": "none",
   "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none"

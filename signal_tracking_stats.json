@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-03 19:21:49",
-  "total_signals": 1,
-  "pending_signals": 1,
+  "generated_at": "2026-09-03 21:46:43",
+  "total_signals": 2,
+  "pending_signals": 2,
   "horizons": {
     "24h": {
       "observed": 0,
@@ -26,6 +26,11 @@
   },
   "by_symbol": {
     "BNBUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "BTCUSDT": {
       "signals": 1,
       "24h": {},
       "48h": {}

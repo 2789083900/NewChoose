@@ -32,7 +32,7 @@
       "next_add": 729.6966173233584,
       "exit_period": 20,
       "bar_time": 1788436800000,
-      "last_managed_bar": 1788451200000
+      "last_managed_bar": 1788465600000
     },
     {
       "id": "BTCUSDT|4h|2026-09-03 21:46:37",
@@ -40,7 +40,7 @@
       "interval": "4h",
       "direction": "long",
       "entry": 81478.87,
-      "stop": 79861.2848438649,
+      "stop": 80664.90981525522,
       "target": null,
       "opened_at": "2026-09-03 21:46:37",
       "entry_ts": 1788472001071,
@@ -54,19 +54,27 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 3,
       "unit_quantity": 0.12364109502454858,
       "unit_entries": [
         {
           "price": 81478.87,
           "n": 808.7925780675534
+        },
+        {
+          "price": 81885.85009237238,
+          "n": 813.9601847447667
+        },
+        {
+          "price": 82292.83018474476,
+          "n": 813.9601847447667
         }
       ],
-      "latest_entry": 81478.87,
-      "next_add": 81883.26628903377,
+      "latest_entry": 82292.83018474476,
+      "next_add": 82699.81027711714,
       "exit_period": 20,
       "bar_time": 1788451200000,
-      "last_managed_bar": 1788451200000
+      "last_managed_bar": 1788465600000
     }
   ],
   "closed_trades": [],
@@ -83,7 +91,7 @@
   "PEPEUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "TONUSDT|4h|turtle|system2": "none",
-  "BTCUSDT|4h|turtle|system2": "long",
+  "BTCUSDT|4h|turtle|system2": "none",
   "ETHUSDT|4h|turtle|system2": "none",
   "XRPUSDT|4h|turtle|system2": "none",
   "DOGEUSDT|4h|turtle|system2": "none",

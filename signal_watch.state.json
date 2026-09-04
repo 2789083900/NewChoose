@@ -6,7 +6,7 @@
       "interval": "4h",
       "direction": "long",
       "entry": 726.08,
-      "stop": 711.6135307065666,
+      "stop": 715.1587665752681,
       "target": null,
       "opened_at": "2026-09-03 16:26:12",
       "entry_ts": 1788452774980,
@@ -20,19 +20,23 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 2,
       "unit_quantity": 13.825073412403675,
       "unit_entries": [
         {
           "price": 726.08,
           "n": 7.2332346467166895
+        },
+        {
+          "price": 729.7204111415774,
+          "n": 7.280822283154662
         }
       ],
-      "latest_entry": 726.08,
-      "next_add": 729.6966173233584,
+      "latest_entry": 729.7204111415774,
+      "next_add": 733.3608222831548,
       "exit_period": 20,
       "bar_time": 1788436800000,
-      "last_managed_bar": 1788465600000
+      "last_managed_bar": 1788480000000
     },
     {
       "id": "BTCUSDT|4h|2026-09-03 21:46:37",
@@ -74,7 +78,7 @@
       "next_add": 82699.81027711714,
       "exit_period": 20,
       "bar_time": 1788451200000,
-      "last_managed_bar": 1788465600000
+      "last_managed_bar": 1788480000000
     }
   ],
   "closed_trades": [],

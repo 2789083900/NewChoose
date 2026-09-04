@@ -16,7 +16,18 @@
     "strategy_version": "turtle-baseline-v1",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 727.9,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.289,
+        "mae_pct": -2.706,
+        "final_return_pct": -1.552,
+        "final_price": 716.6,
+        "outcome": "LOSS",
+        "observed_until": 1788537600000,
+        "observed_at": "2026-09-04 18:11:33",
+        "provider": "okx"
+      },
       "48h": null
     }
   },

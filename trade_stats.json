@@ -1,14 +1,116 @@
 {
-  "generated_at": "2026-08-17 23:37:11",
-  "total": 0,
+  "generated_at": "2026-09-04 11:09:39",
+  "total": 2,
   "wins": 0,
-  "losses": 0,
+  "losses": 2,
   "open_count": 0,
-  "win_rate": 0,
-  "total_pnl_pct": 0,
+  "win_rate": 0.0,
+  "total_pnl_pct": -3.24,
   "avg_win": 0,
-  "avg_loss": 0,
-  "payoff": 0,
-  "by_symbol": [],
-  "trades": []
+  "avg_loss": -1.62,
+  "payoff": 0.0,
+  "by_symbol": [
+    {
+      "symbol": "BTCUSDT",
+      "total": 1,
+      "wins": 0,
+      "losses": 1,
+      "pnl": -1.49
+    },
+    {
+      "symbol": "BNBUSDT",
+      "total": 1,
+      "wins": 0,
+      "losses": 1,
+      "pnl": -1.75
+    }
+  ],
+  "trades": [
+    {
+      "id": "BNBUSDT|4h|2026-09-03 16:26:12",
+      "symbol": "BNBUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 727.9002055707888,
+      "stop": 715.1587665752681,
+      "target": null,
+      "opened_at": "2026-09-03 16:26:12",
+      "entry_ts": 1788452774980,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -1.75,
+      "closed_at": "2026-09-04 04:00:00",
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 7.2332346467166895,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 2,
+      "unit_quantity": 13.825073412403675,
+      "unit_entries": [
+        {
+          "price": 726.08,
+          "n": 7.2332346467166895
+        },
+        {
+          "price": 729.7204111415774,
+          "n": 7.280822283154662
+        }
+      ],
+      "latest_entry": 729.7204111415774,
+      "next_add": 733.3608222831548,
+      "exit_period": 20,
+      "bar_time": 1788436800000,
+      "last_managed_bar": 1788494400000,
+      "exit": 715.1587665752681,
+      "exit_ts": 1788494400000,
+      "quantity": 27.65014682480735
+    },
+    {
+      "id": "BTCUSDT|4h|2026-09-03 21:46:37",
+      "symbol": "BTCUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 81885.85009237238,
+      "stop": 80664.90981525522,
+      "target": null,
+      "opened_at": "2026-09-03 21:46:37",
+      "entry_ts": 1788472001071,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -1.49,
+      "closed_at": "2026-09-04 04:00:00",
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 808.7925780675534,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 3,
+      "unit_quantity": 0.12364109502454858,
+      "unit_entries": [
+        {
+          "price": 81478.87,
+          "n": 808.7925780675534
+        },
+        {
+          "price": 81885.85009237238,
+          "n": 813.9601847447667
+        },
+        {
+          "price": 82292.83018474476,
+          "n": 813.9601847447667
+        }
+      ],
+      "latest_entry": 82292.83018474476,
+      "next_add": 82699.81027711714,
+      "exit_period": 20,
+      "bar_time": 1788451200000,
+      "last_managed_bar": 1788494400000,
+      "exit": 80664.90981525522,
+      "exit_ts": 1788494400000,
+      "quantity": 0.37092328507364575
+    }
+  ]
 }

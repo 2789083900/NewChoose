@@ -1,0 +1,44 @@
+[
+  {
+    "id": "BNBUSDT|4h|1788436800000|long|system2",
+    "symbol": "BNBUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 726.08,
+    "entry_trigger": 726.08,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1788436800000,
+    "signal_time": "2026-09-03 16:26:12",
+    "strategy_type": "turtle",
+    "system": "system2",
+    "n": 7.2332346467166895,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "status": "pending",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "BTCUSDT|4h|1788451200000|long|system2",
+    "symbol": "BTCUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 81478.87,
+    "entry_trigger": 81478.87,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1788451200000,
+    "signal_time": "2026-09-03 21:46:37",
+    "strategy_type": "turtle",
+    "system": "system2",
+    "n": 808.7925780675534,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "status": "pending",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  }
+]

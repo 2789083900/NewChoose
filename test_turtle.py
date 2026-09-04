@@ -1,8 +1,13 @@
 import unittest
+import json
+import os
+import tempfile
+from unittest import mock
 
 import signal_watch as sw
 import track_signals
 import backtest_turtle
+from signal_archive import archive_and_trim
 
 
 def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
@@ -236,6 +241,115 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(backtest_turtle.execution_price(100, "long", "exit", 0.01), 99)
         self.assertEqual(backtest_turtle.execution_price(100, "short", "entry", 0.01), 99)
         self.assertEqual(backtest_turtle.execution_price(100, "short", "exit", 0.01), 101)
+
+    def test_gap_adjusted_trigger_never_assumes_a_skipped_price(self):
+        down_gap = {"open": 90}
+        up_gap = {"open": 110}
+        self.assertEqual(backtest_turtle.gap_adjusted_trigger(down_gap, "long", "exit", 100), 90)
+        self.assertEqual(backtest_turtle.gap_adjusted_trigger(up_gap, "short", "exit", 100), 110)
+        self.assertEqual(backtest_turtle.gap_adjusted_trigger(up_gap, "long", "entry", 100), 110)
+        self.assertEqual(backtest_turtle.gap_adjusted_trigger(down_gap, "short", "entry", 100), 90)
+
+    def test_signal_archive_preserves_trimmed_records_without_duplicates(self):
+        records = [
+            {"id": "old", "signal_bar_time": 1704067200000},
+            {"id": "new-1", "signal_bar_time": 1706745600000},
+            {"id": "new-2", "signal_bar_time": 1706745600000},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            kept, archived = archive_and_trim(records, directory, limit=2)
+            self.assertEqual(archived, 1)
+            self.assertEqual([item["id"] for item in kept], ["new-1", "new-2"])
+            archive_path = os.path.join(directory, "signals-2024-01.json")
+            with open(archive_path, "r", encoding="utf-8") as file:
+                self.assertEqual([item["id"] for item in json.load(file)], ["old"])
+            _, archived_again = archive_and_trim(records, directory, limit=2)
+            self.assertEqual(archived_again, 0)
+
+    def test_portfolio_capacity_applies_shared_and_direction_limits(self):
+        positions = {
+            "BTCUSDT": {"direction": "long", "units": [{}, {}, {}]},
+            "ETHUSDT": {"direction": "long", "units": [{}, {}]},
+        }
+        self.assertFalse(backtest_turtle.portfolio_capacity(
+            positions, "SOLUSDT", "long", 4, 8, 5
+        ))
+        self.assertTrue(backtest_turtle.portfolio_capacity(
+            positions, "SOLUSDT", "short", 4, 8, 5
+        ))
+
+    def test_empty_portfolio_backtest_returns_a_valid_equity_curve(self):
+        class Args:
+            capital = 10000.0
+            fee_rate = 0.001
+            slippage = 0.0005
+            portfolio_max_symbol_units = 4
+            portfolio_max_total_units = 12
+            portfolio_max_direction_units = 12
+
+        bars = [
+            {
+                "time": index * 4 * 60 * 60 * 1000,
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+                "volume": 1.0,
+            }
+            for index in range(400)
+        ]
+        daily = [
+            {
+                "time": index * 24 * 60 * 60 * 1000,
+                "open": 100.0,
+                "high": 101.0,
+                "low": 99.0,
+                "close": 100.0,
+                "volume": 1.0,
+            }
+            for index in range(420)
+        ]
+        result = backtest_turtle.simulate_portfolio(
+            {"BTCUSDT": (bars, daily), "ETHUSDT": (bars, daily)},
+            backtest_turtle.backtest_variants()["production_default"],
+            Args(),
+        )
+        self.assertEqual(result["trades"], 0)
+        self.assertEqual(result["ending_equity"], Args.capital)
+        self.assertTrue(result["equity_curve"])
+
+    def test_turtle_push_text_distinguishes_trigger_from_shadow_fill(self):
+        plan = {
+            "system": "system2", "entry": 100.0, "stop": 96.0,
+            "next_add": 102.0, "unit_quantity": 25.0, "max_units": 4,
+            "exit_days": 20, "exit_level": 90.0,
+        }
+        text = sw.build_turtle_strategy_text("long", plan)
+        self.assertIn("突破触发价 ≈ 100", text)
+        self.assertNotIn("入场点位", text)
+        message = sw.build_turtle_message({
+            "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+            "grade": "海龟S2", "price": "101.00", "change": 1.0,
+            "reason": "海龟S2向上突破", "strategy": text,
+            "time": "2026-09-04 09:00:00", "trade_plan": plan,
+        }, {})
+        self.assertIn("影子成交：下一根4h K线开盘价", message)
+
+    def test_turtle_push_title_does_not_duplicate_breakout_prefix(self):
+        event = {
+            "symbol": "BNBUSDT", "interval": "4h", "direction": "long",
+            "label": "海龟突破做多", "turtle": True, "divergence": False,
+            "grade": "海龟S2", "price": "100", "change": 1.0,
+            "reason": "突破", "strategy": "策略", "time": "now",
+            "trade_plan": {"system": "system2", "entry": 100, "stop": 90,
+                            "next_add": 105, "unit_quantity": 1, "max_units": 4,
+                            "exit_days": 20, "exit_level": 80},
+        }
+        with mock.patch.object(sw, "send_notification") as notify, \
+             mock.patch.object(sw, "record_signal_event"), \
+             mock.patch.object(sw, "register_trade"):
+            sw.process_events([event], {})
+        self.assertEqual(notify.call_args.args[0], "CoinPulse BNBUSDT 海龟突破做多")
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime
 
+from signal_archive import archive_and_trim
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
@@ -573,7 +575,7 @@ def build_turtle_strategy_text(direction, plan):
     side = "做多" if direction == "long" else "做空"
     max_units = int(plan.get("max_units") or TURTLE_MAX_UNITS)
     return (
-        f"{plan['system']} {side}，入场点位 ≈ {format_price(plan['entry'])}\n"
+        f"{plan['system']} {side}，突破触发价 ≈ {format_price(plan['entry'])}\n"
         f"止损 {format_price(plan['stop'])}（2N）\n"
         f"每 0.5N 至 {format_price(plan['next_add'])} 加 1 单位，"
         f"首单位 {format_price(plan['unit_quantity'])}，最多{max_units}单位；"
@@ -998,8 +1000,13 @@ def load_signal_records():
 
 
 def save_signal_records(records):
+    records, archived = archive_and_trim(
+        records, os.path.join(BASE_DIR, "signal_archive")
+    )
     with open(SIGNAL_RECORDS_PATH, "w", encoding="utf-8") as file:
-        json.dump(records[-500:], file, ensure_ascii=False, indent=2)
+        json.dump(records, file, ensure_ascii=False, indent=2)
+    if archived:
+        logging.info("已归档 %s 条较早的影子信号记录", archived)
 
 
 def record_signal_event(event):
@@ -1570,6 +1577,7 @@ def build_turtle_message(event, config):
         f"现价 {event['price']}（{event['change']:+.2f}%）",
         f"依据：{event['reason']}",
         f"{event['strategy']}",
+        f"影子成交：下一根{event['interval']} K线开盘价（实际成交价以开盘行情为准）",
         f"规则：首单位风险=账户1% · 每0.5N加1单位 · 最多{int(plan.get('max_units') or TURTLE_MAX_UNITS)}单位 · 2N止损",
         f"时间：{event['time']}"
     ]
@@ -1582,7 +1590,7 @@ def build_turtle_message(event, config):
 def process_events(events, config):
     for event in events:
         if event.get("turtle"):
-            title = f"CoinPulse {event['symbol']} 海龟突破{event['label']}"
+            title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_turtle_message(event, config)
         elif event.get("divergence"):
             title = f"CoinPulse {event['symbol']} RSI背离{event['label']}"
@@ -1621,9 +1629,9 @@ def register_trade(event, config):
     if event.get("turtle") and trade_plan:
         entry = trade_plan.get("entry")
         stop = trade_plan.get("stop")
-    # 从策略文本解析：入场点位 ≈ X（...）
+    # 从策略文本解析：突破触发价 ≈ X（...）
     import re as _re
-    m_entry = _re.search(r"入场点位[≈≈]?\s*([\d.]+)", strategy)
+    m_entry = _re.search(r"(?:入场点位|突破触发价)[≈≈]?\s*([\d.]+)", strategy)
     m_stop = _re.search(r"止损\s*([\d.]+)", strategy)
     m_target = _re.search(r"目标\s*([\d.]+)", strategy)
     if m_entry:

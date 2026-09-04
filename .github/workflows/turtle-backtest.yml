@@ -42,6 +42,8 @@ jobs:
           --test-ratio "$TEST_RATIO"
           --fee-rate 0.001
           --slippage 0.0005
+          --portfolio-max-total-units 12
+          --portfolio-max-direction-units 12
           --output turtle_backtest_compare.json
 
       - name: Run tests

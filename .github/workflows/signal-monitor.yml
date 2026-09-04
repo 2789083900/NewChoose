@@ -124,6 +124,9 @@ jobs:
               git add -f "$file"
             fi
           done
+          if [ -d signal_archive ]; then
+            git add -f signal_archive
+          fi
           if git diff --cached --quiet; then
             echo "state unchanged"
           else

@@ -173,8 +173,8 @@ python signal_watch.py --test
 8. 网站地址是 `https://你的用户名.github.io/coinpulse/`，手机浏览器打开后点“添加到主屏幕”，就能像 App 一样使用。
 9. 云端监控第一次运行只会记录当前信号状态，之后信号变化时会通过微信推送通知你。
 
-云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
+云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。活跃记录最多保留 500 条，较早记录会先按信号月份归档到 `signal_archive/signals-YYYY-MM.json`，再从活跃文件移除，避免长期前瞻样本丢失。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
 
-每周回测工作流会运行 `backtest_turtle.py`，默认把最近 30% 数据作为样本外区间，并将报告写入 `turtle_backtest_compare.json`。报告同时给出每个币种的结果和各变体汇总，包括交易胜率、平均币种收益、最差币种回撤与最大连续亏损。可以在 GitHub Actions 手动运行时调整历史K线数量和样本外比例。样本外结果只用于验证，不会自动选择最优参数。
+每周回测工作流会运行 `backtest_turtle.py`，默认把最近 30% 数据作为样本外区间，并将报告写入 `turtle_backtest_compare.json`。报告同时给出每个币种的结果、各变体汇总，以及 production_default 在统一资金池下的组合结果。组合回测按币种、总单位数和方向单位数限制持仓，并输出组合权益曲线；同一时点的信号按币种字母顺序确定性处理。可以在 GitHub Actions 手动运行时调整历史K线数量和样本外比例。样本外结果只用于验证，不会自动选择最优参数。
 
 注意：密钥只会保存在 GitHub 的“Secrets”里，不会出现在代码或网页中。公网网站在中国大陆的访问稳定性受网络环境影响，如果打不开，可以再改用国内托管。

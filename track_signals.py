@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 
 import signal_watch as sw
+from signal_archive import archive_and_trim
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,8 +29,13 @@ def load_records():
 
 
 def save_records(records):
+    records, archived = archive_and_trim(
+        records, os.path.join(BASE_DIR, "signal_archive")
+    )
     with open(SIGNAL_RECORDS_PATH, "w", encoding="utf-8") as file:
-        json.dump(records[-500:], file, ensure_ascii=False, indent=2)
+        json.dump(records, file, ensure_ascii=False, indent=2)
+    if archived:
+        logging.info("已归档 %s 条较早的影子信号记录", archived)
 
 
 def evaluate_horizon(record, klines, label, now_ms=None):

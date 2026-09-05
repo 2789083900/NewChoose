@@ -62,5 +62,26 @@
       },
       "48h": null
     }
+  },
+  {
+    "id": "BNBUSDT|4h|1788580800000|long|system2",
+    "symbol": "BNBUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 729.9,
+    "entry_trigger": 729.9,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1788580800000,
+    "signal_time": "2026-09-05 08:38:33",
+    "strategy_type": "turtle",
+    "system": "system2",
+    "n": 7.521319756633287,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "status": "pending",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
   }
 ]

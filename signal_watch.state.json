@@ -1,5 +1,40 @@
 {
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "BNBUSDT|4h|2026-09-05 08:38:33",
+      "symbol": "BNBUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 729.9,
+      "stop": 714.8573604867335,
+      "target": null,
+      "opened_at": "2026-09-05 08:38:33",
+      "entry_ts": 1788597517204,
+      "status": "open",
+      "result": null,
+      "pnl_pct": null,
+      "closed_at": null,
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 7.521319756633287,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 1,
+      "unit_quantity": 13.295538979287096,
+      "unit_entries": [
+        {
+          "price": 729.9,
+          "n": 7.521319756633287
+        }
+      ],
+      "latest_entry": 729.9,
+      "next_add": 733.6606598783167,
+      "exit_period": 20,
+      "bar_time": 1788580800000,
+      "last_managed_bar": 1788580800000
+    }
+  ],
   "closed_trades": [
     {
       "id": "BNBUSDT|4h|2026-09-03 16:26:12",
@@ -108,7 +143,7 @@
   "AVAXUSDT|4h|turtle|system2": "none",
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
-  "BNBUSDT|4h|turtle|system2": "none",
+  "BNBUSDT|4h|turtle|system2": "long",
   "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none"

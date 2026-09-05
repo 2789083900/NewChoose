@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-05 04:43:08",
-  "total_signals": 2,
-  "pending_signals": 2,
+  "generated_at": "2026-09-05 08:38:38",
+  "total_signals": 3,
+  "pending_signals": 3,
   "horizons": {
     "24h": {
       "observed": 2,
@@ -26,7 +26,7 @@
   },
   "by_symbol": {
     "BNBUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {
         "observed": 1,
         "wins": 0,

@@ -2247,10 +2247,97 @@ function loadBacktestOverview() {
   const metaEl = $('btOverviewMeta');
   const tabsEl = $('btOverviewTabs');
   const tableEl = $('btOverviewTable');
+  const rollingEl = $('btRollingValidation');
   if (!metaEl) return;
-  fetchJSON('backtest_report.json', 15000)
+  const formatPct = (value) => {
+    const number = Number(value || 0);
+    return `${number > 0 ? '+' : ''}${number.toFixed(2)}%`;
+  };
+  const valueClass = (value) => Number(value || 0) > 0 ? 'bull' : Number(value || 0) < 0 ? 'bear' : '';
+  const renderRollingValidation = (report) => {
+    if (!rollingEl) return;
+    const perSymbol = Object.entries(report.results || {})
+      .map(([symbol, result]) => ({ symbol, validation: result.rolling_validation }))
+      .filter((item) => item.validation);
+    const portfolioValidation = report.portfolio?.rolling_validation;
+    if (!perSymbol.length && !portfolioValidation) {
+      rollingEl.innerHTML = '';
+      return;
+    }
+    const enabled = perSymbol.filter((item) => item.validation.enabled);
+    const windows = enabled.flatMap((item) => item.validation.windows.map((window, index) => ({
+      symbol: item.symbol, index: index + 1, validation: window.validation,
+    })));
+    if (!windows.length && !portfolioValidation?.windows?.length) {
+      const reason = perSymbol[0]?.validation?.reason || portfolioValidation?.reason || '数据长度不足，尚未形成完整滚动验证窗口。';
+      rollingEl.innerHTML = `<p class="bt-validation-note">滚动样本外验证暂不可用：${escapeHtml(reason)}</p>`;
+      return;
+    }
+    const baselineReturns = windows.map((item) => Number(item.validation.baseline_cost.return || 0));
+    const doubleCostReturns = windows.map((item) => Number(item.validation.double_cost.return || 0));
+    const positive = baselineReturns.filter((value) => value > 0).length;
+    const avg = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const averageBaseline = baselineReturns.length ? avg(baselineReturns) : 0;
+    const averageDoubleCost = doubleCostReturns.length ? avg(doubleCostReturns) : 0;
+    const rows = windows.map((item) => {
+      const base = item.validation.baseline_cost;
+      const stress = item.validation.double_cost;
+      const start = formatDateShort(item.validation.start_time);
+      const end = formatDateShort(item.validation.end_time);
+      return `<tr><td class="sym">${escapeHtml(item.symbol.replace('USDT', ''))}</td><td>#${item.index}</td><td>${start} — ${end}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td></tr>`;
+    }).join('');
+    const portfolioWindows = portfolioValidation?.enabled ? portfolioValidation.windows || [] : [];
+    const portfolioRows = portfolioWindows.map((window, index) => {
+      const base = window.validation.baseline_cost;
+      const stress = window.validation.double_cost;
+      return `<tr><td>#${index + 1}</td><td>${formatDateShort(window.validation.start_time)} — ${formatDateShort(window.validation.end_time)}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td>${base.rejected_signals ?? 0}</td></tr>`;
+    }).join('');
+    const symbolSummary = windows.length ? `
+      <div class="bt-validation-summary">
+        <div class="bt-validation-stat"><span>逐币种完整窗口</span><strong>${windows.length}</strong></div>
+        <div class="bt-validation-stat"><span>基准成本正收益</span><strong class="${positive / windows.length >= 0.5 ? 'bull' : 'bear'}">${positive}/${windows.length}</strong></div>
+        <div class="bt-validation-stat"><span>平均样本外收益</span><strong class="${valueClass(averageBaseline)}">${formatPct(averageBaseline)}</strong></div>
+        <div class="bt-validation-stat"><span>双倍成本平均收益</span><strong class="${valueClass(averageDoubleCost)}">${formatPct(averageDoubleCost)}</strong></div>
+      </div>
+      <details class="bt-validation-details"><summary>查看 ${windows.length} 个逐币种滚动窗口明细</summary>
+        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>币种</th><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th></tr></thead><tbody>${rows}</tbody></table></div>
+      </details>` : '';
+    const portfolioSummary = portfolioWindows.length ? `
+      <details class="bt-validation-details" open><summary>组合级滚动验证（统一资金池、总单位/方向/相关组限仓）</summary>
+        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th><th>限仓拒绝</th></tr></thead><tbody>${portfolioRows}</tbody></table></div>
+      </details>` : `<p class="bt-validation-note">组合级滚动验证暂不可用：${escapeHtml(portfolioValidation?.reason || '报告未包含该字段。')}</p>`;
+    rollingEl.innerHTML = `
+      <p class="bt-validation-note">滚动样本外验证：固定 production_default 参数，不因窗口结果调参或更换变体；“双倍成本”同时将手续费与滑点提高至两倍。当前数据源为 Binance 现货 K 线。</p>
+      ${symbolSummary}
+      ${portfolioSummary}`;
+  };
+  // The weekly workflow now publishes the Turtle comparison report. Keep a
+  // legacy fallback so older deployments still render their existing report.
+  fetchJSON('turtle_backtest_compare.json', 15000)
+    .catch(() => fetchJSON('backtest_report.json', 15000))
     .then((report) => {
-      if (!report || !report.timeframes) throw new Error('no data');
+      if (!report || (!report.timeframes && !report.results)) throw new Error('no data');
+      if (report.results) {
+        const periods = ['full', 'in_sample', 'out_of_sample'];
+        const labels = {full: '全样本', in_sample: '样本内', out_of_sample: '样本外'};
+        const renderPeriod = (period) => {
+        const rows = Object.entries(report.results).map(([symbol, result]) => {
+          // Reports generated before the sample split stored each variant
+          // directly under the symbol. Keep those reports useful until the
+          // next scheduled backtest publishes the split-aware format.
+          const item = result[period]?.production_default || result.production_default || {};
+          return `<tr><td class="sym">${escapeHtml(symbol.replace('USDT', ''))}</td><td>${item.trades ?? 0}</td><td>${item.win_rate ?? 0}%</td><td>${item.profit_factor ?? 0}</td><td>${item.annualized ?? 0}%</td><td>${item.max_drawdown ?? 0}%</td></tr>`;
+        }).join('');
+        const portfolio = report.portfolio?.[period];
+        tableEl.innerHTML = `<table class="bt-table"><thead><tr><th>币种</th><th>交易</th><th>胜率</th><th>PF</th><th>年化</th><th>最大回撤</th></tr></thead><tbody>${rows}</tbody></table>${portfolio && !portfolio.error ? `<p class="strategy-note">组合：收益 ${portfolio.return}% · 回撤 ${portfolio.max_drawdown}% · 交易 ${portfolio.trades} · 胜率 ${portfolio.trade_win_rate}% · 拒绝信号 ${portfolio.rejected_signals}</p>` : ''}`;
+        };
+        metaEl.textContent = `${report.interval} ${report.system} · 生成于 ${report.generated_at} · 成本 ${(report.fee_rate * 100).toFixed(2)}% 手续费 / ${(report.slippage_rate * 100).toFixed(2)}% 滑点 · 样本外 ${(report.test_ratio * 100).toFixed(0)}%`;
+        tabsEl.innerHTML = periods.map((p) => `<button class="bt-tab${p === 'full' ? ' active' : ''}" data-period="${p}">${labels[p]}</button>`).join('');
+        renderPeriod('full');
+        renderRollingValidation(report);
+        tabsEl.querySelectorAll('.bt-tab').forEach((btn) => btn.addEventListener('click', () => { tabsEl.querySelectorAll('.bt-tab').forEach((item) => item.classList.remove('active')); btn.classList.add('active'); renderPeriod(btn.dataset.period); }));
+        return;
+      }
       metaEl.textContent = `生成于 ${report.generated_at} · 参数：止损${report.params.stop_atr}×ATR / 目标${report.params.target_atr}×ATR · 手续费0.1% · 初始10000U`;
       let active = report.timeframes[0].interval;
       const renderTab = () => {
@@ -2294,10 +2381,12 @@ function loadBacktestOverview() {
         });
       };
       renderTab();
+      if (rollingEl) rollingEl.innerHTML = '';
     })
     .catch((err) => {
       metaEl.textContent = `回测报告加载失败：${err.message}`;
       tableEl.innerHTML = '<div class="empty-smart">请先在本地运行 gen_backtest_report.py 生成并上传报告</div>';
+      if (rollingEl) rollingEl.innerHTML = '';
     });
 }
 
@@ -2471,6 +2560,46 @@ async function fetchOrderflow(symbol) {
   if (!data || !Array.isArray(data.rows)) throw new Error('订单流服务响应格式错误');
   const status = await fetchJSON(`${ORDERFLOW_API_BASE}/api/orderflow/status?symbol=${encodeURIComponent(symbol)}`, 3500);
   return { ...data, ...status };
+}
+
+function loadSignalQuality() {
+  const metaEl = $('signalQualityMeta');
+  const summaryEl = $('signalQualitySummary');
+  const detailsEl = $('signalQualityDetails');
+  if (!metaEl || !summaryEl || !detailsEl) return;
+  fetchJSON('signal_quality_report.json', 15000)
+    .then((report) => {
+      const sample = report.sample || {};
+      const trade = report.trade || {};
+      const h24 = report.horizons?.['24h'] || {};
+      const h48 = report.horizons?.['48h'] || {};
+      const insufficient = sample.reliability !== 'actionable_sample';
+      metaEl.textContent = `生成于 ${report.generated_at || '--'} · 已结算海龟交易 ${sample.closed_trades ?? 0} 笔`;
+      summaryEl.innerHTML = `
+        ${insufficient ? `<p class="quality-warning">⚠️ ${escapeHtml(sample.reliability_text || '当前样本不足，胜率仅供观察，不能作为扩大仓位依据。')}</p>` : ''}
+        <div class="trade-cards">
+          <div class="trade-card"><span>策略结算胜率</span><strong class="${Number(trade.win_rate || 0) >= 50 ? 'bull' : 'bear'}">${trade.win_rate ?? 0}%</strong></div>
+          <div class="trade-card"><span>已结算交易</span><strong>${trade.observed ?? 0}</strong></div>
+          <div class="trade-card"><span>盈亏比</span><strong>${trade.payoff ?? 0}</strong></div>
+          <div class="trade-card"><span>累计盈亏</span><strong class="${Number(trade.total_pnl_pct || 0) >= 0 ? 'bull' : 'bear'}">${Number(trade.total_pnl_pct || 0) > 0 ? '+' : ''}${trade.total_pnl_pct ?? 0}%</strong></div>
+          <div class="trade-card"><span>24h方向胜率</span><strong>${h24.win_rate ?? 0}%</strong></div>
+          <div class="trade-card"><span>48h方向胜率</span><strong>${h48.win_rate ?? 0}%</strong></div>
+        </div>`;
+      const ci = (item) => item?.win_rate_95_ci ? `${item.win_rate_95_ci.low}% - ${item.win_rate_95_ci.high}%` : '--';
+      detailsEl.innerHTML = `
+        <table class="bt-table"><thead><tr><th>指标口径</th><th>样本数</th><th>胜</th><th>负</th><th>胜率</th><th>95%区间</th><th>平均收益</th></tr></thead>
+        <tbody>
+          <tr><td class="sym">海龟止损/通道退出</td><td>${trade.observed ?? 0}</td><td class="bull">${trade.wins ?? 0}</td><td class="bear">${trade.losses ?? 0}</td><td>${trade.win_rate ?? 0}%</td><td>--</td><td>均盈 ${trade.avg_win ?? 0}% / 均亏 ${trade.avg_loss ?? 0}%</td></tr>
+          <tr><td class="sym">信号后24h方向</td><td>${h24.observed ?? 0}</td><td class="bull">${h24.wins ?? 0}</td><td class="bear">${h24.losses ?? 0}</td><td>${h24.win_rate ?? 0}%</td><td>${ci(h24)}</td><td>${h24.avg_return_pct ?? 0}%</td></tr>
+          <tr><td class="sym">信号后48h方向</td><td>${h48.observed ?? 0}</td><td class="bull">${h48.wins ?? 0}</td><td class="bear">${h48.losses ?? 0}</td><td>${h48.win_rate ?? 0}%</td><td>${ci(h48)}</td><td>${h48.avg_return_pct ?? 0}%</td></tr>
+        </tbody></table>
+        <p class="strategy-note">策略结算胜率才对应当前海龟止损和通道退出逻辑；24h/48h 是方向观察指标，不能替代完整交易胜率。${escapeHtml(report.action_policy || '')}</p>`;
+    })
+    .catch((err) => {
+      metaEl.textContent = `信号质量报告加载失败：${err.message}`;
+      summaryEl.innerHTML = '<div class="empty-smart">等待下一次监控任务生成 signal_quality_report.json</div>';
+      detailsEl.innerHTML = '';
+    });
 }
 
 function renderOrderflow() {
@@ -4148,6 +4277,8 @@ function bindEvents() {
 
   const refreshTrade = $('refreshTradeBtn');
   if (refreshTrade) refreshTrade.addEventListener('click', loadTradeStats);
+  const refreshQuality = $('refreshQualityBtn');
+  if (refreshQuality) refreshQuality.addEventListener('click', loadSignalQuality);
 
   window.addEventListener('resize', () => {
     clearTimeout(window.__resizeTimer);
@@ -4231,6 +4362,7 @@ function init() {
   drawBacktestChart();
   loadBacktestOverview();
   loadTradeStats();
+  loadSignalQuality();
   refreshAll();
   startAuto();
 }

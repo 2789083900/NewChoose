@@ -3,14 +3,18 @@
 """CoinPulse background signal watcher with phone push support."""
 
 import json
+import copy
 import logging
 import math
 import os
 import sys
 import time
+import uuid
 import urllib.parse
+import urllib.error
 import urllib.request
 from datetime import datetime
+import tempfile
 
 from signal_archive import archive_and_trim
 
@@ -20,6 +24,10 @@ CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
 STATE_PATH = os.path.join(BASE_DIR, "signal_watch.state.json")
 LOG_PATH = os.path.join(BASE_DIR, "signal_watch.log")
 SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
+HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
+STATE_SCHEMA_VERSION = 2
+MAX_REQUEST_ATTEMPTS = 3
+RETRY_BACKOFF_SECONDS = 0.25
 
 DEFAULT_SYMBOLS = [
     "BTCUSDT",
@@ -117,12 +125,29 @@ def turtle_filter_options(strategy_config=None):
     return options
 
 
+def _urlopen_with_retry(request, timeout):
+    """Retry transient network/rate-limit failures without hiding bad data."""
+    last_error = None
+    for attempt in range(MAX_REQUEST_ATTEMPTS):
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            last_error = exc
+            if exc.code not in (408, 425, 429) and exc.code < 500:
+                raise
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_error = exc
+        if attempt + 1 < MAX_REQUEST_ATTEMPTS:
+            time.sleep(RETRY_BACKOFF_SECONDS * (2 ** attempt))
+    raise last_error
+
+
 def http_get_json(url, timeout=5):
     req = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "User-Agent": "CoinPulse/1.0"}
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen_with_retry(req, timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -593,10 +618,16 @@ def turtle_unit_capacity(symbol, direction, state, config):
     max_direction = int(limits.get("max_direction_units", 12))
     open_trades = [
         t for t in state.get("open_trades", [])
-        if t.get("strategy_type") == "turtle" and t.get("direction") == direction
+        if t.get("strategy_type") == "turtle"
     ]
     symbol_units = sum(int(t.get("units") or 1) for t in open_trades if t.get("symbol") == symbol)
-    direction_units = sum(int(t.get("units") or 1) for t in open_trades)
+    # 同一标的禁止多空对冲，避免实时登记与组合回测口径不一致。
+    if symbol_units:
+        return 0
+    direction_units = sum(
+        int(t.get("units") or 1) for t in open_trades
+        if t.get("direction") == direction
+    )
     correlation = strategy.get("correlation") or {}
     strong_groups = correlation.get("strong_groups") or [DEFAULT_SYMBOLS]
     weak_groups = correlation.get("weak_groups") or []
@@ -620,6 +651,32 @@ def turtle_unit_capacity(symbol, direction, state, config):
     elif weak_group:
         caps.append(max_weak - group_units)
     return max(0, min(caps))
+
+
+def allocate_turtle_capacity(events, state, config):
+    """Apply portfolio limits once, serially, after concurrent market scans."""
+    accepted = []
+    working = {**state, "open_trades": list(state.get("open_trades", []))}
+    strategy = config.get("strategy") or {}
+    system = strategy.get("turtle_system", "system2")
+    for event in sorted(events, key=lambda item: (item.get("symbol", ""), item.get("interval", ""))):
+        if not event.get("turtle") or event.get("direction") not in ("long", "short"):
+            accepted.append(event)
+            continue
+        capacity = turtle_unit_capacity(event["symbol"], event["direction"], working, config)
+        plan = event.get("trade_plan") or {}
+        if capacity < 1:
+            event["capacity_rejected"] = True
+            state[f"{event['symbol']}|{event['interval']}|turtle|{plan.get('system', system)}"] = "none"
+            continue
+        plan["max_units"] = min(TURTLE_MAX_UNITS, capacity)
+        event["trade_plan"] = plan
+        accepted.append(event)
+        working["open_trades"].append({
+            "symbol": event["symbol"], "direction": event["direction"],
+            "strategy_type": "turtle", "units": 1
+        })
+    return accepted
 
 
 def compute_bollinger(klines, period=20, mult=2.0):
@@ -936,6 +993,8 @@ def load_config():
         "intervals": ["1h"],
         "threshold": 2,
         "refresh_seconds": 30,
+        "max_staleness_intervals": 3,
+        "minimum_scan_coverage_pct": 80,
         "dashboard_url": "http://192.168.10.13:5173",
         "strategy": {
             "mode": "turtle",
@@ -970,22 +1029,69 @@ def load_config():
 
 def load_state():
     if not os.path.exists(STATE_PATH):
-        return {"open_trades": [], "closed_trades": []}
+        return {"schema_version": STATE_SCHEMA_VERSION, "open_trades": [], "closed_trades": []}
     try:
         with open(STATE_PATH, "r", encoding="utf-8") as file:
             data = json.load(file)
         if not isinstance(data, dict):
-            return {"open_trades": [], "closed_trades": []}
+            return {"schema_version": STATE_SCHEMA_VERSION, "open_trades": [], "closed_trades": []}
+        data.setdefault("schema_version", STATE_SCHEMA_VERSION)
         data.setdefault("open_trades", [])
         data.setdefault("closed_trades", [])
         return data
     except (OSError, ValueError):
-        return {"open_trades": [], "closed_trades": []}
+        return {"schema_version": STATE_SCHEMA_VERSION, "open_trades": [], "closed_trades": []}
+
+
+def atomic_write_json(path, data):
+    directory = os.path.dirname(path) or "."
+    os.makedirs(directory, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=".coinpulse-", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            json.dump(data, file, ensure_ascii=False, indent=2)
+            file.write("\n")
+        os.replace(temporary, path)
+    except Exception:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
+
+
+def write_monitor_health(scan=None, notifications=None, status=None):
+    """Persist a compact, secret-free health record for cloud monitoring."""
+    previous = {}
+    try:
+        with open(HEALTH_PATH, encoding="utf-8") as file:
+            loaded = json.load(file)
+            previous = loaded if isinstance(loaded, dict) else {}
+    except (OSError, ValueError):
+        pass
+    health = dict(previous)
+    health["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if scan is not None:
+        health["scan"] = scan
+    if notifications is not None:
+        attempts = sum(len(item.get("results") or []) for item in notifications)
+        failures = [
+            result for item in notifications for result in item.get("results") or []
+            if not result.get("ok")
+        ]
+        health["push"] = {
+            "attempted": attempts,
+            "failed": len(failures),
+            "failures": failures[-10:],
+        }
+    if status is not None:
+        health["status"] = status
+    atomic_write_json(HEALTH_PATH, health)
 
 
 def save_state(state):
-    with open(STATE_PATH, "w", encoding="utf-8") as file:
-        json.dump(state, file, ensure_ascii=False, indent=2)
+    state["schema_version"] = STATE_SCHEMA_VERSION
+    atomic_write_json(STATE_PATH, state)
 
 
 def load_signal_records():
@@ -1003,13 +1109,12 @@ def save_signal_records(records):
     records, archived = archive_and_trim(
         records, os.path.join(BASE_DIR, "signal_archive")
     )
-    with open(SIGNAL_RECORDS_PATH, "w", encoding="utf-8") as file:
-        json.dump(records, file, ensure_ascii=False, indent=2)
+    atomic_write_json(SIGNAL_RECORDS_PATH, records)
     if archived:
         logging.info("已归档 %s 条较早的影子信号记录", archived)
 
 
-def record_signal_event(event):
+def record_signal_event(event, config=None):
     """保存结构化信号，供 GitHub Actions 后续计算 24/48 小时表现。"""
     if not event or event.get("direction") not in ("long", "short"):
         return False
@@ -1029,8 +1134,10 @@ def record_signal_event(event):
     records = load_signal_records()
     if any(item.get("id") == signal_id for item in records):
         return False
+    strategy = (config or {}).get("strategy") or {}
     records.append({
         "id": signal_id,
+        "run_id": event.get("run_id"),
         "symbol": event.get("symbol"),
         "interval": event.get("interval"),
         "direction": event.get("direction"),
@@ -1044,6 +1151,16 @@ def record_signal_event(event):
         "n": plan.get("n"),
         "provider": event.get("provider"),
         "strategy_version": "turtle-baseline-v1",
+        "parameter_snapshot": {
+            "system": plan.get("system"),
+            "n": plan.get("n"),
+            "breakout_trigger": entry_trigger,
+            "stop": plan.get("stop"),
+            "next_add": plan.get("next_add"),
+            "risk_fraction": strategy.get("risk_fraction"),
+            "filters": strategy.get("filters") or {},
+            "execution_model": "signal_close_next_bar_open",
+        },
         "status": "pending",
         "horizons": {"24h": None, "48h": None}
     })
@@ -1058,7 +1175,7 @@ def post_json(url, payload, timeout=10):
         data=data,
         headers={"Content-Type": "application/json", "User-Agent": "CoinPulse/1.0"}
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen_with_retry(req, timeout) as resp:
         return resp.status
 
 
@@ -1069,13 +1186,13 @@ def post_form(url, payload, timeout=10):
         data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "CoinPulse/1.0"}
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen_with_retry(req, timeout) as resp:
         return resp.status
 
 
 def http_get(url, timeout=10):
     req = urllib.request.Request(url, headers={"User-Agent": "CoinPulse/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with _urlopen_with_retry(req, timeout) as resp:
         return resp.status
 
 
@@ -1083,8 +1200,10 @@ def try_channel(name, callback):
     try:
         callback()
         logging.info("%s 推送成功", name)
+        return {"channel": name, "ok": True}
     except Exception as exc:
         logging.error("%s 推送失败: %s", name, exc)
+        return {"channel": name, "ok": False, "error": str(exc)}
 
 
 def has_channel(config):
@@ -1100,38 +1219,39 @@ def has_channel(config):
 
 def send_notification(title, content, config):
     channels = config.get("channels", {})
+    results = []
 
     dingtalk = channels.get("dingtalk") or {}
     if dingtalk.get("webhook"):
-        try_channel(
+        results.append(try_channel(
             "钉钉",
             lambda: post_json(dingtalk["webhook"], {"msgtype": "text", "text": {"content": content}})
-        )
+        ))
 
     wecom = channels.get("wecom") or {}
     if wecom.get("webhook"):
-        try_channel(
+        results.append(try_channel(
             "企业微信",
             lambda: post_json(wecom["webhook"], {"msgtype": "text", "text": {"content": content}})
-        )
+        ))
 
     serverchan = channels.get("serverchan") or {}
     if serverchan.get("sendkey"):
         url = f"https://sctapi.ftqq.com/{serverchan['sendkey']}.send"
-        try_channel(
+        results.append(try_channel(
             "Server酱",
             lambda: post_form(url, {"title": title, "desp": content, "channel": "9"})
-        )
+        ))
 
     pushplus = channels.get("pushplus") or {}
     if pushplus.get("token"):
-        try_channel(
+        results.append(try_channel(
             "PushPlus",
             lambda: post_json(
                 "https://www.pushplus.plus/send",
                 {"token": pushplus["token"], "title": title, "content": content, "template": "txt"}
             )
-        )
+        ))
 
     bark = channels.get("bark") or {}
     if bark.get("key"):
@@ -1140,14 +1260,15 @@ def send_notification(title, content, config):
             f"{server}/{urllib.parse.quote(bark['key'])}/"
             f"{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
         )
-        try_channel("Bark", lambda: http_get(url))
+        results.append(try_channel("Bark", lambda: http_get(url)))
 
     generic = channels.get("generic") or {}
     if generic.get("webhook"):
-        try_channel(
+        results.append(try_channel(
             "通用Webhook",
             lambda: post_json(generic["webhook"], {"title": title, "content": content})
-        )
+        ))
+    return results
 
 
 def build_message(event, config):
@@ -1377,7 +1498,7 @@ def build_reversal_message(event, config):
     return "\n".join(lines)
 
 
-def _scan_one(symbol, interval, state, config):
+def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
     """单个币/周期的扫描（供并发调用）"""
     try:
         strategy_config = config.get("strategy") or {}
@@ -1392,6 +1513,19 @@ def _scan_one(symbol, interval, state, config):
                 symbol, interval, filter_options["closed_candles_only"]
             )
         )
+        interval_ms = INTERVAL_MS.get(interval)
+        now_ms = int(time.time() * 1000)
+        latest_time = int(klines[-1]["time"]) if klines else 0
+        max_stale = max(1, int(config.get("max_staleness_intervals", 3)))
+        age_ms = now_ms - (latest_time + interval_ms) if interval_ms else 0
+        if not klines or (interval_ms and age_ms > interval_ms * max_stale):
+            raise RuntimeError(
+                f"最新K线过旧：{interval}延迟{max(0, age_ms) / 60000:.1f}分钟"
+            )
+        if diagnostics is not None:
+            diagnostics["successful_markets"] = diagnostics.get("successful_markets", 0) + 1
+            diagnostics.setdefault("providers", set()).add(provider)
+            diagnostics["latest_bar_time"] = max(diagnostics.get("latest_bar_time", 0), latest_time)
         indicators = compute_indicators(klines)
         if mode == "turtle":
             system = turtle_system
@@ -1418,13 +1552,9 @@ def _scan_one(symbol, interval, state, config):
                 # S1 only skips the next same-system breakout after a win.
                 state[f"{st_key}|blocked"] = False
             if direction and trade_plan:
-                capacity = turtle_unit_capacity(symbol, direction, state, config)
-                if capacity < 1:
-                    direction = None
-                    reasons = ["组合风险上限已满"]
-                    trade_plan["blocked"] = True
-                else:
-                    trade_plan["max_units"] = min(TURTLE_MAX_UNITS, capacity)
+                # Capacity is allocated once, serially, in scan_once after all
+                # concurrent market scans have completed.
+                trade_plan["max_units"] = TURTLE_MAX_UNITS
             strategy_text = build_turtle_strategy_text(direction, trade_plan) if direction else ""
             label = "海龟突破做多" if direction == "long" else "海龟突破做空"
             grade = turtle_params(system, interval)["label"]
@@ -1464,14 +1594,19 @@ def _scan_one(symbol, interval, state, config):
                 "turtle": mode == "turtle",
                 "trade_plan": trade_plan
             }
+            if run_id:
+                event["run_id"] = run_id
         state[st_key] = direction if direction is not None else "none"
         return event
     except Exception as exc:
+        if diagnostics is not None:
+            diagnostics["failed_markets"] = diagnostics.get("failed_markets", 0) + 1
+            diagnostics.setdefault("failures", []).append(f"{symbol}|{interval}: {exc}")
         logging.warning("%s %s 获取失败: %s", symbol, interval, exc)
         return None
 
 
-def scan_once(config, state):
+def scan_once(config, state, run_id=None, diagnostics=None):
     events = []
     symbols = config.get("symbols") or DEFAULT_SYMBOLS
     intervals = config.get("intervals") or ["1h"]
@@ -1482,9 +1617,14 @@ def scan_once(config, state):
         ThreadPoolExecutor = None
 
     tasks = [(s, iv) for s in symbols for iv in intervals]
+    if diagnostics is not None:
+        diagnostics["expected_markets"] = len(tasks)
+        diagnostics.setdefault("successful_markets", 0)
+        diagnostics.setdefault("failed_markets", 0)
+        diagnostics.setdefault("failures", [])
     if ThreadPoolExecutor:
         with ThreadPoolExecutor(max_workers=10) as pool:
-            futures = [pool.submit(_scan_one, s, iv, state, config) for s, iv in tasks]
+            futures = [pool.submit(_scan_one, s, iv, state, config, diagnostics, run_id) for s, iv in tasks]
             for f in futures:
                 try:
                     ev = f.result(timeout=30)
@@ -1494,10 +1634,18 @@ def scan_once(config, state):
                     logging.warning("并发扫描任务异常: %s", exc)
     else:
         for s, iv in tasks:
-            ev = _scan_one(s, iv, state, config)
+            ev = _scan_one(s, iv, state, config, diagnostics, run_id)
             if ev:
                 events.append(ev)
-    return events
+    return allocate_turtle_capacity(events, state, config)
+
+
+def scan_coverage_ok(config, diagnostics):
+    expected = max(1, int(diagnostics.get("expected_markets", 0)))
+    successful = int(diagnostics.get("successful_markets", 0))
+    coverage = successful / expected * 100
+    minimum = max(0.0, min(100.0, float(config.get("minimum_scan_coverage_pct", 80))))
+    return coverage >= minimum, round(coverage, 2), minimum
 
 
 def detect_bias_regression(klines, indicators, dev_th=2.2):
@@ -1588,6 +1736,7 @@ def build_turtle_message(event, config):
 
 
 def process_events(events, config):
+    deliveries = []
     for event in events:
         if event.get("turtle"):
             title = f"CoinPulse {event['symbol']} {event['label']}"
@@ -1601,10 +1750,12 @@ def process_events(events, config):
         else:
             title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_message(event, config)
-        send_notification(title, content, config)
+        results = send_notification(title, content, config)
         logging.info("发现信号: %s", content.replace("\n", " / "))
-        record_signal_event(event)
+        record_signal_event(event, config)
         register_trade(event, config)
+        deliveries.append({"symbol": event.get("symbol"), "results": results})
+    return deliveries
 
 
 # ---------------------------------------------------------------------------
@@ -1645,14 +1796,17 @@ def register_trade(event, config):
 
     trade = {
         "id": f"{event['symbol']}|{event['interval']}|{event['time']}",
+        "run_id": event.get("run_id"),
         "symbol": event["symbol"],
         "interval": event["interval"],
         "direction": event.get("direction", ""),
         "entry": entry,
+        "entry_trigger": entry,
+        "entry_model": "next_bar_open" if event.get("turtle") else "signal_price",
         "stop": stop,
         "target": target,
         "opened_at": event["time"],
-        "entry_ts": int(time.time() * 1000),  # 入场时的时间戳（毫秒），结算时只检查之后的K线
+        "entry_ts": int(event.get("bar_time") or 0) if event.get("turtle") else int(time.time() * 1000),
         "status": "open",
         "result": None,
         "pnl_pct": None,
@@ -1672,7 +1826,8 @@ def register_trade(event, config):
             "latest_entry": entry,
             "next_add": trade_plan.get("next_add"),
             "exit_period": trade_plan.get("exit_days"),
-            "bar_time": event.get("bar_time")
+            "bar_time": event.get("bar_time"),
+            "entry_filled": False
         })
     # 避免重复登记同一信号
     if not any(t["id"] == trade["id"] for t in trades):
@@ -1704,6 +1859,13 @@ def manage_turtle_trade(trade, klines):
     for index, kline in enumerate(klines):
         if kline["time"] <= last_managed_bar:
             continue
+        if trade.get("entry_model") == "next_bar_open" and not trade.get("entry_filled"):
+            # The signal is confirmed on the prior close; the first managed
+            # bar is the only valid shadow entry bar.
+            entries[0]["price"] = float(kline["open"])
+            trade["entry"] = entries[0]["price"]
+            trade["entry_filled"] = True
+            trade["entry_bar_time"] = kline["time"]
         current_n = n_series[index] or n
         latest_entry = float(entries[-1]["price"])
         latest_n = float(entries[-1].get("n") or current_n)
@@ -1900,8 +2062,7 @@ def write_trade_stats(state):
         {"symbol": s, **v} for s, v in sorted(by_symbol.items(), key=lambda x: -x[1]["pnl"])
     ]
     stats["trades"] = closed[-50:]  # 最近50笔
-    with open(TRADE_STATS_PATH, "w", encoding="utf-8") as f:
-        json.dump(stats, f, ensure_ascii=False, indent=2)
+    atomic_write_json(TRADE_STATS_PATH, stats)
 
 
 def send_startup_message(config):
@@ -1949,11 +2110,40 @@ def main():
     logging.info("CoinPulse signal watcher started")
 
     if "--once" in sys.argv:
-        events = scan_once(config, state)
+        run_id = uuid.uuid4().hex[:12]
+        diagnostics = {}
+        state_before_scan = copy.deepcopy(state)
+        events = scan_once(config, state, run_id=run_id, diagnostics=diagnostics)
+        coverage_ok, coverage_pct, minimum_coverage = scan_coverage_ok(config, diagnostics)
+        if not coverage_ok:
+            state.clear()
+            state.update(state_before_scan)
+            save_state(state)
+            write_monitor_health(
+                scan={"run_id": run_id, "expected_markets": diagnostics.get("expected_markets", 0), "successful_markets": diagnostics.get("successful_markets", 0), "failed_markets": diagnostics.get("failed_markets", 0), "coverage_pct": coverage_pct, "minimum_coverage_pct": minimum_coverage, "candidate_signals": len(events), "providers": sorted(diagnostics.get("providers", set())), "failures": diagnostics.get("failures", [])[-10:]},
+                status="degraded",
+            )
+            logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
+            return
         save_state(state)
-        process_events(events, config)
+        deliveries = process_events(events, config)
         state = load_state()
         settle_trades(state, config)
+        write_monitor_health(
+            scan={
+                "run_id": run_id,
+                "expected_markets": diagnostics.get("expected_markets", 0),
+                "successful_markets": diagnostics.get("successful_markets", 0),
+                "failed_markets": diagnostics.get("failed_markets", 0),
+                "coverage_pct": round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2),
+                "candidate_signals": len(events),
+                "capacity_rejected": sum(1 for event in events if event.get("capacity_rejected")),
+                "providers": sorted(diagnostics.get("providers", set())),
+                "failures": diagnostics.get("failures", [])[-10:],
+            },
+            notifications=deliveries,
+            status="ok",
+        )
         return
 
     if "--test" in sys.argv:
@@ -1965,14 +2155,45 @@ def main():
         try:
             config = load_config()
             state = load_state()
-            events = scan_once(config, state)
+            run_id = uuid.uuid4().hex[:12]
+            diagnostics = {}
+            state_before_scan = copy.deepcopy(state)
+            events = scan_once(config, state, run_id=run_id, diagnostics=diagnostics)
+            coverage_ok, coverage_pct, minimum_coverage = scan_coverage_ok(config, diagnostics)
+            if not coverage_ok:
+                state.clear()
+                state.update(state_before_scan)
+                save_state(state)
+                write_monitor_health(
+                    scan={"run_id": run_id, "expected_markets": diagnostics.get("expected_markets", 0), "successful_markets": diagnostics.get("successful_markets", 0), "failed_markets": diagnostics.get("failed_markets", 0), "coverage_pct": coverage_pct, "minimum_coverage_pct": minimum_coverage, "candidate_signals": len(events), "providers": sorted(diagnostics.get("providers", set())), "failures": diagnostics.get("failures", [])[-10:]},
+                    status="degraded",
+                )
+                logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
+                time.sleep(max(10, float(config.get("refresh_seconds", 30))))
+                continue
             save_state(state)
-            process_events(events, config)
+            deliveries = process_events(events, config)
             # 结算未平仓交易（用最新行情）
             state = load_state()
             settle_trades(state, config)
+            write_monitor_health(
+                scan={
+                    "run_id": run_id,
+                    "expected_markets": diagnostics.get("expected_markets", 0),
+                    "successful_markets": diagnostics.get("successful_markets", 0),
+                    "failed_markets": diagnostics.get("failed_markets", 0),
+                    "coverage_pct": round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2),
+                    "candidate_signals": len(events),
+                    "capacity_rejected": sum(1 for event in events if event.get("capacity_rejected")),
+                    "providers": sorted(diagnostics.get("providers", set())),
+                    "failures": diagnostics.get("failures", [])[-10:],
+                },
+                notifications=deliveries,
+                status="ok",
+            )
         except Exception as exc:
             logging.exception("扫描失败: %s", exc)
+            write_monitor_health(status="failed")
         time.sleep(max(10, float(config.get("refresh_seconds", 30))))
 
 

@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import time
+import math
 from datetime import datetime
 
 import signal_watch as sw
@@ -32,8 +33,7 @@ def save_records(records):
     records, archived = archive_and_trim(
         records, os.path.join(BASE_DIR, "signal_archive")
     )
-    with open(SIGNAL_RECORDS_PATH, "w", encoding="utf-8") as file:
-        json.dump(records, file, ensure_ascii=False, indent=2)
+    sw.atomic_write_json(SIGNAL_RECORDS_PATH, records)
     if archived:
         logging.info("已归档 %s 条较早的影子信号记录", archived)
 
@@ -189,17 +189,103 @@ def build_stats(records):
     return stats
 
 
+def _wilson_interval(wins, observed, z=1.96):
+    """Return a conservative 95% Wilson interval for a small signal sample."""
+    if not observed:
+        return {"low": 0.0, "high": 0.0}
+    p = wins / observed
+    denominator = 1 + z * z / observed
+    centre = (p + z * z / (2 * observed)) / denominator
+    margin = z * math.sqrt((p * (1 - p) + z * z / (4 * observed)) / observed) / denominator
+    return {"low": round(max(0, centre - margin) * 100, 2), "high": round(min(1, centre + margin) * 100, 2)}
+
+
+def build_quality_report(records, trade_stats=None):
+    """Combine directional horizons and strategy exits into one decision report."""
+    trade_stats = trade_stats or {}
+    horizons = {}
+    for label in HORIZONS:
+        results = [item.get("horizons", {}).get(label) for item in records]
+        results = [item for item in results if item]
+        wins = sum(1 for item in results if item.get("outcome") == "WIN")
+        observed = len(results)
+        returns = [float(item.get("final_return_pct") or 0) for item in results]
+        horizons[label] = {
+            "observed": observed,
+            "wins": wins,
+            "losses": sum(1 for item in results if item.get("outcome") == "LOSS"),
+            "win_rate": round(wins / observed * 100, 2) if observed else 0,
+            "win_rate_95_ci": _wilson_interval(wins, observed),
+            "avg_return_pct": round(sum(returns) / observed, 3) if observed else 0,
+        }
+    closed = int(trade_stats.get("total") or 0)
+    closed_wins = int(trade_stats.get("wins") or 0)
+    if closed < 30:
+        reliability = "insufficient_sample"
+        reliability_text = "样本不足：至少完成30笔，建议50笔后再判断"
+    elif closed < 50:
+        reliability = "provisional"
+        reliability_text = "初步样本：可以观察，不宜据此扩大仓位"
+    else:
+        reliability = "actionable_sample"
+        reliability_text = "样本达到最低判断门槛，仍需结合回撤和成本"
+    return {
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "definition": {
+            "trade_win_rate": "按海龟实际影子交易的止损/通道退出结算",
+            "horizon_win_rate": "按下一根K线开盘后固定24h/48h方向收益结算，不等同于策略最终胜率",
+        },
+        "sample": {
+            "closed_trades": closed,
+            "pending_signals": sum(1 for item in records if item.get("status") != "complete"),
+            "minimum_for_judgement": 30,
+            "recommended_for_judgement": 50,
+            "reliability": reliability,
+            "reliability_text": reliability_text,
+        },
+        "trade": {
+            "observed": closed,
+            "wins": closed_wins,
+            "losses": int(trade_stats.get("losses") or 0),
+            "win_rate": trade_stats.get("win_rate", 0),
+            "avg_win": trade_stats.get("avg_win", 0),
+            "avg_loss": trade_stats.get("avg_loss", 0),
+            "payoff": trade_stats.get("payoff", 0),
+            "total_pnl_pct": trade_stats.get("total_pnl_pct", 0),
+        },
+        "horizons": horizons,
+        "action_policy": "在完成至少30笔海龟影子交易前，仅把推送作为观察信号；不要仅根据24h/48h方向胜率扩大仓位。",
+    }
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     records = load_records()
     if not records:
         logging.info("没有待追踪的信号记录")
+        stats = build_stats([])
+        sw.atomic_write_json(os.path.join(BASE_DIR, "signal_tracking_stats.json"), stats)
+        sw.atomic_write_json(
+            os.path.join(BASE_DIR, "signal_quality_report.json"),
+            build_quality_report([], {}),
+        )
         return 0
     updated, errors = track_records(records)
     save_records(records)
     stats_path = os.path.join(BASE_DIR, "signal_tracking_stats.json")
-    with open(stats_path, "w", encoding="utf-8") as file:
-        json.dump(build_stats(records), file, ensure_ascii=False, indent=2)
+    stats = build_stats(records)
+    sw.atomic_write_json(stats_path, stats)
+    trade_stats = {}
+    trade_stats_path = os.path.join(BASE_DIR, "trade_stats.json")
+    try:
+        with open(trade_stats_path, encoding="utf-8") as file:
+            trade_stats = json.load(file)
+    except (OSError, ValueError):
+        pass
+    sw.atomic_write_json(
+        os.path.join(BASE_DIR, "signal_quality_report.json"),
+        build_quality_report(records, trade_stats),
+    )
     logging.info("影子信号追踪完成：更新 %s 个观察窗口，记录数 %s", updated, len(records))
     for key, message in errors.items():
         logging.warning("%s 获取失败：%s", key, message)

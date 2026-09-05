@@ -18,6 +18,8 @@
   ],
   "threshold": 4,
   "refresh_seconds": 300,
+  "max_staleness_intervals": 3,
+  "minimum_scan_coverage_pct": 80,
   "dashboard_url": "",
   "strategy": {
     "mode": "turtle",

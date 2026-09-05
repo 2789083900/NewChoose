@@ -853,6 +853,74 @@ button {
 .bt-table td.bull { color: var(--green); }
 .bt-table td.bear { color: var(--red); }
 
+.quality-warning {
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--orange) 55%, var(--line));
+  border-radius: var(--radius);
+  color: var(--orange);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.bt-rolling-validation {
+  margin-top: 14px;
+}
+
+.bt-rolling-validation:empty {
+  display: none;
+}
+
+.bt-validation-note {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.bt-validation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.bt-validation-stat {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--hover);
+}
+
+.bt-validation-stat span {
+  display: block;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.bt-validation-stat strong {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.bt-validation-details {
+  margin-top: 10px;
+}
+
+.bt-validation-details summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .bt-validation-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* ---- 实盘交易记录 ---- */
 .trade-cards {
   display: grid;

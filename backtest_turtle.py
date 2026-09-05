@@ -8,21 +8,25 @@ the report does not drift away from the live watcher.
 
 import json
 import os
+import platform
 import sys
 import argparse
+import copy
 from bisect import bisect_right
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import signal_watch as sw
+import backtest_data as data_store
 
 
 CAPITAL = 10000.0
 FEE_RATE = 0.001
 SLIPPAGE_RATE = 0.0005
 INTERVAL = "4h"
-TOTAL_BARS = 2500
+TOTAL_BARS = 3600
 SYSTEM = "system2"
 SYMBOLS = sw.DEFAULT_SYMBOLS
+DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtest_data")
 
 
 def execution_price(trigger_price, direction, action, slippage_rate):
@@ -73,7 +77,7 @@ def higher_trend_lookup(daily, period=200):
 def simulate(
     klines, daily, filters, capital=CAPITAL,
     fee_rate=FEE_RATE, slippage_rate=SLIPPAGE_RATE,
-    start_index=None, end_index=None
+    start_index=None, end_index=None, risk_fraction=sw.TURTLE_RISK_FRACTION
 ):
     params = sw.turtle_params(SYSTEM, INTERVAL)
     n_series = sw.calc_n_series(klines, params["n_period"])
@@ -132,7 +136,7 @@ def simulate(
             direction = signal["direction"]
             entry_trigger = signal["entry_trigger"]
             entry = execution_price(bar["open"], direction, "entry", slippage_rate)
-            quantity = equity * 0.01 / signal["n"]
+            quantity = equity * risk_fraction / signal["n"]
             entry_fee = entry * quantity * fee_rate
             equity -= entry_fee
             position = {
@@ -169,7 +173,7 @@ def simulate(
         if not position and not exited and pending_entry is None and index + 1 < last_index:
             higher = higher_at(bar["time"])
             breakout = sw.build_turtle_signal(
-                klines[:index + 1], SYSTEM, equity, 0.01, INTERVAL,
+                klines[:index + 1], SYSTEM, equity, risk_fraction, INTERVAL,
                 filter_options=filters, higher_trend=higher
             )
             plan = breakout[2]
@@ -196,7 +200,7 @@ def simulate(
                 reached = bar["high"] >= next_price if position["direction"] == "long" else bar["low"] <= next_price
                 if not reached:
                     break
-                quantity = equity * 0.01 / n
+                quantity = equity * risk_fraction / n
                 raw_entry = gap_adjusted_trigger(
                     bar, position["direction"], "entry", next_price
                 )
@@ -273,16 +277,36 @@ def simulate(
     }
 
 
-def fetch_symbol(symbol, total_bars):
-    klines = sw.fetch_binance_history(symbol, INTERVAL, total_bars)
-    klines = sw.filter_closed_klines(klines, INTERVAL)
+def load_or_download_dataset(symbol, interval, required_bars, args):
+    """Use a validated snapshot unless an explicit refresh is requested."""
+    cached = None if args.refresh_data else data_store.load_dataset(
+        args.data_dir, symbol, interval, required_bars
+    )
+    if cached:
+        return cached["klines"], cached["metadata"]
+    klines = sw.fetch_binance_history(symbol, interval, required_bars)
+    klines = sw.filter_closed_klines(klines, interval)
+    if len(klines) < required_bars:
+        raise RuntimeError(f"{symbol} {interval} 数据不足：需要{required_bars}，实际{len(klines)}")
+    saved = data_store.save_dataset(
+        args.data_dir, symbol, interval, "binance-data", "spot",
+        klines[-required_bars:], sw.INTERVAL_MS[interval]
+    )
+    return saved["klines"], saved["metadata"]
+
+
+def fetch_symbol(symbol, args):
+    klines, intraday_metadata = load_or_download_dataset(
+        symbol, INTERVAL, args.bars, args
+    )
     # Keep enough higher-timeframe warm-up when the requested 4h history grows.
-    daily_bars = max(420, int(total_bars / 6) + 220)
-    daily = sw.fetch_binance_history(symbol, "1d", daily_bars)
-    daily = sw.filter_closed_klines(daily, "1d")
+    daily_bars = max(420, int(args.bars / 6) + 220)
+    daily, daily_metadata = load_or_download_dataset(
+        symbol, "1d", daily_bars, args
+    )
     if len(klines) < 400 or len(daily) < 210:
         raise RuntimeError(f"数据不足：4h={len(klines)}，1d={len(daily)}")
-    return klines, daily
+    return klines, daily, {INTERVAL: intraday_metadata, "1d": daily_metadata}
 
 
 def backtest_variants():
@@ -300,12 +324,13 @@ def backtest_variants():
 
 
 def run_symbol(symbol, args):
-    klines, daily = fetch_symbol(symbol, args.bars)
+    klines, daily, datasets = fetch_symbol(symbol, args)
     variants = backtest_variants()
     full_results = {
         name: simulate(
             klines, daily, filters, capital=args.capital,
             fee_rate=args.fee_rate, slippage_rate=args.slippage
+            , risk_fraction=args.risk_fraction
         ) for name, filters in variants.items()
     }
     split = max(0.0, min(0.9, args.test_ratio))
@@ -314,14 +339,14 @@ def run_symbol(symbol, args):
         name: simulate(
             klines, daily, filters, capital=args.capital,
             fee_rate=args.fee_rate, slippage_rate=args.slippage,
-            end_index=split_index
+            end_index=split_index, risk_fraction=args.risk_fraction
         ) for name, filters in variants.items()
     }
     out_of_sample = {
         name: simulate(
             klines, daily, filters, capital=args.capital,
             fee_rate=args.fee_rate, slippage_rate=args.slippage,
-            start_index=split_index
+            start_index=split_index, risk_fraction=args.risk_fraction
         ) for name, filters in variants.items()
     }
     return symbol, {
@@ -329,11 +354,79 @@ def run_symbol(symbol, args):
         "in_sample": in_sample,
         "out_of_sample": out_of_sample,
         "split_index": split_index,
-    }, (klines, daily)
+    }, (klines, daily), datasets
+
+
+def rolling_validation(klines, daily, filters, args):
+    """Evaluate fixed production settings on successive unseen windows.
+
+    The development slice is reported for context only.  It is never used to
+    select a variant or alter a parameter, avoiding hidden optimisation.
+    """
+    params = sw.turtle_params(SYSTEM, INTERVAL)
+    train_bars = max(0, int(args.rolling_train_bars))
+    test_bars = max(1, int(args.rolling_test_bars))
+    step_bars = max(1, int(args.rolling_step_bars))
+    minimum_train = max(params["entry_bars"], params["n_period"]) + 1
+    if train_bars < minimum_train:
+        return {
+            "enabled": False,
+            "reason": f"训练窗口至少需要{minimum_train}根{INTERVAL} K线",
+            "train_bars": train_bars,
+            "test_bars": test_bars,
+            "step_bars": step_bars,
+            "windows": [],
+        }
+
+    windows = []
+    train_end = train_bars
+    while train_end + test_bars <= len(klines):
+        test_end = train_end + test_bars
+        baseline = simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate, slippage_rate=args.slippage,
+            start_index=train_end, end_index=test_end,
+            risk_fraction=args.risk_fraction,
+        )
+        doubled_cost = simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate * 2, slippage_rate=args.slippage * 2,
+            start_index=train_end, end_index=test_end,
+            risk_fraction=args.risk_fraction,
+        )
+        windows.append({
+            "development": {
+                "start_index": 0, "end_index": train_end,
+                "start_time": klines[0]["time"],
+                "end_time": klines[train_end - 1]["time"],
+                "metrics": simulate(
+                    klines, daily, filters, capital=args.capital,
+                    fee_rate=args.fee_rate, slippage_rate=args.slippage,
+                    end_index=train_end, risk_fraction=args.risk_fraction,
+                ),
+            },
+            "validation": {
+                "start_index": train_end, "end_index": test_end,
+                "start_time": klines[train_end]["time"],
+                "end_time": klines[test_end - 1]["time"],
+                "baseline_cost": baseline,
+                "double_cost": doubled_cost,
+            },
+        })
+        train_end += step_bars
+
+    return {
+        "enabled": True,
+        "method": "固定production_default参数；开发窗口仅作展示，不自动调参或筛选",
+        "train_bars": train_bars,
+        "test_bars": test_bars,
+        "step_bars": step_bars,
+        "windows": windows,
+    }
 
 
 def portfolio_capacity(positions, symbol, direction, max_symbol_units, max_total_units, max_direction_units):
-    """Return whether a new unit fits the deterministic portfolio risk caps."""
+    """Return whether a new unit fits the basic deterministic portfolio caps."""
     symbol_units = sum(
         len(position["units"]) for name, position in positions.items() if name == symbol
     )
@@ -349,6 +442,48 @@ def portfolio_capacity(positions, symbol, direction, max_symbol_units, max_total
     )
 
 
+def portfolio_capacity_reason(positions, symbol, direction, args, allow_existing_symbol=False):
+    """Mirror the live watcher's unit caps and explain a rejected unit."""
+    symbol_units = sum(
+        len(position["units"]) for name, position in positions.items() if name == symbol
+    )
+    if symbol_units and not allow_existing_symbol:
+        return False, "symbol"
+    if symbol_units >= args.portfolio_max_symbol_units:
+        return False, "symbol"
+    total_units = sum(len(position["units"]) for position in positions.values())
+    if total_units >= args.portfolio_max_total_units:
+        return False, "total"
+    direction_units = sum(
+        len(position["units"]) for position in positions.values()
+        if position["direction"] == direction
+    )
+    if direction_units >= args.portfolio_max_direction_units:
+        return False, "direction"
+
+    strong_groups = getattr(args, "portfolio_strong_groups", [sw.DEFAULT_SYMBOLS])
+    weak_groups = getattr(args, "portfolio_weak_groups", [])
+
+    def containing_group(groups):
+        return next((set(group) for group in groups if symbol in group), set())
+
+    strong_group = containing_group(strong_groups)
+    weak_group = containing_group(weak_groups) if not strong_group else set()
+    group = strong_group or weak_group
+    if group:
+        group_units = sum(
+            len(position["units"]) for name, position in positions.items()
+            if name in group and position["direction"] == direction
+        )
+        limit = (
+            getattr(args, "portfolio_max_strong_group_units", 6)
+            if strong_group else getattr(args, "portfolio_max_weak_group_units", 10)
+        )
+        if group_units >= limit:
+            return False, "strong_group" if strong_group else "weak_group"
+    return True, None
+
+
 def simulate_portfolio(market_data, filters, args, start_index=None, end_index=None):
     """Simulate all symbols against one cash pool and shared unit limits.
 
@@ -356,6 +491,7 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
     accepted alphabetically.  This is intentionally explicit: without a
     deterministic priority, a portfolio result can depend on dict ordering.
     """
+    risk_fraction = float(getattr(args, "risk_fraction", sw.TURTLE_RISK_FRACTION))
     if not market_data:
         return {"error": "没有可用于组合回测的币种数据"}
     symbols = sorted(market_data)
@@ -384,6 +520,9 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
     trades = []
     rejected_signals = 0
     rejected_adds = 0
+    rejected_by_limit = {}
+    max_total_units = 0
+    max_direction_units = 0
     peak = cash
     max_drawdown = 0.0
     equity_curve = []
@@ -428,17 +567,18 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
         for symbol in sorted(list(pending)):
             signal = pending.pop(symbol)
             index = prepared[symbol]["index_by_time"][current_time]
-            if not portfolio_capacity(
-                positions, symbol, signal["direction"], args.portfolio_max_symbol_units,
-                args.portfolio_max_total_units, args.portfolio_max_direction_units
-            ):
+            allowed, reason = portfolio_capacity_reason(
+                positions, symbol, signal["direction"], args
+            )
+            if not allowed:
                 rejected_signals += 1
+                rejected_by_limit[reason] = rejected_by_limit.get(reason, 0) + 1
                 continue
             account_value = max(0.0, marked_equity("open"))
             entry = execution_price(
                 prepared[symbol]["klines"][index]["open"], signal["direction"], "entry", args.slippage
             )
-            quantity = account_value * 0.01 / signal["n"]
+            quantity = account_value * risk_fraction / signal["n"]
             cash -= entry * quantity * args.fee_rate
             positions[symbol] = {
                 "direction": signal["direction"], "quantity": quantity, "avg_entry": entry,
@@ -478,7 +618,7 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
                     continue
                 direction, _, plan = sw.build_turtle_signal(
                     prepared[symbol]["klines"][:index + 1], SYSTEM, max(0.0, marked_equity("close")),
-                    0.01, INTERVAL, filter_options=filters,
+                    risk_fraction, INTERVAL, filter_options=filters,
                     higher_trend=prepared[symbol]["higher_at"](current_time)
                 )
                 if direction:
@@ -493,17 +633,16 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
             index = prepared[symbol]["index_by_time"][current_time]
             bar = prepared[symbol]["klines"][index]
             n = prepared[symbol]["n_series"][index] or position["last_n"]
-            while portfolio_capacity(
-                positions, symbol, position["direction"], args.portfolio_max_symbol_units,
-                args.portfolio_max_total_units, args.portfolio_max_direction_units
-            ):
+            while portfolio_capacity_reason(
+                positions, symbol, position["direction"], args, allow_existing_symbol=True
+            )[0]:
                 next_price = position["last_price"] + 0.5 * position["last_n"] if position["direction"] == "long" else position["last_price"] - 0.5 * position["last_n"]
                 reached = bar["high"] >= next_price if position["direction"] == "long" else bar["low"] <= next_price
                 if not reached:
                     break
                 raw_entry = gap_adjusted_trigger(bar, position["direction"], "entry", next_price)
                 fill = execution_price(raw_entry, position["direction"], "entry", args.slippage)
-                quantity = max(0.0, marked_equity("close")) * 0.01 / n
+                quantity = max(0.0, marked_equity("close")) * risk_fraction / n
                 cash -= fill * quantity * args.fee_rate
                 position["entry_fees"] += fill * quantity * args.fee_rate
                 total_cost = position["avg_entry"] * position["quantity"] + fill * quantity
@@ -512,13 +651,18 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
                 position["last_price"] = next_price
                 position["last_n"] = n
                 position["units"].append({"price": fill, "n": n})
-            if len(position["units"]) < args.portfolio_max_symbol_units and not portfolio_capacity(
-                positions, symbol, position["direction"], args.portfolio_max_symbol_units,
-                args.portfolio_max_total_units, args.portfolio_max_direction_units
-            ):
+            if len(position["units"]) < args.portfolio_max_symbol_units and not portfolio_capacity_reason(
+                positions, symbol, position["direction"], args, allow_existing_symbol=True
+            )[0]:
                 rejected_adds += 1
 
         equity = marked_equity("close")
+        total_units = sum(len(position["units"]) for position in positions.values())
+        max_total_units = max(max_total_units, total_units)
+        max_direction_units = max(
+            max_direction_units,
+            max((sum(len(position["units"]) for position in positions.values() if position["direction"] == side) for side in ("long", "short")), default=0)
+        )
         peak = max(peak, equity)
         max_drawdown = min(max_drawdown, (equity - peak) / peak) if peak else max_drawdown
         equity_curve.append({"time": current_time, "equity": round(equity, 2)})
@@ -536,13 +680,78 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
         "return": round((cash / args.capital - 1) * 100, 2),
         "max_drawdown": round(max_drawdown * 100, 2),
         "rejected_signals": rejected_signals, "rejected_adds": rejected_adds,
+        "rejected_by_limit": rejected_by_limit,
+        "max_total_units_observed": max_total_units,
+        "max_direction_units_observed": max_direction_units,
         "risk_limits": {
             "max_symbol_units": args.portfolio_max_symbol_units,
             "max_total_units": args.portfolio_max_total_units,
             "max_direction_units": args.portfolio_max_direction_units,
+            "max_strong_group_units": getattr(args, "portfolio_max_strong_group_units", 6),
+            "max_weak_group_units": getattr(args, "portfolio_max_weak_group_units", 10),
+            "strong_groups": getattr(args, "portfolio_strong_groups", [sw.DEFAULT_SYMBOLS]),
+            "weak_groups": getattr(args, "portfolio_weak_groups", []),
         },
         "execution_priority": "同一时点：字母顺序入场；止损、通道退出、加仓",
         "equity_curve": equity_curve,
+    }
+
+
+def portfolio_rolling_validation(market_data, filters, args):
+    """Run fixed, out-of-sample portfolio windows with live-like risk caps."""
+    if not market_data:
+        return {"enabled": False, "reason": "没有可用于组合回测的币种数据", "windows": []}
+    symbols = sorted(market_data)
+    common_times = sorted(set.intersection(*(
+        {bar["time"] for bar in market_data[symbol][0]} for symbol in symbols
+    )))
+    params = sw.turtle_params(SYSTEM, INTERVAL)
+    train_bars = max(0, int(args.rolling_train_bars))
+    test_bars = max(1, int(args.rolling_test_bars))
+    step_bars = max(1, int(args.rolling_step_bars))
+    minimum_train = max(params["entry_bars"], params["n_period"]) + 1
+    if train_bars < minimum_train:
+        return {
+            "enabled": False,
+            "reason": f"训练窗口至少需要{minimum_train}根{INTERVAL}共同K线",
+            "train_bars": train_bars, "test_bars": test_bars, "step_bars": step_bars,
+            "common_bars": len(common_times), "windows": [],
+        }
+
+    windows = []
+    train_end = train_bars
+    while train_end + test_bars <= len(common_times):
+        test_end = train_end + test_bars
+        baseline = simulate_portfolio(
+            market_data, filters, args, start_index=train_end, end_index=test_end
+        )
+        stress_args = copy.copy(args)
+        stress_args.fee_rate = args.fee_rate * 2
+        stress_args.slippage = args.slippage * 2
+        doubled_cost = simulate_portfolio(
+            market_data, filters, stress_args, start_index=train_end, end_index=test_end
+        )
+        windows.append({
+            "development": {
+                "start_index": 0, "end_index": train_end,
+                "start_time": common_times[0], "end_time": common_times[train_end - 1],
+                "metrics": simulate_portfolio(market_data, filters, args, end_index=train_end),
+            },
+            "validation": {
+                "start_index": train_end, "end_index": test_end,
+                "start_time": common_times[train_end], "end_time": common_times[test_end - 1],
+                "baseline_cost": baseline, "double_cost": doubled_cost,
+            },
+        })
+        train_end += step_bars
+
+    return {
+        "enabled": True,
+        "method": "固定production_default参数；统一资金池并执行币种、总单位、方向与相关组限仓；开发窗口不用于自动调参或筛选",
+        "symbols": symbols,
+        "common_bars": len(common_times),
+        "train_bars": train_bars, "test_bars": test_bars, "step_bars": step_bars,
+        "windows": windows,
     }
 
 
@@ -551,7 +760,10 @@ def parse_args():
     parser.add_argument("--capital", type=float, default=CAPITAL)
     parser.add_argument("--fee-rate", type=float, default=FEE_RATE)
     parser.add_argument("--slippage", type=float, default=SLIPPAGE_RATE)
+    parser.add_argument("--risk-fraction", type=float, default=sw.TURTLE_RISK_FRACTION)
     parser.add_argument("--bars", type=int, default=TOTAL_BARS)
+    parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR)
+    parser.add_argument("--refresh-data", action="store_true", help="重新下载并验证历史数据快照")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--symbols", default=",".join(SYMBOLS))
     parser.add_argument("--output", default="turtle_backtest_compare.json")
@@ -562,6 +774,13 @@ def parse_args():
     parser.add_argument("--portfolio-max-symbol-units", type=int, default=4)
     parser.add_argument("--portfolio-max-total-units", type=int, default=12)
     parser.add_argument("--portfolio-max-direction-units", type=int, default=12)
+    parser.add_argument("--portfolio-max-strong-group-units", type=int, default=6)
+    parser.add_argument("--portfolio-max-weak-group-units", type=int, default=10)
+    parser.add_argument("--portfolio-strong-groups", default=json.dumps([sw.DEFAULT_SYMBOLS]))
+    parser.add_argument("--portfolio-weak-groups", default="[]")
+    parser.add_argument("--rolling-train-bars", type=int, default=2160)
+    parser.add_argument("--rolling-test-bars", type=int, default=540)
+    parser.add_argument("--rolling-step-bars", type=int, default=540)
     return parser.parse_args()
 
 
@@ -596,18 +815,30 @@ def aggregate(results_by_symbol):
 
 def main():
     args = parse_args()
+    try:
+        args.portfolio_strong_groups = json.loads(args.portfolio_strong_groups)
+        args.portfolio_weak_groups = json.loads(args.portfolio_weak_groups)
+        if not all(isinstance(group, list) for group in args.portfolio_strong_groups + args.portfolio_weak_groups):
+            raise ValueError("相关组必须是数组的数组")
+    except (TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"组合相关组参数无效：{exc}")
     symbols = [item.strip().upper() for item in args.symbols.split(",") if item.strip()]
     results = {}
     market_data = {}
+    dataset_metadata = {}
     errors = {}
     with ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
         futures = {pool.submit(run_symbol, symbol, args): symbol for symbol in symbols}
         for future in as_completed(futures):
             symbol = futures[future]
             try:
-                name, result, data = future.result()
+                name, result, data, datasets = future.result()
                 results[name] = result
                 market_data[name] = data
+                dataset_metadata[name] = datasets
+                result["rolling_validation"] = rolling_validation(
+                    data[0], data[1], backtest_variants()["production_default"], args
+                )
                 print(f"{name}: 完成")
             except Exception as exc:
                 errors[symbol] = str(exc)
@@ -616,7 +847,10 @@ def main():
     portfolio = {}
     if market_data:
         filters = backtest_variants()["production_default"]
-        aligned_bars = min(len(data[0]) for data in market_data.values())
+        common_times = sorted(set.intersection(*(
+            {bar["time"] for bar in data[0]} for data in market_data.values()
+        )))
+        aligned_bars = len(common_times)
         split_index = max(
             1, int(aligned_bars * (1 - max(0.0, min(0.9, args.test_ratio))))
         )
@@ -629,17 +863,37 @@ def main():
             "out_of_sample": simulate_portfolio(
                 market_data, filters, args, start_index=split_index
             ),
+            "rolling_validation": portfolio_rolling_validation(
+                market_data, filters, args
+            ),
         }
 
     report = {
         "generated_at": __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "reproducibility": {
+            "report_schema_version": 1,
+            "code_revision": os.environ.get("GITHUB_SHA", "local-uncommitted"),
+            "run_id": os.environ.get("GITHUB_RUN_ID", "local"),
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+        },
         "interval": INTERVAL,
         "system": SYSTEM,
         "bars_requested": args.bars,
+        "data_snapshot": {
+            "directory": os.path.relpath(args.data_dir, sw.BASE_DIR),
+            "refresh_requested": bool(args.refresh_data),
+            "datasets": dataset_metadata,
+        },
         "capital": args.capital,
         "fee_rate": args.fee_rate,
         "slippage_rate": args.slippage,
+        "risk_fraction": args.risk_fraction,
         "test_ratio": max(0.0, min(0.9, args.test_ratio)),
+        "rolling_validation": {
+            "variant": "production_default",
+            "note": "固定策略参数的逐段样本外验证；同时包含逐币种与统一资金池组合级结果，开发窗口不会用于自动选择参数。",
+        },
         "execution_model": "信号收盘确认，下一根K线开盘成交；跳空时按更差的开盘价成交，再施加不利滑点；手续费按成交额单边计算；期末强制平仓",
         "base": "原有规则：收盘突破 + 高周期EMA200 + 0.1N缓冲",
         "variants": {
@@ -657,6 +911,14 @@ def main():
         "errors": errors,
     }
     output = os.path.join(sw.BASE_DIR, args.output)
+    data_store.save_manifest(
+        args.data_dir,
+        [
+            {"path": os.path.join(args.data_dir, metadata["file"]), "metadata": metadata}
+            for symbol, intervals in dataset_metadata.items()
+            for interval, metadata in intervals.items()
+        ],
+    )
     with open(output, "w", encoding="utf-8") as file:
         json.dump(report, file, ensure_ascii=False, indent=2)
     print(json.dumps(report, ensure_ascii=False, indent=2))

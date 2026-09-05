@@ -404,7 +404,7 @@
         <section class="panel backtest-panel" id="btOverviewPanel">
           <div class="panel-head">
             <div>
-              <h3>📊 回测总览（多币×多周期 胜率/盈亏比）</h3>
+              <h3>📊 海龟回测总览（样本外 / 滚动验证）</h3>
               <p id="btOverviewMeta">加载回测报告中...</p>
             </div>
             <button class="btn primary" id="refreshBtBtn">刷新数据</button>
@@ -412,6 +412,7 @@
           <div class="bt-overview-body">
             <div id="btOverviewTabs" class="bt-tabs"></div>
             <div id="btOverviewTable" class="bt-table-wrap"></div>
+            <div id="btRollingValidation" class="bt-rolling-validation"></div>
           </div>
         </section>
 
@@ -429,11 +430,25 @@
             <div id="tradeList" class="bt-trades-list"></div>
           </div>
         </section>
+
+        <section class="panel backtest-panel" id="signalQualityPanel">
+          <div class="panel-head">
+            <div>
+              <h3>🎯 信号质量与样本可靠性</h3>
+              <p id="signalQualityMeta">加载信号质量报告中...</p>
+            </div>
+            <button class="btn primary" id="refreshQualityBtn">刷新数据</button>
+          </div>
+          <div class="bt-overview-body">
+            <div id="signalQualitySummary" class="trade-summary"></div>
+            <div id="signalQualityDetails" class="bt-table-wrap"></div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>

@@ -43,56 +43,16 @@ jobs:
           export DASHBOARD_URL="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
           python - <<'PY'
           import json, os
-          cfg = {
-              "symbols": [
-                  "BTCUSDT",
-                  "ETHUSDT",
-                  "SOLUSDT",
-                  "BNBUSDT",
-                  "XRPUSDT",
-                  "ADAUSDT",
-                  "DOGEUSDT",
-                  "LINKUSDT",
-                  "AVAXUSDT",
-                  "TONUSDT",
-                  "SUIUSDT",
-                  "PEPEUSDT"
-              ],
-              "intervals": ["4h"],
-              "threshold": 4,
-              "refresh_seconds": 300,
-              "dashboard_url": os.environ.get("DASHBOARD_URL", ""),
-              "strategy": {
-                  "mode": "turtle",
-                  "turtle_system": "system2",
-                  "account_value": 10000,
-                  "risk_fraction": 0.01,
-                  "filters": {
-                      "closed_candles_only": True,
-                      "higher_timeframe": True,
-                      "higher_ema_period": 200,
-                      "breakout_buffer_n": 0.1,
-                      "require_higher_timeframe": True
-                  },
-                  "limits": {
-                      "max_symbol_units": 4,
-                      "max_strong_group_units": 6,
-                      "max_weak_group_units": 10,
-                      "max_direction_units": 12
-                  },
-                  "correlation": {
-                      "strong_groups": [],
-                      "weak_groups": []
-                  }
-              },
-              "channels": {
+          with open("signal_watch.config.template.json", encoding="utf-8") as f:
+              cfg = json.load(f)
+          cfg["dashboard_url"] = os.environ.get("DASHBOARD_URL", "")
+          cfg["channels"] = {
                   "dingtalk": {"webhook": os.environ.get("DINGTALK_WEBHOOK", "")},
                   "wecom": {"webhook": os.environ.get("WECOM_WEBHOOK", "")},
                   "serverchan": {"sendkey": os.environ.get("SERVERCHAN_SENDKEY", "")},
                   "pushplus": {"token": os.environ.get("PUSHPLUS_TOKEN", "")},
                   "bark": {"server": "https://api.day.app", "key": os.environ.get("BARK_KEY", "")},
                   "generic": {"webhook": ""}
-              }
           }
           with open("signal_watch.config.json", "w", encoding="utf-8") as f:
               json.dump(cfg, f, ensure_ascii=False, indent=2)
@@ -119,7 +79,7 @@ jobs:
           fi
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json trade_stats.json; do
+          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json; do
             if [ -f "$file" ]; then
               git add -f "$file"
             fi

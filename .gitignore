@@ -3,7 +3,9 @@ signal_watch.state.json
 signal_watch.log
 signal_watch.out.log
 signal_watch.err.log
+signal_quality_report.json
 __pycache__/
 *.pyc
+backtest_data/.coinpulse-data-*.tmp
 orderflow/config.json
 orderflow/node_modules/

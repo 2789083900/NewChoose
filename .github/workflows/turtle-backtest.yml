@@ -8,16 +8,25 @@ on:
       bars:
         description: "4h历史K线数量"
         required: false
-        default: "2500"
+        default: "3600"
         type: string
       test_ratio:
         description: "样本外数据比例"
         required: false
         default: "0.3"
         type: string
+      refresh_data:
+        description: "重新下载历史数据快照"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
+
+concurrency:
+  group: coinpulse-turtle-backtest
+  cancel-in-progress: false
 
 jobs:
   backtest:
@@ -34,27 +43,37 @@ jobs:
 
       - name: Run turtle backtest
         env:
-          BARS: ${{ github.event.inputs.bars || '2500' }}
+          BARS: ${{ github.event.inputs.bars || '3600' }}
           TEST_RATIO: ${{ github.event.inputs.test_ratio || '0.3' }}
-        run: >-
-          python backtest_turtle.py
-          --bars "$BARS"
-          --test-ratio "$TEST_RATIO"
-          --fee-rate 0.001
-          --slippage 0.0005
-          --portfolio-max-total-units 12
-          --portfolio-max-direction-units 12
-          --output turtle_backtest_compare.json
+          REFRESH_DATA: ${{ github.event.inputs.refresh_data || 'false' }}
+        shell: bash
+        run: |
+          EXTRA=""
+          if [ "$REFRESH_DATA" = "true" ]; then EXTRA="--refresh-data"; fi
+          python backtest_turtle.py \
+            --bars "$BARS" \
+            --test-ratio "$TEST_RATIO" \
+            --fee-rate 0.001 \
+            --slippage 0.0005 \
+            --portfolio-max-total-units 12 \
+            --portfolio-max-direction-units 12 \
+            --rolling-train-bars 2160 \
+            --rolling-test-bars 540 \
+            --rolling-step-bars 540 \
+            --output turtle_backtest_compare.json $EXTRA
 
       - name: Run tests
         run: python -m unittest discover -v
+
+      - name: Validate report before publish
+        run: python validate_reports.py --backtest turtle_backtest_compare.json
 
       - name: Publish report
         shell: bash
         run: |
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f turtle_backtest_compare.json
+          git add -f turtle_backtest_compare.json backtest_data
           if git diff --cached --quiet; then
             echo "backtest report unchanged"
           else

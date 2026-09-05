@@ -14,7 +14,7 @@
     "n": 7.2332346467166895,
     "provider": "binance-history",
     "strategy_version": "turtle-baseline-v1",
-    "status": "pending",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 727.9,
@@ -28,7 +28,18 @@
         "observed_at": "2026-09-04 18:11:33",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 727.9,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 6.127,
+        "mae_pct": -2.706,
+        "final_return_pct": 5.77,
+        "final_price": 769.9,
+        "outcome": "WIN",
+        "observed_until": 1788624000000,
+        "observed_at": "2026-09-05 17:18:43",
+        "provider": "okx"
+      }
     }
   },
   {

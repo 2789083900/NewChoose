@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-04 11:09:39",
-  "total_signals": 2,
-  "pending_signals": 2,
+  "generated_at": "2026-09-05 08:38:38",
+  "total_signals": 3,
+  "pending_signals": 3,
   "horizons": {
     "24h": {
-      "observed": 0,
+      "observed": 2,
       "wins": 0,
-      "losses": 0,
+      "losses": 2,
       "flats": 0,
-      "win_rate": 0,
-      "avg_return_pct": 0,
-      "avg_mfe_pct": 0,
-      "avg_mae_pct": 0
+      "win_rate": 0.0,
+      "avg_return_pct": -1.976,
+      "avg_mfe_pct": 0.467,
+      "avg_mae_pct": -3.253
     },
     "48h": {
       "observed": 0,
@@ -26,13 +26,25 @@
   },
   "by_symbol": {
     "BNBUSDT": {
-      "signals": 1,
-      "24h": {},
+      "signals": 2,
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -1.552
+      },
       "48h": {}
     },
     "BTCUSDT": {
       "signals": 1,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -2.4
+      },
       "48h": {}
     }
   }

@@ -6,7 +6,7 @@
       "interval": "4h",
       "direction": "long",
       "entry": 729.9,
-      "stop": 714.8573604867335,
+      "stop": 726.0908082465132,
       "target": null,
       "opened_at": "2026-09-05 08:38:33",
       "entry_ts": 1788597517204,
@@ -20,19 +20,31 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 13.295538979287096,
       "unit_entries": [
         {
           "price": 729.9,
           "n": 7.521319756633287
+        },
+        {
+          "price": 733.7091917534866,
+          "n": 7.6183835069733
+        },
+        {
+          "price": 737.5183835069732,
+          "n": 7.6183835069733
+        },
+        {
+          "price": 741.3275752604599,
+          "n": 7.6183835069733
         }
       ],
-      "latest_entry": 729.9,
-      "next_add": 733.6606598783167,
+      "latest_entry": 741.3275752604599,
+      "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788580800000
+      "last_managed_bar": 1788595200000
     }
   ],
   "closed_trades": [
@@ -146,5 +158,6 @@
   "BNBUSDT|4h|turtle|system2": "long",
   "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
-  "PEPEUSDT|4h|turtle|system2": "none"
+  "PEPEUSDT|4h|turtle|system2": "none",
+  "schema_version": 2
 }

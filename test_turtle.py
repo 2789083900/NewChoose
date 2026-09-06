@@ -9,6 +9,7 @@ import track_signals
 import backtest_turtle
 import backtest_data
 import validate_reports
+import check_monitor_health
 from track_signals import build_quality_report
 from signal_archive import archive_and_trim
 
@@ -115,7 +116,10 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertGreater(plan["n"], 0)
         self.assertLess(plan["stop"], plan["entry"])
         self.assertGreater(plan["next_add"], plan["entry"])
-        self.assertAlmostEqual(plan["unit_quantity"], 10000 * 0.01 / plan["n"])
+        self.assertAlmostEqual(plan["unit_quantity"], 10000 * 0.01 / (2 * plan["n"]))
+
+    def test_turtle_unit_quantity_matches_two_n_stop_risk(self):
+        self.assertEqual(sw.turtle_unit_quantity(10000, 7.5, 0.01, 2), 10000 * 0.01 / 15)
 
     def test_intraday_parameters_are_converted_to_bars(self):
         params = sw.turtle_params("system2", "4h")
@@ -224,6 +228,7 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIsNone(sw.manage_turtle_trade(trade, bars))
         self.assertTrue(trade["entry_filled"])
         self.assertEqual(trade["entry"], 105.0)
+        self.assertEqual(trade["fill_deviation_pct"], 5.0)
 
     def test_confirmation_filters_block_weak_breakout(self):
         klines = make_bars(60)
@@ -242,6 +247,51 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIsNone(direction)
         self.assertTrue(plan["filtered"])
         self.assertTrue(any("ADX" in reason or "成交量" in reason for reason in reasons))
+
+    def test_anomaly_filter_blocks_large_gap_and_range(self):
+        klines = make_bars(60)
+        klines.append({
+            "time": 61 * 86400000, "open": 125, "high": 150,
+            "low": 95, "close": 130, "volume": 100
+        })
+        direction, reasons, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "1d",
+            filter_options={"higher_timeframe": False, "volume_confirmation": False}
+        )
+        self.assertIsNone(direction)
+        self.assertTrue(plan["filtered"])
+        self.assertTrue(any("跳空" in reason or "单根波动" in reason for reason in reasons))
+
+    def test_liquidity_filter_uses_quote_volume(self):
+        klines = make_bars(60)
+        klines.append({
+            "time": 61 * 86400000, "open": 100, "high": 130,
+            "low": 99, "close": 125, "volume": 1
+        })
+        direction, reasons, plan = sw.build_turtle_signal(
+            klines, "system2", 10000, 0.01, "1d",
+            filter_options={"higher_timeframe": False, "volume_confirmation": False,
+                            "anomaly_filter": False, "liquidity_filter": True,
+                            "min_quote_volume": 1000}
+        )
+        self.assertIsNone(direction)
+        self.assertTrue(any("成交额不足" in reason for reason in reasons))
+
+    def test_settlement_records_net_cost_adjusted_pnl(self):
+        trade = {
+            "id": "test", "symbol": "BTCUSDT", "interval": "1d",
+            "entry": 100.0, "entry_model": "signal_price", "entry_filled": True,
+            "entry_ts": 60 * 86400000, "direction": "long", "stop": 95.0,
+            "target": 110.0, "fee_rate": 0.001, "slippage_rate": 0.0005,
+        }
+        state = {"open_trades": [trade], "closed_trades": []}
+        with mock.patch.object(sw, "fetch_klines_with_fallback", return_value=(
+            [{"time": 61 * 86400000, "open": 100, "high": 110, "low": 99, "close": 108, "volume": 1}], "test"
+        )):
+            settled = sw.settle_trades(state, {})
+        self.assertEqual(len(settled), 1)
+        self.assertEqual(settled[0]["gross_pnl_pct"], 10.0)
+        self.assertEqual(settled[0]["net_pnl_pct"], 9.7)
 
     def test_shadow_tracking_calculates_long_mfe_mae_and_return(self):
         hour = 60 * 60 * 1000
@@ -345,6 +395,7 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertTrue(report["enabled"])
         self.assertEqual(len(report["windows"]), 2)
         self.assertIn("baseline_cost", report["windows"][0]["validation"])
+        self.assertIn("quadruple_cost", report["windows"][0]["validation"])
 
     def test_portfolio_rolling_validation_uses_shared_capital_windows(self):
         class Args:
@@ -376,6 +427,21 @@ class TurtleCoreTests(unittest.TestCase):
         metrics = report["windows"][0]["validation"]["baseline_cost"]
         self.assertIn("risk_limits", metrics)
         self.assertEqual(metrics["risk_limits"]["max_total_units"], 12)
+        self.assertIn("quadruple_cost", report["windows"][0]["validation"])
+
+    def test_portfolio_risk_snapshot_reports_units_and_stop_risk(self):
+        state = {"open_trades": [{
+            "symbol": "BTCUSDT", "direction": "long", "strategy_type": "turtle",
+            "units": 2, "unit_quantity": 3, "stop": 90,
+            "unit_entries": [{"price": 100}, {"price": 105}], "entry_filled": True,
+        }]}
+        config = {"strategy": {"limits": {"max_symbol_units": 4, "max_direction_units": 12}}}
+        snapshot = sw.portfolio_risk_snapshot(state, config)
+        self.assertEqual(snapshot["total_units"], 2)
+        self.assertEqual(snapshot["long_units"], 2)
+        self.assertEqual(snapshot["remaining_long_capacity"], 10)
+        self.assertEqual(snapshot["estimated_stop_risk"], 75.0)
+        self.assertEqual(snapshot["symbols"][0]["remaining_symbol_capacity"], 2)
 
     def test_signal_quality_report_marks_small_samples_unreliable(self):
         records = [
@@ -471,6 +537,19 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(health["push"]["failed"], 1)
         self.assertNotIn("token", json.dumps(health))
 
+    def test_monitor_health_alerts_only_on_status_transition(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 100, "status": "ok"}, file)
+            first = check_monitor_health.check(max_age_minutes=20, now=2000, sendkey="SCT-test")
+            second = check_monitor_health.check(max_age_minutes=20, now=2001, sendkey="SCT-test")
+            self.assertEqual(first["status"], "stale")
+            self.assertEqual(second["status"], "stale")
+            self.assertEqual(notify.call_count, 1)
+
     def test_empty_portfolio_backtest_returns_a_valid_equity_curve(self):
         class Args:
             capital = 10000.0
@@ -527,6 +606,21 @@ class TurtleCoreTests(unittest.TestCase):
             "time": "2026-09-04 09:00:00", "trade_plan": plan,
         }, {})
         self.assertIn("影子成交：下一根4h K线开盘价", message)
+
+    def test_turtle_push_text_exposes_timing_and_late_status(self):
+        message = sw.build_turtle_message({
+            "symbol": "BNBUSDT", "interval": "4h", "direction": "long",
+            "grade": "海龟S2", "price": "738.25", "change": 3.32,
+            "reason": "突破", "strategy": "策略", "time": "2026-09-05 16:38:33",
+            "trade_plan": {"system": "system2", "entry": 729.9, "stop": 714.86,
+                            "next_add": 733.66, "max_units": 4},
+            "timing": {"shadow_entry_status": "late", "delay_minutes": 38.6,
+                       "bar_close_time": "2026-09-05 08:00:00 UTC / 2026-09-05 16:00:00 北京",
+                       "generated_time": "2026-09-05 08:38:33 UTC / 2026-09-05 16:38:33 北京"},
+        }, {})
+        self.assertIn("窗口已错过，禁止追价", message)
+        self.assertIn("信号延迟 38.6 分钟", message)
+        self.assertIn("币安现货观察，不是永续合约指令", message)
 
     def test_turtle_push_title_does_not_duplicate_breakout_prefix(self):
         event = {

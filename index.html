@@ -444,11 +444,25 @@
             <div id="signalQualityDetails" class="bt-table-wrap"></div>
           </div>
         </section>
+
+        <section class="panel backtest-panel" id="monitorHealthPanel">
+          <div class="panel-head">
+            <div>
+              <h3>🩺 监控运行健康</h3>
+              <p id="monitorHealthMeta">加载监控健康记录中...</p>
+            </div>
+            <button class="btn primary" id="refreshHealthBtn">刷新数据</button>
+          </div>
+          <div class="bt-overview-body">
+            <div id="monitorHealthSummary" class="trade-summary"></div>
+            <div id="monitorHealthDetails" class="bt-table-wrap"></div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
 
   <div class="toast" id="toast" role="status"></div>
-  <script src="app.js?v=15"></script>
+  <script src="app.js?v=16"></script>
 </body>
 </html>

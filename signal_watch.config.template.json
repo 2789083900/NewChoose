@@ -20,6 +20,7 @@
   "refresh_seconds": 300,
   "max_staleness_intervals": 3,
   "minimum_scan_coverage_pct": 80,
+  "shadow_entry_grace_minutes": 5,
   "dashboard_url": "",
   "strategy": {
     "mode": "turtle",
@@ -40,7 +41,12 @@
       "volume_min_ratio": 1.0,
       "volatility_filter": true,
       "min_atr_pct": 0.002,
-      "max_atr_pct": 0.12
+      "max_atr_pct": 0.12,
+      "anomaly_filter": true,
+      "max_gap_pct": 0.1,
+      "max_range_pct": 0.2,
+      "liquidity_filter": false,
+      "min_quote_volume": 0
     },
     "limits": {
       "max_symbol_units": 4,
@@ -52,6 +58,10 @@
       "strong_groups": [],
       "weak_groups": []
     }
+  },
+  "execution": {
+    "fee_rate": 0.001,
+    "slippage_rate": 0.0005
   },
   "channels": {
     "dingtalk": {

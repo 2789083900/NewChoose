@@ -2275,22 +2275,26 @@ function loadBacktestOverview() {
     }
     const baselineReturns = windows.map((item) => Number(item.validation.baseline_cost.return || 0));
     const doubleCostReturns = windows.map((item) => Number(item.validation.double_cost.return || 0));
+    const quadrupleCostReturns = windows.map((item) => Number(item.validation.quadruple_cost?.return || 0));
     const positive = baselineReturns.filter((value) => value > 0).length;
     const avg = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
     const averageBaseline = baselineReturns.length ? avg(baselineReturns) : 0;
     const averageDoubleCost = doubleCostReturns.length ? avg(doubleCostReturns) : 0;
+    const averageQuadrupleCost = quadrupleCostReturns.length ? avg(quadrupleCostReturns) : 0;
     const rows = windows.map((item) => {
       const base = item.validation.baseline_cost;
       const stress = item.validation.double_cost;
+      const extreme = item.validation.quadruple_cost;
       const start = formatDateShort(item.validation.start_time);
       const end = formatDateShort(item.validation.end_time);
-      return `<tr><td class="sym">${escapeHtml(item.symbol.replace('USDT', ''))}</td><td>#${item.index}</td><td>${start} — ${end}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td></tr>`;
+      return `<tr><td class="sym">${escapeHtml(item.symbol.replace('USDT', ''))}</td><td>#${item.index}</td><td>${start} — ${end}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td class="${valueClass(extreme?.return)}">${extreme ? formatPct(extreme.return) : '--'}</td></tr>`;
     }).join('');
     const portfolioWindows = portfolioValidation?.enabled ? portfolioValidation.windows || [] : [];
     const portfolioRows = portfolioWindows.map((window, index) => {
       const base = window.validation.baseline_cost;
       const stress = window.validation.double_cost;
-      return `<tr><td>#${index + 1}</td><td>${formatDateShort(window.validation.start_time)} — ${formatDateShort(window.validation.end_time)}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td>${base.rejected_signals ?? 0}</td></tr>`;
+      const extreme = window.validation.quadruple_cost;
+      return `<tr><td>#${index + 1}</td><td>${formatDateShort(window.validation.start_time)} — ${formatDateShort(window.validation.end_time)}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td class="${valueClass(extreme?.return)}">${extreme ? formatPct(extreme.return) : '--'}</td><td>${base.rejected_signals ?? 0}</td></tr>`;
     }).join('');
     const symbolSummary = windows.length ? `
       <div class="bt-validation-summary">
@@ -2298,16 +2302,17 @@ function loadBacktestOverview() {
         <div class="bt-validation-stat"><span>基准成本正收益</span><strong class="${positive / windows.length >= 0.5 ? 'bull' : 'bear'}">${positive}/${windows.length}</strong></div>
         <div class="bt-validation-stat"><span>平均样本外收益</span><strong class="${valueClass(averageBaseline)}">${formatPct(averageBaseline)}</strong></div>
         <div class="bt-validation-stat"><span>双倍成本平均收益</span><strong class="${valueClass(averageDoubleCost)}">${formatPct(averageDoubleCost)}</strong></div>
+        <div class="bt-validation-stat"><span>四倍成本平均收益</span><strong class="${valueClass(averageQuadrupleCost)}">${formatPct(averageQuadrupleCost)}</strong></div>
       </div>
       <details class="bt-validation-details"><summary>查看 ${windows.length} 个逐币种滚动窗口明细</summary>
-        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>币种</th><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>币种</th><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th><th>四倍成本收益</th></tr></thead><tbody>${rows}</tbody></table></div>
       </details>` : '';
     const portfolioSummary = portfolioWindows.length ? `
       <details class="bt-validation-details" open><summary>组合级滚动验证（统一资金池、总单位/方向/相关组限仓）</summary>
-        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th><th>限仓拒绝</th></tr></thead><tbody>${portfolioRows}</tbody></table></div>
+        <div class="bt-table-wrap"><table class="bt-table"><thead><tr><th>窗口</th><th>验证区间</th><th>交易</th><th>基准收益</th><th>基准回撤</th><th>双倍成本收益</th><th>四倍成本收益</th><th>限仓拒绝</th></tr></thead><tbody>${portfolioRows}</tbody></table></div>
       </details>` : `<p class="bt-validation-note">组合级滚动验证暂不可用：${escapeHtml(portfolioValidation?.reason || '报告未包含该字段。')}</p>`;
     rollingEl.innerHTML = `
-      <p class="bt-validation-note">滚动样本外验证：固定 production_default 参数，不因窗口结果调参或更换变体；“双倍成本”同时将手续费与滑点提高至两倍。当前数据源为 Binance 现货 K 线。</p>
+      <p class="bt-validation-note">滚动样本外验证：固定 production_default 参数，不因窗口结果调参或更换变体；成本压力同时将手续费与滑点提高至两倍和四倍。当前数据源为 Binance 现货 K 线。</p>
       ${symbolSummary}
       ${portfolioSummary}`;
   };
@@ -2417,6 +2422,8 @@ function loadTradeStats() {
           <div class="trade-card"><span>累计盈亏</span><strong class="${pnlCls}">${stats.total_pnl_pct > 0 ? '+' : ''}${stats.total_pnl_pct}%</strong></div>
           <div class="trade-card"><span>均盈</span><strong class="bull">+${stats.avg_win}%</strong></div>
           <div class="trade-card"><span>均亏</span><strong class="bear">${stats.avg_loss}%</strong></div>
+          <div class="trade-card"><span>累计成本</span><strong>${Number(stats.total_fees_pct || 0) + Number(stats.total_slippage_pct || 0)}%</strong></div>
+          <div class="trade-card"><span>平均成交偏差</span><strong>${Number(stats.avg_fill_deviation_pct || 0) > 0 ? '+' : ''}${stats.avg_fill_deviation_pct || 0}%</strong></div>
         </div>`;
       bySymEl.innerHTML = `
         <table class="bt-table">
@@ -2598,6 +2605,44 @@ function loadSignalQuality() {
     .catch((err) => {
       metaEl.textContent = `信号质量报告加载失败：${err.message}`;
       summaryEl.innerHTML = '<div class="empty-smart">等待下一次监控任务生成 signal_quality_report.json</div>';
+      detailsEl.innerHTML = '';
+    });
+}
+
+function loadMonitorHealth() {
+  const metaEl = $('monitorHealthMeta');
+  const summaryEl = $('monitorHealthSummary');
+  const detailsEl = $('monitorHealthDetails');
+  if (!metaEl || !summaryEl || !detailsEl) return;
+  fetchJSON('monitor_health.json', 15000)
+    .then((health) => {
+      const scan = health.scan || {};
+      const push = health.push || {};
+      const portfolio = health.portfolio || {};
+      const coverage = Number(scan.coverage_pct);
+      const status = health.status || 'unknown';
+      const statusLabel = status === 'ok' ? '正常' : status === 'degraded' ? '降级' : status === 'failed' ? '失败' : '未知';
+      metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel}`;
+      summaryEl.innerHTML = `
+        <div class="trade-cards">
+          <div class="trade-card"><span>最近扫描</span><strong>${escapeHtml(scan.run_id || '--')}</strong></div>
+          <div class="trade-card"><span>行情覆盖率</span><strong class="${coverage >= 80 ? 'bull' : 'bear'}">${Number.isFinite(coverage) ? coverage.toFixed(1) : '--'}%</strong></div>
+          <div class="trade-card"><span>成功市场</span><strong>${scan.successful_markets ?? '--'} / ${scan.expected_markets ?? '--'}</strong></div>
+          <div class="trade-card"><span>数据延迟</span><strong class="${Number(scan.data_lag_minutes || 0) > 30 ? 'bear' : 'bull'}">${scan.data_lag_minutes != null ? `${scan.data_lag_minutes} 分钟` : '--'}</strong></div>
+          <div class="trade-card"><span>推送失败</span><strong class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</strong></div>
+          <div class="trade-card"><span>当前总单位</span><strong>${portfolio.total_units ?? '--'}（多 ${portfolio.long_units ?? '--'} / 空 ${portfolio.short_units ?? '--'}）</strong></div>
+          <div class="trade-card"><span>止损理论风险</span><strong>${portfolio.estimated_stop_risk != null ? `${portfolio.estimated_stop_risk} U` : '--'}</strong></div>
+        </div>`;
+      const failures = (scan.failures || []).map((item) => `<li>${escapeHtml(String(item))}</li>`).join('');
+      detailsEl.innerHTML = `
+        <table class="bt-table"><thead><tr><th>候选信号</th><th>覆盖门槛</th><th>推送尝试</th><th>推送失败</th><th>数据源</th></tr></thead>
+        <tbody><tr><td>${scan.candidate_signals ?? 0}</td><td>${scan.minimum_coverage_pct ?? 80}%</td><td>${push.attempted ?? 0}</td><td class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</td><td>${escapeHtml((scan.providers || []).join(', ') || '--')}</td></tr></tbody></table>
+        ${failures ? `<ul class="health-failures">${failures}</ul>` : ''}
+        ${portfolio.symbols?.length ? `<table class="bt-table health-risk-table"><thead><tr><th>币种</th><th>方向</th><th>单位</th><th>剩余容量</th><th>止损理论风险</th></tr></thead><tbody>${portfolio.symbols.map((item) => `<tr><td class="sym">${escapeHtml(String(item.symbol || '').replace('USDT', ''))}</td><td>${item.direction === 'long' ? '多' : '空'}</td><td>${item.units ?? 0}</td><td>${item.remaining_symbol_capacity ?? '--'}</td><td>${item.estimated_stop_risk ?? 0} U</td></tr>`).join('')}</tbody></table>` : ''}`;
+    })
+    .catch((err) => {
+      metaEl.textContent = `监控健康记录加载失败：${err.message}`;
+      summaryEl.innerHTML = '<div class="empty-smart">等待下一次监控任务生成 monitor_health.json</div>';
       detailsEl.innerHTML = '';
     });
 }
@@ -4279,6 +4324,8 @@ function bindEvents() {
   if (refreshTrade) refreshTrade.addEventListener('click', loadTradeStats);
   const refreshQuality = $('refreshQualityBtn');
   if (refreshQuality) refreshQuality.addEventListener('click', loadSignalQuality);
+  const refreshHealth = $('refreshHealthBtn');
+  if (refreshHealth) refreshHealth.addEventListener('click', loadMonitorHealth);
 
   window.addEventListener('resize', () => {
     clearTimeout(window.__resizeTimer);
@@ -4363,6 +4410,7 @@ function init() {
   loadBacktestOverview();
   loadTradeStats();
   loadSignalQuality();
+  loadMonitorHealth();
   refreshAll();
   startAuto();
 }

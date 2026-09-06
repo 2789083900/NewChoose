@@ -44,7 +44,7 @@
       "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788624000000
+      "last_managed_bar": 1788638400000
     }
   ],
   "closed_trades": [
@@ -155,7 +155,7 @@
   "AVAXUSDT|4h|turtle|system2": "none",
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
-  "BNBUSDT|4h|turtle|system2": "long",
+  "BNBUSDT|4h|turtle|system2": "none",
   "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none",

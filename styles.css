@@ -863,6 +863,14 @@ button {
   line-height: 1.5;
 }
 
+.health-failures {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--orange);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
 .bt-rolling-validation {
   margin-top: 14px;
 }

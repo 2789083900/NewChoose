@@ -136,7 +136,7 @@ def simulate(
             direction = signal["direction"]
             entry_trigger = signal["entry_trigger"]
             entry = execution_price(bar["open"], direction, "entry", slippage_rate)
-            quantity = equity * risk_fraction / signal["n"]
+            quantity = sw.turtle_unit_quantity(equity, signal["n"], risk_fraction, 2.0)
             entry_fee = entry * quantity * fee_rate
             equity -= entry_fee
             position = {
@@ -200,7 +200,7 @@ def simulate(
                 reached = bar["high"] >= next_price if position["direction"] == "long" else bar["low"] <= next_price
                 if not reached:
                     break
-                quantity = equity * risk_fraction / n
+                quantity = sw.turtle_unit_quantity(equity, n, risk_fraction, 2.0)
                 raw_entry = gap_adjusted_trigger(
                     bar, position["direction"], "entry", next_price
                 )
@@ -394,6 +394,12 @@ def rolling_validation(klines, daily, filters, args):
             start_index=train_end, end_index=test_end,
             risk_fraction=args.risk_fraction,
         )
+        quadruple_cost = simulate(
+            klines, daily, filters, capital=args.capital,
+            fee_rate=args.fee_rate * 4, slippage_rate=args.slippage * 4,
+            start_index=train_end, end_index=test_end,
+            risk_fraction=args.risk_fraction,
+        )
         windows.append({
             "development": {
                 "start_index": 0, "end_index": train_end,
@@ -411,6 +417,7 @@ def rolling_validation(klines, daily, filters, args):
                 "end_time": klines[test_end - 1]["time"],
                 "baseline_cost": baseline,
                 "double_cost": doubled_cost,
+                "quadruple_cost": quadruple_cost,
             },
         })
         train_end += step_bars
@@ -578,7 +585,7 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
             entry = execution_price(
                 prepared[symbol]["klines"][index]["open"], signal["direction"], "entry", args.slippage
             )
-            quantity = account_value * risk_fraction / signal["n"]
+            quantity = sw.turtle_unit_quantity(account_value, signal["n"], risk_fraction, 2.0)
             cash -= entry * quantity * args.fee_rate
             positions[symbol] = {
                 "direction": signal["direction"], "quantity": quantity, "avg_entry": entry,
@@ -642,7 +649,7 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
                     break
                 raw_entry = gap_adjusted_trigger(bar, position["direction"], "entry", next_price)
                 fill = execution_price(raw_entry, position["direction"], "entry", args.slippage)
-                quantity = max(0.0, marked_equity("close")) * risk_fraction / n
+                quantity = sw.turtle_unit_quantity(marked_equity("close"), n, risk_fraction, 2.0)
                 cash -= fill * quantity * args.fee_rate
                 position["entry_fees"] += fill * quantity * args.fee_rate
                 total_cost = position["avg_entry"] * position["quantity"] + fill * quantity
@@ -731,6 +738,12 @@ def portfolio_rolling_validation(market_data, filters, args):
         doubled_cost = simulate_portfolio(
             market_data, filters, stress_args, start_index=train_end, end_index=test_end
         )
+        stress_args = copy.copy(args)
+        stress_args.fee_rate = args.fee_rate * 4
+        stress_args.slippage = args.slippage * 4
+        quadruple_cost = simulate_portfolio(
+            market_data, filters, stress_args, start_index=train_end, end_index=test_end
+        )
         windows.append({
             "development": {
                 "start_index": 0, "end_index": train_end,
@@ -741,6 +754,7 @@ def portfolio_rolling_validation(market_data, filters, args):
                 "start_index": train_end, "end_index": test_end,
                 "start_time": common_times[train_end], "end_time": common_times[test_end - 1],
                 "baseline_cost": baseline, "double_cost": doubled_cost,
+                "quadruple_cost": quadruple_cost,
             },
         })
         train_end += step_bars
@@ -871,7 +885,7 @@ def main():
     report = {
         "generated_at": __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "reproducibility": {
-            "report_schema_version": 1,
+            "report_schema_version": 2,
             "code_revision": os.environ.get("GITHUB_SHA", "local-uncommitted"),
             "run_id": os.environ.get("GITHUB_RUN_ID", "local"),
             "python_version": platform.python_version(),
@@ -888,6 +902,11 @@ def main():
         "capital": args.capital,
         "fee_rate": args.fee_rate,
         "slippage_rate": args.slippage,
+        "cost_scenarios": {
+            "baseline": {"fee_multiplier": 1, "slippage_multiplier": 1},
+            "double": {"fee_multiplier": 2, "slippage_multiplier": 2},
+            "quadruple": {"fee_multiplier": 4, "slippage_multiplier": 4},
+        },
         "risk_fraction": args.risk_fraction,
         "test_ratio": max(0.0, min(0.9, args.test_ratio)),
         "rolling_validation": {

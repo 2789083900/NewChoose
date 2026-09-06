@@ -13,7 +13,7 @@ import uuid
 import urllib.parse
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import tempfile
 
 from signal_archive import archive_and_trim
@@ -28,6 +28,7 @@ HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
 STATE_SCHEMA_VERSION = 2
 MAX_REQUEST_ATTEMPTS = 3
 RETRY_BACKOFF_SECONDS = 0.25
+CHINA_TZ = timezone(timedelta(hours=8))
 
 DEFAULT_SYMBOLS = [
     "BTCUSDT",
@@ -65,7 +66,48 @@ TURTLE_FILTER_DEFAULTS = {
     "volatility_filter": True,
     "min_atr_pct": 0.002,
     "max_atr_pct": 0.12,
+    "anomaly_filter": True,
+    "max_gap_pct": 0.10,
+    "max_range_pct": 0.20,
+    "liquidity_filter": False,
+    "min_quote_volume": 0.0,
 }
+
+
+def format_time_pair(epoch_ms):
+    """Return an explicit UTC/Beijing representation for user-facing timestamps."""
+    if not epoch_ms:
+        return "--"
+    instant = datetime.fromtimestamp(int(epoch_ms) / 1000, tz=timezone.utc)
+    return f"{instant.strftime('%Y-%m-%d %H:%M:%S')} UTC / {instant.astimezone(CHINA_TZ).strftime('%Y-%m-%d %H:%M:%S')} 北京"
+
+
+def turtle_unit_quantity(account_value, n, risk_fraction=TURTLE_RISK_FRACTION, stop_n=2.0):
+    """Size one unit so the configured stop distance risks risk_fraction of equity."""
+    try:
+        account_value = max(0.0, float(account_value))
+        n = float(n)
+        risk_fraction = max(0.0, float(risk_fraction))
+        stop_n = max(0.000001, float(stop_n))
+    except (TypeError, ValueError):
+        return 0.0
+    return account_value * risk_fraction / (stop_n * n) if n > 0 else 0.0
+
+
+def signal_timing(bar_time, interval, generated_ms, grace_minutes=5):
+    interval_ms = INTERVAL_MS.get(interval, 0)
+    bar_close_ms = int(bar_time or 0) + interval_ms if interval_ms else 0
+    delay_minutes = max(0.0, (int(generated_ms) - bar_close_ms) / 60000) if bar_close_ms else None
+    return {
+        "bar_close_time": format_time_pair(bar_close_ms),
+        "bar_close_epoch": bar_close_ms or None,
+        "generated_time": format_time_pair(generated_ms),
+        "generated_epoch": int(generated_ms),
+        "delay_minutes": round(delay_minutes, 1) if delay_minutes is not None else None,
+        "shadow_entry_deadline": format_time_pair(bar_close_ms),
+        "shadow_entry_status": "on_time" if delay_minutes is not None and delay_minutes <= grace_minutes else "late",
+        "grace_minutes": grace_minutes,
+    }
 
 
 def filter_closed_klines(klines, interval, now_ms=None):
@@ -122,6 +164,20 @@ def turtle_filter_options(strategy_config=None):
         options["max_atr_pct"] = max(options["min_atr_pct"], float(raw.get("max_atr_pct", options["max_atr_pct"])))
     except (TypeError, ValueError):
         options["max_atr_pct"] = TURTLE_FILTER_DEFAULTS["max_atr_pct"]
+    options["anomaly_filter"] = bool(raw.get("anomaly_filter", options["anomaly_filter"]))
+    try:
+        options["max_gap_pct"] = max(0.0, float(raw.get("max_gap_pct", options["max_gap_pct"])))
+    except (TypeError, ValueError):
+        options["max_gap_pct"] = TURTLE_FILTER_DEFAULTS["max_gap_pct"]
+    try:
+        options["max_range_pct"] = max(0.0, float(raw.get("max_range_pct", options["max_range_pct"])))
+    except (TypeError, ValueError):
+        options["max_range_pct"] = TURTLE_FILTER_DEFAULTS["max_range_pct"]
+    options["liquidity_filter"] = bool(raw.get("liquidity_filter", options["liquidity_filter"]))
+    try:
+        options["min_quote_volume"] = max(0.0, float(raw.get("min_quote_volume", options["min_quote_volume"])))
+    except (TypeError, ValueError):
+        options["min_quote_volume"] = TURTLE_FILTER_DEFAULTS["min_quote_volume"]
     return options
 
 
@@ -519,6 +575,27 @@ def turtle_confirmation_filters(klines, idx, direction, n, filters):
         elif atr_pct > maximum:
             reasons.append(f"波动率过高（ATR达{atr_pct * 100:.2f}%）")
 
+    if filters.get("anomaly_filter", True):
+        current = klines[idx]
+        previous_close = float(klines[idx - 1].get("close") or 0) if idx > 0 else 0
+        open_price = float(current.get("open") or 0)
+        close_price = float(current.get("close") or 0)
+        gap_pct = abs(open_price - previous_close) / previous_close if previous_close > 0 else 0
+        range_pct = (float(current.get("high") or 0) - float(current.get("low") or 0)) / close_price if close_price > 0 else 0
+        metrics.update({"gapPct": gap_pct, "rangePct": range_pct})
+        if gap_pct > float(filters.get("max_gap_pct", 0.10)):
+            reasons.append(f"开盘跳空过大（{gap_pct * 100:.1f}%）")
+        if range_pct > float(filters.get("max_range_pct", 0.20)):
+            reasons.append(f"单根波动过大（{range_pct * 100:.1f}%）")
+
+    if filters.get("liquidity_filter", False):
+        close_price = float(klines[idx].get("close") or 0)
+        quote_volume = close_price * float(klines[idx].get("volume") or 0)
+        metrics["quoteVolume"] = quote_volume
+        minimum = float(filters.get("min_quote_volume", 0.0))
+        if minimum > 0 and quote_volume < minimum:
+            reasons.append(f"成交额不足（约{quote_volume:.0f}）")
+
     return reasons, metrics
 
 
@@ -580,7 +657,8 @@ def build_turtle_signal(
             "levels": levels, "n": n, "price": price, "filtered": True,
             "filter_reason": reason, "filter_metrics": confirmation_metrics
         }
-    unit_quantity = account_value * risk_fraction / n
+    # risk_fraction is the maximum loss at the 2N stop, not the notional size.
+    unit_quantity = turtle_unit_quantity(account_value, n, risk_fraction, 2.0)
     plan = {
         "system": system,
         "entry": entry,
@@ -651,6 +729,76 @@ def turtle_unit_capacity(symbol, direction, state, config):
     elif weak_group:
         caps.append(max_weak - group_units)
     return max(0, min(caps))
+
+
+def portfolio_risk_snapshot(state, config):
+    """Summarize live-like turtle exposure without using a current market price."""
+    def number(value, default=0.0):
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    strategy = (config or {}).get("strategy") or {}
+    limits = strategy.get("limits") or {}
+    max_symbol = int(limits.get("max_symbol_units", TURTLE_MAX_UNITS))
+    max_direction = int(limits.get("max_direction_units", 12))
+    trades = [
+        trade for trade in (state or {}).get("open_trades", [])
+        if trade.get("strategy_type") == "turtle"
+    ]
+    totals = {"long": 0, "short": 0}
+    by_symbol = {}
+    total_risk = 0.0
+    total_notional = 0.0
+    awaiting_fill = 0
+    for trade in trades:
+        direction = trade.get("direction")
+        units = max(1, int(trade.get("units") or 1))
+        if direction in totals:
+            totals[direction] += units
+        if not trade.get("entry_filled", trade.get("entry_model") != "next_bar_open"):
+            awaiting_fill += 1
+        quantity = max(0.0, number(trade.get("unit_quantity")))
+        stop = trade.get("stop")
+        entries = list(trade.get("unit_entries") or [])
+        if not entries and trade.get("entry") is not None:
+            entries = [{"price": trade.get("entry")}]
+        notional = sum(number(item.get("price")) * quantity for item in entries)
+        risk = sum(
+            abs(number(item.get("price")) - number(stop)) * quantity
+            for item in entries
+        ) if stop is not None else 0.0
+        total_notional += notional
+        total_risk += risk
+        symbol = trade.get("symbol") or "unknown"
+        item = by_symbol.setdefault(symbol, {
+            "symbol": symbol, "direction": direction, "units": 0,
+            "estimated_stop_risk": 0.0, "notional_at_entry": 0.0,
+        })
+        item["units"] += units
+        item["estimated_stop_risk"] += risk
+        item["notional_at_entry"] += notional
+    symbols = []
+    for item in by_symbol.values():
+        item["remaining_symbol_capacity"] = max(0, max_symbol - item["units"])
+        item["estimated_stop_risk"] = round(item["estimated_stop_risk"], 2)
+        item["notional_at_entry"] = round(item["notional_at_entry"], 2)
+        symbols.append(item)
+    return {
+        "open_trades": len(trades),
+        "awaiting_fill": awaiting_fill,
+        "total_units": totals["long"] + totals["short"],
+        "long_units": totals["long"],
+        "short_units": totals["short"],
+        "remaining_long_capacity": max(0, max_direction - totals["long"]),
+        "remaining_short_capacity": max(0, max_direction - totals["short"]),
+        "estimated_stop_risk": round(total_risk, 2),
+        "notional_at_entry": round(total_notional, 2),
+        "limits": {"max_symbol_units": max_symbol, "max_direction_units": max_direction},
+        "symbols": sorted(symbols, key=lambda item: (-item["estimated_stop_risk"], item["symbol"])),
+        "risk_definition": "按已记录入场价、单位数量和当前止损位估算；不含跳空、流动性冲击或人工成交偏差。",
+    }
 
 
 def allocate_turtle_capacity(events, state, config):
@@ -995,6 +1143,7 @@ def load_config():
         "refresh_seconds": 30,
         "max_staleness_intervals": 3,
         "minimum_scan_coverage_pct": 80,
+        "shadow_entry_grace_minutes": 5,
         "dashboard_url": "http://192.168.10.13:5173",
         "strategy": {
             "mode": "turtle",
@@ -1010,6 +1159,7 @@ def load_config():
             },
             "correlation": {"strong_groups": [], "weak_groups": []}
         },
+        "execution": {"fee_rate": 0.001, "slippage_rate": 0.0005},
         "channels": {
             "dingtalk": {"webhook": ""},
             "wecom": {"webhook": ""},
@@ -1060,7 +1210,7 @@ def atomic_write_json(path, data):
         raise
 
 
-def write_monitor_health(scan=None, notifications=None, status=None):
+def write_monitor_health(scan=None, notifications=None, portfolio=None, status=None):
     """Persist a compact, secret-free health record for cloud monitoring."""
     previous = {}
     try:
@@ -1071,6 +1221,7 @@ def write_monitor_health(scan=None, notifications=None, status=None):
         pass
     health = dict(previous)
     health["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    health["updated_at_epoch"] = int(time.time())
     if scan is not None:
         health["scan"] = scan
     if notifications is not None:
@@ -1084,6 +1235,8 @@ def write_monitor_health(scan=None, notifications=None, status=None):
             "failed": len(failures),
             "failures": failures[-10:],
         }
+    if portfolio is not None:
+        health["portfolio"] = portfolio
     if status is not None:
         health["status"] = status
     atomic_write_json(HEALTH_PATH, health)
@@ -1146,7 +1299,11 @@ def record_signal_event(event, config=None):
         "entry_model": "next_bar_open",
         "signal_bar_time": bar_time,
         "signal_time": event.get("time"),
+        "timing": event.get("timing") or {},
+        "dispatch_started_epoch": event.get("dispatch_started_epoch"),
+        "dispatch_completed_epoch": event.get("dispatch_completed_epoch"),
         "strategy_type": "turtle" if event.get("turtle") else "legacy",
+        "market_type": "spot",
         "system": plan.get("system"),
         "n": plan.get("n"),
         "provider": event.get("provider"),
@@ -1588,6 +1745,10 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
                 "provider": provider,
                 "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "bar_time": klines[-1]["time"],
+                "timing": signal_timing(
+                    klines[-1]["time"], interval, int(time.time() * 1000),
+                    max(0.0, float(config.get("shadow_entry_grace_minutes", 5)))
+                ),
                 "points": 4,
                 "grade": grade,
                 "divergence": mode != "turtle",
@@ -1646,6 +1807,26 @@ def scan_coverage_ok(config, diagnostics):
     coverage = successful / expected * 100
     minimum = max(0.0, min(100.0, float(config.get("minimum_scan_coverage_pct", 80))))
     return coverage >= minimum, round(coverage, 2), minimum
+
+
+def scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, candidate_signals, capacity_rejected=0):
+    """Build a consistent, secret-free scan summary for health reporting."""
+    latest_bar_time = int(diagnostics.get("latest_bar_time") or 0)
+    data_lag_minutes = round(max(0, int(time.time() * 1000) - latest_bar_time) / 60000, 1) if latest_bar_time else None
+    return {
+        "run_id": run_id,
+        "expected_markets": diagnostics.get("expected_markets", 0),
+        "successful_markets": diagnostics.get("successful_markets", 0),
+        "failed_markets": diagnostics.get("failed_markets", 0),
+        "coverage_pct": coverage_pct,
+        "minimum_coverage_pct": minimum_coverage,
+        "latest_bar_time": latest_bar_time or None,
+        "data_lag_minutes": data_lag_minutes,
+        "candidate_signals": candidate_signals,
+        "capacity_rejected": capacity_rejected,
+        "providers": sorted(diagnostics.get("providers", set())),
+        "failures": diagnostics.get("failures", [])[-10:],
+    }
 
 
 def detect_bias_regression(klines, indicators, dev_th=2.2):
@@ -1719,6 +1900,8 @@ def build_divergence_message(event, config):
 def build_turtle_message(event, config):
     direction = "突破做多" if event["direction"] == "long" else "突破做空"
     plan = event.get("trade_plan") or {}
+    timing = event.get("timing") or {}
+    status = "窗口已错过，禁止追价" if timing.get("shadow_entry_status") == "late" else "窗口内，可按下一根K线开盘观察"
     lines = [
         f"海龟突破信号 {event['symbol']} {event['interval']}",
         f"{plan.get('system', event['grade'])} · {direction}",
@@ -1726,8 +1909,11 @@ def build_turtle_message(event, config):
         f"依据：{event['reason']}",
         f"{event['strategy']}",
         f"影子成交：下一根{event['interval']} K线开盘价（实际成交价以开盘行情为准）",
-        f"规则：首单位风险=账户1% · 每0.5N加1单位 · 最多{int(plan.get('max_units') or TURTLE_MAX_UNITS)}单位 · 2N止损",
-        f"时间：{event['time']}"
+        f"执行状态：{status} · 信号延迟 {timing.get('delay_minutes', '--')} 分钟",
+        f"K线收盘：{timing.get('bar_close_time', '--')}",
+        f"信号生成：{timing.get('generated_time', event['time'])}",
+        "数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令",
+        f"规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多{int(plan.get('max_units') or TURTLE_MAX_UNITS)}单位",
     ]
     dashboard_url = config.get("dashboard_url")
     if dashboard_url:
@@ -1750,7 +1936,11 @@ def process_events(events, config):
         else:
             title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_message(event, config)
+        dispatch_started = int(time.time() * 1000)
         results = send_notification(title, content, config)
+        dispatch_completed = int(time.time() * 1000)
+        event["dispatch_started_epoch"] = dispatch_started
+        event["dispatch_completed_epoch"] = dispatch_completed
         logging.info("发现信号: %s", content.replace("\n", " / "))
         record_signal_event(event, config)
         register_trade(event, config)
@@ -1802,6 +1992,7 @@ def register_trade(event, config):
         "direction": event.get("direction", ""),
         "entry": entry,
         "entry_trigger": entry,
+        "signal_price": price,
         "entry_model": "next_bar_open" if event.get("turtle") else "signal_price",
         "stop": stop,
         "target": target,
@@ -1810,8 +2001,21 @@ def register_trade(event, config):
         "status": "open",
         "result": None,
         "pnl_pct": None,
+        "gross_pnl_pct": None,
+        "net_pnl_pct": None,
+        "fees_pct": None,
+        "slippage_pct": None,
         "closed_at": None,
     }
+    execution = (config or {}).get("execution") or {}
+    try:
+        trade["fee_rate"] = max(0.0, float(execution.get("fee_rate", 0.001)))
+    except (TypeError, ValueError):
+        trade["fee_rate"] = 0.001
+    try:
+        trade["slippage_rate"] = max(0.0, float(execution.get("slippage_rate", 0.0005)))
+    except (TypeError, ValueError):
+        trade["slippage_rate"] = 0.0005
     if event.get("turtle") and trade_plan:
         trade.update({
             "strategy_type": "turtle",
@@ -1862,8 +2066,12 @@ def manage_turtle_trade(trade, klines):
         if trade.get("entry_model") == "next_bar_open" and not trade.get("entry_filled"):
             # The signal is confirmed on the prior close; the first managed
             # bar is the only valid shadow entry bar.
+            trigger = float(trade.get("entry_trigger") or entries[0].get("price") or trade["entry"])
             entries[0]["price"] = float(kline["open"])
             trade["entry"] = entries[0]["price"]
+            trade["entry_trigger"] = trigger
+            trade["fill_price"] = trade["entry"]
+            trade["fill_deviation_pct"] = round((trade["entry"] - trigger) / trigger * 100, 4) if trigger else 0
             trade["entry_filled"] = True
             trade["entry_bar_time"] = kline["time"]
         current_n = n_series[index] or n
@@ -1911,13 +2119,20 @@ def manage_turtle_trade(trade, klines):
 
     total_quantity = unit_quantity * len(entries)
     weighted_entry = sum(item["price"] for item in entries) / len(entries)
-    pnl_pct = (
+    gross_pnl_pct = (
         (exit_price - weighted_entry) / weighted_entry * 100
         if direction == "long" else (weighted_entry - exit_price) / weighted_entry * 100
     )
     trade["entry"] = weighted_entry
     trade["exit"] = exit_price
     trade["result"] = result
+    fees_pct = 2 * float(trade.get("fee_rate") or 0) * 100
+    slippage_pct = 2 * float(trade.get("slippage_rate") or 0) * 100
+    pnl_pct = gross_pnl_pct - fees_pct - slippage_pct
+    trade["gross_pnl_pct"] = round(gross_pnl_pct, 4)
+    trade["fees_pct"] = round(fees_pct, 4)
+    trade["slippage_pct"] = round(slippage_pct, 4)
+    trade["net_pnl_pct"] = round(pnl_pct, 4)
     trade["pnl_pct"] = round(pnl_pct, 2)
     trade["closed_at"] = datetime.fromtimestamp(exit_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
     trade["exit_ts"] = exit_time
@@ -2010,12 +2225,19 @@ def settle_trades(state, config):
             continue
 
         if trade["direction"] == "long":
-            pnl_pct = (exit_price - entry) / entry * 100
+            gross_pnl_pct = (exit_price - entry) / entry * 100
         else:
-            pnl_pct = (entry - exit_price) / entry * 100
+            gross_pnl_pct = (entry - exit_price) / entry * 100
 
         trade["status"] = "closed"
         trade["result"] = result
+        fees_pct = 2 * float(trade.get("fee_rate") or 0.001) * 100
+        slippage_pct = 2 * float(trade.get("slippage_rate") or 0.0005) * 100
+        pnl_pct = gross_pnl_pct - fees_pct - slippage_pct
+        trade["gross_pnl_pct"] = round(gross_pnl_pct, 4)
+        trade["fees_pct"] = round(fees_pct, 4)
+        trade["slippage_pct"] = round(slippage_pct, 4)
+        trade["net_pnl_pct"] = round(pnl_pct, 4)
         trade["pnl_pct"] = round(pnl_pct, 2)
         trade["exit"] = exit_price
         trade["closed_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -2044,6 +2266,12 @@ def write_trade_stats(state):
     stats["win_rate"] = round(stats["wins"] / stats["total"] * 100, 1) if stats["total"] else 0
     total_pnl = sum(t.get("pnl_pct") or 0 for t in closed)
     stats["total_pnl_pct"] = round(total_pnl, 2)
+    stats["total_gross_pnl_pct"] = round(sum(t.get("gross_pnl_pct") or t.get("pnl_pct") or 0 for t in closed), 2)
+    stats["total_fees_pct"] = round(sum(t.get("fees_pct") or 0 for t in closed), 2)
+    stats["total_slippage_pct"] = round(sum(t.get("slippage_pct") or 0 for t in closed), 2)
+    filled = [t for t in closed if t.get("fill_deviation_pct") is not None]
+    stats["shadow_fills"] = len(filled)
+    stats["avg_fill_deviation_pct"] = round(sum(float(t.get("fill_deviation_pct") or 0) for t in filled) / len(filled), 4) if filled else 0
     avg_win = sum(t.get("pnl_pct") or 0 for t in closed if (t.get("pnl_pct") or 0) > 0)
     avg_loss = sum(t.get("pnl_pct") or 0 for t in closed if (t.get("pnl_pct") or 0) <= 0)
     stats["avg_win"] = round(avg_win / stats["wins"], 2) if stats["wins"] else 0
@@ -2120,7 +2348,8 @@ def main():
             state.update(state_before_scan)
             save_state(state)
             write_monitor_health(
-                scan={"run_id": run_id, "expected_markets": diagnostics.get("expected_markets", 0), "successful_markets": diagnostics.get("successful_markets", 0), "failed_markets": diagnostics.get("failed_markets", 0), "coverage_pct": coverage_pct, "minimum_coverage_pct": minimum_coverage, "candidate_signals": len(events), "providers": sorted(diagnostics.get("providers", set())), "failures": diagnostics.get("failures", [])[-10:]},
+                scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
+                portfolio=portfolio_risk_snapshot(state, config),
                 status="degraded",
             )
             logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
@@ -2130,18 +2359,9 @@ def main():
         state = load_state()
         settle_trades(state, config)
         write_monitor_health(
-            scan={
-                "run_id": run_id,
-                "expected_markets": diagnostics.get("expected_markets", 0),
-                "successful_markets": diagnostics.get("successful_markets", 0),
-                "failed_markets": diagnostics.get("failed_markets", 0),
-                "coverage_pct": round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2),
-                "candidate_signals": len(events),
-                "capacity_rejected": sum(1 for event in events if event.get("capacity_rejected")),
-                "providers": sorted(diagnostics.get("providers", set())),
-                "failures": diagnostics.get("failures", [])[-10:],
-            },
+            scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
             notifications=deliveries,
+            portfolio=portfolio_risk_snapshot(state, config),
             status="ok",
         )
         return
@@ -2165,7 +2385,8 @@ def main():
                 state.update(state_before_scan)
                 save_state(state)
                 write_monitor_health(
-                    scan={"run_id": run_id, "expected_markets": diagnostics.get("expected_markets", 0), "successful_markets": diagnostics.get("successful_markets", 0), "failed_markets": diagnostics.get("failed_markets", 0), "coverage_pct": coverage_pct, "minimum_coverage_pct": minimum_coverage, "candidate_signals": len(events), "providers": sorted(diagnostics.get("providers", set())), "failures": diagnostics.get("failures", [])[-10:]},
+                    scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
+                    portfolio=portfolio_risk_snapshot(state, config),
                     status="degraded",
                 )
                 logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
@@ -2177,18 +2398,9 @@ def main():
             state = load_state()
             settle_trades(state, config)
             write_monitor_health(
-                scan={
-                    "run_id": run_id,
-                    "expected_markets": diagnostics.get("expected_markets", 0),
-                    "successful_markets": diagnostics.get("successful_markets", 0),
-                    "failed_markets": diagnostics.get("failed_markets", 0),
-                    "coverage_pct": round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2),
-                    "candidate_signals": len(events),
-                    "capacity_rejected": sum(1 for event in events if event.get("capacity_rejected")),
-                    "providers": sorted(diagnostics.get("providers", set())),
-                    "failures": diagnostics.get("failures", [])[-10:],
-                },
+                scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
                 notifications=deliveries,
+                portfolio=portfolio_risk_snapshot(state, config),
                 status="ok",
             )
         except Exception as exc:

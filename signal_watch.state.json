@@ -44,7 +44,7 @@
       "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788739200000
+      "last_managed_bar": 1788753600000
     },
     {
       "id": "LINKUSDT|4h|2026-09-07 00:00:48",
@@ -55,7 +55,7 @@
       "entry": 13.234,
       "entry_trigger": 12.62,
       "entry_model": "next_bar_open",
-      "stop": 12.790674431975429,
+      "stop": 12.893889455338659,
       "target": null,
       "opened_at": "2026-09-07 00:00:48",
       "entry_ts": 1788724800000,
@@ -69,20 +69,24 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 2,
-      "units": 1,
+      "units": 2,
       "unit_quantity": 451.1357215221912,
       "unit_entries": [
         {
           "price": 13.234,
           "n": 0.2216627840122854
+        },
+        {
+          "price": 13.34737018155378,
+          "n": 0.2267403631075603
         }
       ],
-      "latest_entry": 13.234,
-      "next_add": 13.344831392006142,
+      "latest_entry": 13.34737018155378,
+      "next_add": null,
       "exit_period": 20,
       "bar_time": 1788724800000,
       "entry_filled": true,
-      "last_managed_bar": 1788739200000,
+      "last_managed_bar": 1788753600000,
       "entry_bar_time": 1788739200000
     }
   ],

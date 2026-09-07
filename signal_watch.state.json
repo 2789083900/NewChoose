@@ -44,7 +44,7 @@
       "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788724800000
+      "last_managed_bar": 1788739200000
     },
     {
       "id": "LINKUSDT|4h|2026-09-07 00:00:48",
@@ -52,10 +52,10 @@
       "symbol": "LINKUSDT",
       "interval": "4h",
       "direction": "long",
-      "entry": 12.62,
+      "entry": 13.234,
       "entry_trigger": 12.62,
       "entry_model": "next_bar_open",
-      "stop": 12.176674431975428,
+      "stop": 12.790674431975429,
       "target": null,
       "opened_at": "2026-09-07 00:00:48",
       "entry_ts": 1788724800000,
@@ -73,16 +73,17 @@
       "unit_quantity": 451.1357215221912,
       "unit_entries": [
         {
-          "price": 12.62,
+          "price": 13.234,
           "n": 0.2216627840122854
         }
       ],
-      "latest_entry": 12.62,
-      "next_add": 12.730831392006142,
+      "latest_entry": 13.234,
+      "next_add": 13.344831392006142,
       "exit_period": 20,
       "bar_time": 1788724800000,
-      "entry_filled": false,
-      "last_managed_bar": 1788724800000
+      "entry_filled": true,
+      "last_managed_bar": 1788739200000,
+      "entry_bar_time": 1788739200000
     }
   ],
   "closed_trades": [
@@ -194,7 +195,7 @@
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
   "BNBUSDT|4h|turtle|system2": "none",
-  "LINKUSDT|4h|turtle|system2": "long",
+  "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2

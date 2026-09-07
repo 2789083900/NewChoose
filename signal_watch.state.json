@@ -44,7 +44,7 @@
       "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788753600000
+      "last_managed_bar": 1788768000000
     },
     {
       "id": "LINKUSDT|4h|2026-09-07 00:00:48",
@@ -86,7 +86,7 @@
       "exit_period": 20,
       "bar_time": 1788724800000,
       "entry_filled": true,
-      "last_managed_bar": 1788753600000,
+      "last_managed_bar": 1788768000000,
       "entry_bar_time": 1788739200000
     }
   ],

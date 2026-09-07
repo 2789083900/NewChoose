@@ -44,50 +44,7 @@
       "next_add": null,
       "exit_period": 20,
       "bar_time": 1788580800000,
-      "last_managed_bar": 1788768000000
-    },
-    {
-      "id": "LINKUSDT|4h|2026-09-07 00:00:48",
-      "run_id": "eb3c5acaec0a",
-      "symbol": "LINKUSDT",
-      "interval": "4h",
-      "direction": "long",
-      "entry": 13.234,
-      "entry_trigger": 12.62,
-      "entry_model": "next_bar_open",
-      "stop": 12.893889455338659,
-      "target": null,
-      "opened_at": "2026-09-07 00:00:48",
-      "entry_ts": 1788724800000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "closed_at": null,
-      "strategy_type": "turtle",
-      "system": "system2",
-      "n": 0.2216627840122854,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 2,
-      "units": 2,
-      "unit_quantity": 451.1357215221912,
-      "unit_entries": [
-        {
-          "price": 13.234,
-          "n": 0.2216627840122854
-        },
-        {
-          "price": 13.34737018155378,
-          "n": 0.2267403631075603
-        }
-      ],
-      "latest_entry": 13.34737018155378,
-      "next_add": null,
-      "exit_period": 20,
-      "bar_time": 1788724800000,
-      "entry_filled": true,
-      "last_managed_bar": 1788768000000,
-      "entry_bar_time": 1788739200000
+      "last_managed_bar": 1788782400000
     }
   ],
   "closed_trades": [
@@ -176,6 +133,52 @@
       "exit": 80664.90981525522,
       "exit_ts": 1788494400000,
       "quantity": 0.37092328507364575
+    },
+    {
+      "id": "LINKUSDT|4h|2026-09-07 00:00:48",
+      "run_id": "eb3c5acaec0a",
+      "symbol": "LINKUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 13.29068509077689,
+      "entry_trigger": 12.62,
+      "entry_model": "next_bar_open",
+      "stop": 12.893889455338659,
+      "target": null,
+      "opened_at": "2026-09-07 00:00:48",
+      "entry_ts": 1788724800000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -2.99,
+      "closed_at": "2026-09-07 12:00:00",
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 0.2216627840122854,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 2,
+      "units": 2,
+      "unit_quantity": 451.1357215221912,
+      "unit_entries": [
+        {
+          "price": 13.234,
+          "n": 0.2216627840122854
+        },
+        {
+          "price": 13.34737018155378,
+          "n": 0.2267403631075603
+        }
+      ],
+      "latest_entry": 13.34737018155378,
+      "next_add": null,
+      "exit_period": 20,
+      "bar_time": 1788724800000,
+      "entry_filled": true,
+      "last_managed_bar": 1788782400000,
+      "entry_bar_time": 1788739200000,
+      "exit": 12.893889455338659,
+      "exit_ts": 1788782400000,
+      "quantity": 902.2714430443824
     }
   ],
   "SOLUSDT|4h|div": "none",

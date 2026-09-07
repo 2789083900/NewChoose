@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-06 22:15:56",
-  "total_signals": 3,
-  "pending_signals": 1,
+  "generated_at": "2026-09-07 00:00:54",
+  "total_signals": 4,
+  "pending_signals": 2,
   "horizons": {
     "24h": {
       "observed": 3,
@@ -58,6 +58,11 @@
         "win_rate": 0.0,
         "avg_return_pct": -2.457
       }
+    },
+    "LINKUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
     }
   }
 }

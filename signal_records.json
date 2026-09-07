@@ -116,5 +116,52 @@
       },
       "48h": null
     }
+  },
+  {
+    "id": "LINKUSDT|4h|1788724800000|long|system2",
+    "run_id": "eb3c5acaec0a",
+    "symbol": "LINKUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 12.62,
+    "entry_trigger": 12.62,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1788724800000,
+    "signal_time": "2026-09-07 00:00:48",
+    "strategy_type": "turtle",
+    "system": "system2",
+    "n": 0.2216627840122854,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 0.2216627840122854,
+      "breakout_trigger": 12.62,
+      "stop": 12.176674431975428,
+      "next_add": 12.730831392006142,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "status": "pending",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
   }
 ]

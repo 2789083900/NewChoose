@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-08 17:27:04",
+  "updated_at": "2026-09-08 20:08:01",
   "scan": {
-    "run_id": "4f8f32b9c267",
+    "run_id": "719a23de6130",
     "expected_markets": 12,
     "successful_markets": 11,
     "failed_markets": 1,
@@ -12,7 +12,7 @@
       "binance-history"
     ],
     "failures": [
-      "TONUSDT|4h: 最新K线过旧：4h延迟101607.0分钟"
+      "TONUSDT|4h: 最新K线过旧：4h延迟101768.0分钟"
     ]
   },
   "push": {

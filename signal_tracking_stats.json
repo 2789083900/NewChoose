@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-07 22:01:00",
+  "generated_at": "2026-09-08 00:12:29",
   "total_signals": 4,
   "pending_signals": 1,
   "horizons": {
     "24h": {
-      "observed": 3,
+      "observed": 4,
       "wins": 1,
-      "losses": 2,
+      "losses": 3,
       "flats": 0,
-      "win_rate": 33.33,
-      "avg_return_pct": -0.496,
-      "avg_mfe_pct": 2.225,
-      "avg_mae_pct": -2.174
+      "win_rate": 25.0,
+      "avg_return_pct": -1.281,
+      "avg_mfe_pct": 2.531,
+      "avg_mae_pct": -2.794
     },
     "48h": {
       "observed": 3,
@@ -61,7 +61,13 @@
     },
     "LINKUSDT": {
       "signals": 1,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -3.636
+      },
       "48h": {}
     }
   }

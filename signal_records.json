@@ -171,7 +171,18 @@
     },
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 13.23,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.447,
+        "mae_pct": -4.656,
+        "final_return_pct": -3.636,
+        "final_price": 12.749,
+        "outcome": "LOSS",
+        "observed_until": 1788825600000,
+        "observed_at": "2026-09-08 00:12:29",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

@@ -13,6 +13,31 @@
     "SUIUSDT",
     "PEPEUSDT"
   ],
+  "disabled_symbols": [
+    "TONUSDT"
+  ],
+  "derivatives": {
+    "enabled": false,
+    "research_only": true,
+    "venue": "binance",
+    "market_type": "linear_perpetual",
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT"
+    ],
+    "interval": "4h",
+    "history_limit": 1000,
+    "strategy": "perp_trend_turtle",
+    "system": "system2",
+    "account_value": 10000,
+    "risk_fraction": 0.005,
+    "max_leverage": 2,
+    "maintenance_margin_rate": 0.005,
+    "liquidation_fee_rate": 0,
+    "fee_rate": 0.0004,
+    "slippage_rate": 0.0005,
+    "max_total_open_risk": 0.03
+  },
   "intervals": [
     "4h"
   ],

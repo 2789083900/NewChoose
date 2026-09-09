@@ -1138,6 +1138,7 @@ def build_strategy_text(klines, indicators, analysis, interval):
 def load_config():
     default = {
         "symbols": DEFAULT_SYMBOLS,
+        "disabled_symbols": [],
         "intervals": ["1h"],
         "threshold": 2,
         "refresh_seconds": 30,
@@ -1770,6 +1771,10 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
 def scan_once(config, state, run_id=None, diagnostics=None):
     events = []
     symbols = config.get("symbols") or DEFAULT_SYMBOLS
+    disabled_symbols = {
+        str(symbol).upper() for symbol in (config.get("disabled_symbols") or [])
+        if str(symbol).strip()
+    }
     intervals = config.get("intervals") or ["1h"]
 
     try:
@@ -1777,9 +1782,16 @@ def scan_once(config, state, run_id=None, diagnostics=None):
     except ImportError:
         ThreadPoolExecutor = None
 
-    tasks = [(s, iv) for s in symbols for iv in intervals]
+    tasks = [(s, iv) for s in symbols if str(s).upper() not in disabled_symbols for iv in intervals]
     if diagnostics is not None:
         diagnostics["expected_markets"] = len(tasks)
+        diagnostics["configured_markets"] = len(symbols) * len(intervals)
+        diagnostics["disabled_markets"] = len(symbols) * len(intervals) - len(tasks)
+        diagnostics["disabled_symbols"] = sorted(disabled_symbols)
+        diagnostics["disabled_reasons"] = {
+            symbol: "配置停用：数据源长期过旧，暂不参与扫描"
+            for symbol in sorted(disabled_symbols)
+        }
         diagnostics.setdefault("successful_markets", 0)
         diagnostics.setdefault("failed_markets", 0)
         diagnostics.setdefault("failures", [])
@@ -1816,6 +1828,10 @@ def scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, can
     return {
         "run_id": run_id,
         "expected_markets": diagnostics.get("expected_markets", 0),
+        "configured_markets": diagnostics.get("configured_markets", diagnostics.get("expected_markets", 0)),
+        "disabled_markets": diagnostics.get("disabled_markets", 0),
+        "disabled_symbols": diagnostics.get("disabled_symbols", []),
+        "disabled_reasons": diagnostics.get("disabled_reasons", {}),
         "successful_markets": diagnostics.get("successful_markets", 0),
         "failed_markets": diagnostics.get("failed_markets", 0),
         "coverage_pct": coverage_pct,
@@ -2140,7 +2156,7 @@ def manage_turtle_trade(trade, klines):
     return trade
 
 
-def settle_trades(state, config):
+def settle_trades(state, config, trade_stats_path=None):
     """用最新行情结算未平仓交易：触达止损=亏，触达目标=赚"""
     open_trades = state.get("open_trades", [])
     if not open_trades:
@@ -2249,11 +2265,11 @@ def settle_trades(state, config):
     if settled or state_changed:
         save_state(state)
     if settled:
-        write_trade_stats(state)
+        write_trade_stats(state, output_path=trade_stats_path)
     return settled
 
 
-def write_trade_stats(state):
+def write_trade_stats(state, output_path=None):
     """把已结算交易汇总写入 trade_stats.json（看板读取）"""
     closed = state.get("closed_trades", [])
     stats = {
@@ -2290,7 +2306,7 @@ def write_trade_stats(state):
         {"symbol": s, **v} for s, v in sorted(by_symbol.items(), key=lambda x: -x[1]["pnl"])
     ]
     stats["trades"] = closed[-50:]  # 最近50笔
-    atomic_write_json(TRADE_STATS_PATH, stats)
+    atomic_write_json(output_path or TRADE_STATS_PATH, stats)
 
 
 def send_startup_message(config):

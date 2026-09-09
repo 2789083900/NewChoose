@@ -9,3 +9,7 @@ __pycache__/
 backtest_data/.coinpulse-data-*.tmp
 orderflow/config.json
 orderflow/node_modules/
+derivatives_data/
+perp_reports/
+perp_shadow_state.json
+perp_shadow_stats.json

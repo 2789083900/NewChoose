@@ -33,6 +33,47 @@ python -m http.server 5173
 
 也可以直接双击 `index.html` 在浏览器中打开。
 
+## 永续合约研究数据
+
+永续合约快照默认保存到项目所在 D 盘目录：
+
+```text
+D:\桌面\NewChoose\derivatives_data
+```
+
+采集命令只使用交易所公开接口，不读取 API 密钥，也不会下单：
+
+```powershell
+cd D:\桌面\NewChoose
+python collect_perp_snapshot.py --symbol BTCUSDT --interval 4h --limit 3600
+```
+
+采集命令还会读取 Binance USD-M 的公开 `exchangeInfo`，把合约类型、USDT 保证金、价格最小变动、数量步长、最小数量和最小名义价值一起绑定到快照。回测会按价格/数量精度取整，并跳过不满足最小数量或最小名义价值的信号。合约、标记价格和指数价格三组 K 线必须完全时间对齐，重复时间戳、规格缺失或规格与币种不一致时，快照会被拒绝。这样回测报告能明确区分“已绑定交易所约束”和“交易所无关的研究近似”。
+
+单个币种和周期的快照通常约几百 KB。历史快照和回测报告已加入 `.gitignore`，会保留在 D 盘但不会自动提交到 Git。运行回测时可以指定该目录：
+
+```powershell
+python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\NewChoose\derivatives_data --output D:\桌面\NewChoose\perp_reports\BTCUSDT-4h.json
+```
+
+永续回测的成交约定是信号确认后的下一根 K 线开盘价，并记录该根 K 线的实际成交时间；持仓期间反向突破通道会逐根 K 线更新，入场当根不使用未知盘中路径立即退出。手续费、滑点、资金费率和近似强平仍分别计入报告。没有交易所风险档位数据时，报告会标明使用交易所无关的研究近似强平模型，不能当作实盘清算价。
+
+只有经过校验并保存到版本化快照的资料才会进入永续回测；接口失败、数据过旧或数据不连续时不会写入文件。
+
+### 永续影子交易
+
+永续影子交易使用独立的 `perp_shadow_state.json` 和 `perp_shadow_stats.json`，不会读写现货的 `signal_watch.state.json`、`signal_records.json` 或 `trade_stats.json`。它只访问 Binance USD-M 公开接口，不使用 API 密钥，也不提交订单。
+
+在 `signal_watch.config.json` 的 `derivatives` 中明确设置 `enabled: true` 后运行：
+
+```powershell
+python perp_shadow.py --config signal_watch.config.json
+```
+
+每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。配置默认 `enabled: false` 且强制 `research_only: true`，当前不会自动推送或自动下单。
+
+每笔已成交记录还会保存 MFE/MAE（以首笔入场价为基准，避免加仓改写历史路径）、持仓小时数，以及入场/退出时的合约价、标记价、指数价、基差和 OI 快照。状态中的 `equity` 是已实现权益，`marked_equity` 会按最近标记价加入未实现盈亏；统计文件会给出最大回撤、平均 MFE/MAE、平均持仓时间和资金费率占毛收益比例。权益曲线按每轮处理到的最新已收盘合约 K 线时间采样，同一市场时间会覆盖旧点，不代表逐笔成交或逐根 K 线的完整组合净值。
+
 ## 本地订单流服务（Phase 1）
 
 订单流采集是本地增强功能，不影响 GitHub Pages 的静态行情页面。它使用 Node.js 连接 Binance Futures `aggTrade`，只把 1 分钟聚合数据写入 MySQL；不会保存逐笔成交明细。

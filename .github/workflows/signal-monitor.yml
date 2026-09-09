@@ -66,9 +66,21 @@ jobs:
         run: python track_signals.py
         if: github.event.inputs.test_push != 'true'
 
+      - name: Track perpetual shadow trades
+        run: python perp_shadow.py --config signal_watch.config.json
+        if: github.event.inputs.test_push != 'true'
+
       - name: Send test push
         run: python signal_watch.py --test
         if: github.event.inputs.test_push == 'true'
+
+      - name: Validate runtime state
+        run: python validate_runtime_state.py
+        if: github.event.inputs.test_push != 'true'
+
+      - name: Validate perpetual shadow state
+        run: python validate_perp_shadow.py
+        if: github.event.inputs.test_push != 'true'
 
       - name: Save signal state
         shell: bash
@@ -79,7 +91,7 @@ jobs:
           fi
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json; do
+          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json perp_shadow_state.json perp_shadow_stats.json; do
             if [ -f "$file" ]; then
               git add -f "$file"
             fi

@@ -27,6 +27,7 @@ TOTAL_BARS = 3600
 SYSTEM = "system2"
 SYMBOLS = sw.DEFAULT_SYMBOLS
 MIN_RELIABLE_TRADES = 10
+HISTORY_FETCH_BUFFER_BARS = 2
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtest_data")
 
 
@@ -307,7 +308,11 @@ def load_or_download_dataset(symbol, interval, required_bars, args):
     )
     if cached:
         return cached["klines"], cached["metadata"]
-    klines = sw.fetch_binance_history(symbol, interval, required_bars)
+    # Binance includes the currently forming candle. Fetch a small boundary
+    # buffer so filtering it out still leaves the requested closed history.
+    klines = sw.fetch_binance_history(
+        symbol, interval, required_bars + HISTORY_FETCH_BUFFER_BARS
+    )
     klines = sw.filter_closed_klines(klines, interval)
     if len(klines) < required_bars:
         raise RuntimeError(f"{symbol} {interval} 数据不足：需要{required_bars}，实际{len(klines)}")

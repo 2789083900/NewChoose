@@ -1104,6 +1104,28 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(metrics["sample_reliability"], "insufficient_sample")
         self.assertIn("至少需要", metrics["sample_reliability_note"])
 
+    def test_backtest_history_fetch_buffers_the_open_candle(self):
+        class Args:
+            refresh_data = True
+
+        required = 10
+        with tempfile.TemporaryDirectory() as directory:
+            Args.data_dir = directory
+
+            def fetch(_symbol, _interval, total):
+                return make_bars(total)
+
+            with mock.patch.object(sw, "fetch_binance_history", side_effect=fetch) as history, \
+                 mock.patch.object(sw, "filter_closed_klines", side_effect=lambda rows, _interval: rows[:-1]):
+                rows, _metadata = backtest_turtle.load_or_download_dataset(
+                    "BTCUSDT", "1d", required, Args()
+                )
+
+        history.assert_called_once_with(
+            "BTCUSDT", "1d", required + backtest_turtle.HISTORY_FETCH_BUFFER_BARS
+        )
+        self.assertEqual(len(rows), required)
+
     def test_signal_archive_preserves_trimmed_records_without_duplicates(self):
         records = [
             {"id": "old", "signal_bar_time": 1704067200000},

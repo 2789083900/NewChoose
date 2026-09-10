@@ -52,6 +52,7 @@ jobs:
           if [ "$REFRESH_DATA" = "true" ]; then EXTRA="--refresh-data"; fi
           python backtest_turtle.py \
             --bars "$BARS" \
+            --config signal_watch.config.template.json \
             --test-ratio "$TEST_RATIO" \
             --fee-rate 0.001 \
             --slippage 0.0005 \

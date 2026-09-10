@@ -2331,12 +2331,17 @@ function loadBacktestOverview() {
           // directly under the symbol. Keep those reports useful until the
           // next scheduled backtest publishes the split-aware format.
           const item = result[period]?.production_default || result.production_default || {};
-          return `<tr><td class="sym">${escapeHtml(symbol.replace('USDT', ''))}</td><td>${item.trades ?? 0}</td><td>${item.win_rate ?? 0}%</td><td>${item.profit_factor ?? 0}</td><td>${item.annualized ?? 0}%</td><td>${item.max_drawdown ?? 0}%</td></tr>`;
+          const insufficient = item.sample_reliability === 'insufficient_sample' || Number(item.trades || 0) < (report.sample_reliability_threshold_trades || 10);
+          const unavailable = insufficient ? '<span class="muted">样本不足</span>' : null;
+          return `<tr><td class="sym">${escapeHtml(symbol.replace('USDT', ''))}</td><td>${item.trades ?? 0}</td><td>${unavailable || `${item.win_rate ?? 0}%`}</td><td>${unavailable || (item.profit_factor ?? 0)}</td><td>${unavailable || `${item.annualized ?? 0}%`}</td><td>${item.max_drawdown ?? 0}%</td></tr>`;
         }).join('');
         const portfolio = report.portfolio?.[period];
-        tableEl.innerHTML = `<table class="bt-table"><thead><tr><th>币种</th><th>交易</th><th>胜率</th><th>PF</th><th>年化</th><th>最大回撤</th></tr></thead><tbody>${rows}</tbody></table>${portfolio && !portfolio.error ? `<p class="strategy-note">组合：收益 ${portfolio.return}% · 回撤 ${portfolio.max_drawdown}% · 交易 ${portfolio.trades} · 胜率 ${portfolio.trade_win_rate}% · 拒绝信号 ${portfolio.rejected_signals}</p>` : ''}`;
+        const threshold = report.sample_reliability_threshold_trades || 10;
+        const portfolioNote = portfolio && !portfolio.error ? `<p class="strategy-note">组合：收益 ${portfolio.return}% · 回撤 ${portfolio.max_drawdown}% · 交易 ${portfolio.trades} · 胜率 ${portfolio.trades < threshold ? '样本不足' : `${portfolio.trade_win_rate}%`} · 拒绝信号 ${portfolio.rejected_signals}</p>` : '';
+        tableEl.innerHTML = `<table class="bt-table"><thead><tr><th>币种</th><th>交易</th><th>胜率</th><th>PF</th><th>年化</th><th>最大回撤</th></tr></thead><tbody>${rows}</tbody></table><p class="bt-validation-note">交易数少于 ${threshold} 笔时仅作观察，不对胜率、PF 和年化收益作统计判断。</p>${portfolioNote}`;
         };
-        metaEl.textContent = `${report.interval} ${report.system} · 生成于 ${report.generated_at} · 成本 ${(report.fee_rate * 100).toFixed(2)}% 手续费 / ${(report.slippage_rate * 100).toFixed(2)}% 滑点 · 样本外 ${(report.test_ratio * 100).toFixed(0)}%`;
+        const disabledNote = report.symbols_disabled?.length ? ` · 已排除停用币种：${report.symbols_disabled.join(', ')}` : '';
+        metaEl.textContent = `${report.interval} ${report.system} · 生成于 ${report.generated_at} · 成本 ${(report.fee_rate * 100).toFixed(2)}% 手续费 / ${(report.slippage_rate * 100).toFixed(2)}% 滑点 · 样本外 ${(report.test_ratio * 100).toFixed(0)}%${disabledNote}`;
         tabsEl.innerHTML = periods.map((p) => `<button class="bt-tab${p === 'full' ? ' active' : ''}" data-period="${p}">${labels[p]}</button>`).join('');
         renderPeriod('full');
         renderRollingValidation(report);

@@ -1069,6 +1069,41 @@ class TurtleCoreTests(unittest.TestCase):
             errors = validate_reports.validate_backtest_report(path)
         self.assertTrue(any("组合滚动验证" in error for error in errors))
 
+    def test_backtest_report_gate_rejects_schema_and_disabled_symbol_drift(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "report.json")
+            snapshot_file = os.path.join(directory, "snapshot.json")
+            with open(snapshot_file, "w", encoding="utf-8") as file:
+                file.write("{}")
+            report = {
+                "report_schema_version": 2, "generated_at": "now", "interval": "4h", "system": "system2",
+                "sample_reliability_threshold_trades": 10, "symbols_disabled": ["TONUSDT"],
+                "data_snapshot": {"directory": ".", "datasets": {"TONUSDT": {"4h": {"sha256": "0" * 64, "file": "snapshot.json"}}}},
+                "results": {"TONUSDT": {"full": {"production_default": {"trades": 1, "sample_reliability": "insufficient_sample"}}}},
+                "portfolio": {"rolling_validation": {"enabled": True, "windows": [{}]}},
+                "errors": {},
+            }
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(report, file)
+            errors = validate_reports.validate_backtest_report(path)
+        self.assertTrue(any("停用币种仍出现在" in error for error in errors))
+
+    def test_backtest_load_disabled_symbols_prefers_configured_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "config.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump({"disabled_symbols": ["TONUSDT", " tonusdt ", ""]}, file)
+            self.assertEqual(backtest_turtle.load_disabled_symbols(path), {"TONUSDT"})
+
+    def test_backtest_metrics_mark_small_samples_unreliable(self):
+        klines = make_bars(440)
+        daily = make_bars(420)
+        metrics = backtest_turtle.simulate(
+            klines, daily, backtest_turtle.backtest_variants()["base"],
+        )
+        self.assertEqual(metrics["sample_reliability"], "insufficient_sample")
+        self.assertIn("至少需要", metrics["sample_reliability_note"])
+
     def test_signal_archive_preserves_trimmed_records_without_duplicates(self):
         records = [
             {"id": "old", "signal_bar_time": 1704067200000},

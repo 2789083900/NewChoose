@@ -26,7 +26,28 @@ INTERVAL = "4h"
 TOTAL_BARS = 3600
 SYSTEM = "system2"
 SYMBOLS = sw.DEFAULT_SYMBOLS
+MIN_RELIABLE_TRADES = 10
 DEFAULT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "backtest_data")
+
+
+def load_disabled_symbols(config_path=None):
+    """Load configured spot symbols that should not enter research scans."""
+    candidates = []
+    if config_path:
+        candidates.append(config_path)
+    candidates.extend([
+        os.path.join(sw.BASE_DIR, "signal_watch.config.json"),
+        os.path.join(sw.BASE_DIR, "signal_watch.config.template.json"),
+    ])
+    for path in candidates:
+        try:
+            with open(path, encoding="utf-8") as file:
+                config = json.load(file)
+            values = config.get("disabled_symbols") or []
+            return {str(item).strip().upper() for item in values if str(item).strip()}
+        except (OSError, ValueError, TypeError):
+            continue
+    return set()
 
 
 def execution_price(trigger_price, direction, action, slippage_rate):
@@ -254,6 +275,8 @@ def simulate(
     return {
         "bars": len(klines),
         "trades": closed,
+        "sample_reliability": "insufficient_sample" if closed < MIN_RELIABLE_TRADES else "actionable_sample",
+        "sample_reliability_note": f"交易数 {closed}，至少需要 {MIN_RELIABLE_TRADES} 笔才作统计判断" if closed < MIN_RELIABLE_TRADES else "交易样本达到最低统计门槛",
         "wins": len(wins),
         "losses": len(losses),
         "win_rate": round(len(wins) / closed * 100, 2) if closed else 0,
@@ -777,6 +800,7 @@ def parse_args():
     parser.add_argument("--risk-fraction", type=float, default=sw.TURTLE_RISK_FRACTION)
     parser.add_argument("--bars", type=int, default=TOTAL_BARS)
     parser.add_argument("--data-dir", default=DEFAULT_DATA_DIR)
+    parser.add_argument("--config", default=None, help="读取停用币种的监控配置文件")
     parser.add_argument("--refresh-data", action="store_true", help="重新下载并验证历史数据快照")
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--symbols", default=",".join(SYMBOLS))
@@ -815,6 +839,8 @@ def aggregate(results_by_symbol):
             summary[period][variant] = {
                 "symbols": len(metrics_list),
                 "trades": trade_count,
+                "sample_reliability": "insufficient_sample" if trade_count < MIN_RELIABLE_TRADES else "actionable_sample",
+                "sample_reliability_note": f"合计交易数 {trade_count}，至少需要 {MIN_RELIABLE_TRADES} 笔才作统计判断" if trade_count < MIN_RELIABLE_TRADES else "合计交易样本达到最低统计门槛",
                 "wins": wins,
                 "losses": sum(item.get("losses", 0) for item in metrics_list),
                 "trade_win_rate": round(wins / trade_count * 100, 2) if trade_count else 0,
@@ -836,7 +862,10 @@ def main():
             raise ValueError("相关组必须是数组的数组")
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(f"组合相关组参数无效：{exc}")
-    symbols = [item.strip().upper() for item in args.symbols.split(",") if item.strip()]
+    requested_symbols = [item.strip().upper() for item in args.symbols.split(",") if item.strip()]
+    disabled_symbols = load_disabled_symbols(getattr(args, "config", None))
+    symbols = [symbol for symbol in requested_symbols if symbol not in disabled_symbols]
+    skipped_symbols = [symbol for symbol in requested_symbols if symbol in disabled_symbols]
     results = {}
     market_data = {}
     dataset_metadata = {}
@@ -891,9 +920,13 @@ def main():
             "python_version": platform.python_version(),
             "platform": platform.platform(),
         },
+        "report_schema_version": 2,
         "interval": INTERVAL,
         "system": SYSTEM,
         "bars_requested": args.bars,
+        "symbols_requested": requested_symbols,
+        "symbols_disabled": skipped_symbols,
+        "sample_reliability_threshold_trades": MIN_RELIABLE_TRADES,
         "data_snapshot": {
             "directory": os.path.relpath(args.data_dir, sw.BASE_DIR),
             "refresh_requested": bool(args.refresh_data),

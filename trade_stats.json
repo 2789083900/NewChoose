@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-09-07 19:10:14",
-  "total": 3,
+  "generated_at": "2026-09-10 00:29:36",
+  "total": 4,
   "wins": 0,
-  "losses": 3,
-  "open_count": 1,
+  "losses": 4,
+  "open_count": 0,
   "win_rate": 0.0,
-  "total_pnl_pct": -6.23,
+  "total_pnl_pct": -7.52,
   "avg_win": 0,
-  "avg_loss": -2.08,
+  "avg_loss": -1.88,
   "payoff": 0.0,
   "by_symbol": [
     {
@@ -18,18 +18,18 @@
       "pnl": -1.49
     },
     {
-      "symbol": "BNBUSDT",
-      "total": 1,
-      "wins": 0,
-      "losses": 1,
-      "pnl": -1.75
-    },
-    {
       "symbol": "LINKUSDT",
       "total": 1,
       "wins": 0,
       "losses": 1,
       "pnl": -2.99
+    },
+    {
+      "symbol": "BNBUSDT",
+      "total": 2,
+      "wins": 0,
+      "losses": 2,
+      "pnl": -3.04
     }
   ],
   "trades": [
@@ -164,6 +164,55 @@
       "exit": 12.893889455338659,
       "exit_ts": 1788782400000,
       "quantity": 902.2714430443824
+    },
+    {
+      "id": "BNBUSDT|4h|2026-09-05 08:38:33",
+      "symbol": "BNBUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 735.6137876302299,
+      "stop": 726.0908082465132,
+      "target": null,
+      "opened_at": "2026-09-05 08:38:33",
+      "entry_ts": 1788597517204,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -1.29,
+      "closed_at": "2026-09-09 20:00:00",
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 7.521319756633287,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 4,
+      "unit_quantity": 13.295538979287096,
+      "unit_entries": [
+        {
+          "price": 729.9,
+          "n": 7.521319756633287
+        },
+        {
+          "price": 733.7091917534866,
+          "n": 7.6183835069733
+        },
+        {
+          "price": 737.5183835069732,
+          "n": 7.6183835069733
+        },
+        {
+          "price": 741.3275752604599,
+          "n": 7.6183835069733
+        }
+      ],
+      "latest_entry": 741.3275752604599,
+      "next_add": null,
+      "exit_period": 20,
+      "bar_time": 1788580800000,
+      "last_managed_bar": 1788984000000,
+      "exit": 726.0908082465132,
+      "exit_ts": 1788984000000,
+      "quantity": 53.182155917148386
     }
   ]
 }

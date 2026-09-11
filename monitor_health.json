@@ -1,24 +1,51 @@
 {
-  "updated_at": "2026-09-06 09:21:42",
+  "updated_at": "2026-09-11 04:26:55",
   "scan": {
-    "run_id": "d4457dbc9e8a",
-    "expected_markets": 12,
+    "run_id": "95d28530ddcc",
+    "expected_markets": 11,
+    "configured_markets": 12,
+    "disabled_markets": 1,
+    "disabled_symbols": [
+      "TONUSDT"
+    ],
+    "disabled_reasons": {
+      "TONUSDT": "配置停用：数据源长期过旧，暂不参与扫描"
+    },
     "successful_markets": 11,
-    "failed_markets": 1,
-    "coverage_pct": 91.67,
+    "failed_markets": 0,
+    "coverage_pct": 100.0,
+    "minimum_coverage_pct": 80.0,
+    "latest_bar_time": 1789084800000,
+    "data_lag_minutes": 266.9,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
     ],
-    "failures": [
-      "TONUSDT|4h: 最新K线过旧：4h延迟98241.7分钟"
-    ]
+    "failures": []
   },
   "push": {
     "attempted": 0,
     "failed": 0,
     "failures": []
   },
-  "status": "ok"
+  "status": "ok",
+  "updated_at_epoch": 1789100815,
+  "portfolio": {
+    "open_trades": 0,
+    "awaiting_fill": 0,
+    "total_units": 0,
+    "long_units": 0,
+    "short_units": 0,
+    "remaining_long_capacity": 12,
+    "remaining_short_capacity": 12,
+    "estimated_stop_risk": 0.0,
+    "notional_at_entry": 0.0,
+    "limits": {
+      "max_symbol_units": 4,
+      "max_direction_units": 12
+    },
+    "symbols": [],
+    "risk_definition": "按已记录入场价、单位数量和当前止损位估算；不含跳空、流动性冲击或人工成交偏差。"
+  }
 }

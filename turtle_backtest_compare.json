@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-11 07:23:23",
+  "generated_at": "2026-09-11 08:37:28",
   "reproducibility": {
     "report_schema_version": 2,
-    "code_revision": "c1a03f49968b294e63e7019a063c2ecc7e666377",
-    "run_id": "34573493281",
+    "code_revision": "8afc270b9e754ab37a2070091563891787f19538",
+    "run_id": "34579094476",
     "python_version": "3.12.14",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
   },
@@ -33,50 +33,6 @@
     "directory": "backtest_data",
     "refresh_requested": false,
     "datasets": {
-      "ETHUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "ETHUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:06.149863Z",
-          "saved_at_ns": 1789110906149877593,
-          "sha256": "f4614533a64fba76ac89e2f8d4d85e26ae5658c00e1387cafd3ebeb6e8a98064",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ETHUSDT-4h-f4614533a64f.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "ETHUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:07.176115Z",
-          "saved_at_ns": 1789110907176130673,
-          "sha256": "40ac2762c80136cce806ca26bbf4ee152e670cf2f00e776f29b2873c6755aa15",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ETHUSDT-1d-40ac2762c801.json"
-        }
-      },
       "BTCUSDT": {
         "4h": {
           "schema_version": 1,
@@ -119,6 +75,50 @@
             "continuous": true
           },
           "file": "BTCUSDT-1d-a4efc9356476.json"
+        }
+      },
+      "ETHUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "ETHUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:06.149863Z",
+          "saved_at_ns": 1789110906149877593,
+          "sha256": "f4614533a64fba76ac89e2f8d4d85e26ae5658c00e1387cafd3ebeb6e8a98064",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ETHUSDT-4h-f4614533a64f.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "ETHUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:07.176115Z",
+          "saved_at_ns": 1789110907176130673,
+          "sha256": "40ac2762c80136cce806ca26bbf4ee152e670cf2f00e776f29b2873c6755aa15",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ETHUSDT-1d-40ac2762c801.json"
         }
       },
       "BNBUSDT": {
@@ -209,16 +209,16 @@
           "file": "SOLUSDT-1d-09f1fdad8505.json"
         }
       },
-      "ADAUSDT": {
+      "LINKUSDT": {
         "4h": {
           "schema_version": 1,
-          "symbol": "ADAUSDT",
+          "symbol": "LINKUSDT",
           "interval": "4h",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:06.741623Z",
-          "saved_at_ns": 1789111026741646995,
-          "sha256": "394dcbf87d5acabd8c18db4645d2b8213439430f0dd4d5acd9a0aff21394922b",
+          "downloaded_at_utc": "2026-09-11T07:17:23.210182Z",
+          "saved_at_ns": 1789111043210209250,
+          "sha256": "c1fd87f7e3b7a0937f57e0c74950f819f4b3eb9a9751c513c517311256c70e85",
           "quality": {
             "bars": 3600,
             "start_time": 1737259200000,
@@ -229,17 +229,17 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "ADAUSDT-4h-394dcbf87d5a.json"
+          "file": "LINKUSDT-4h-c1fd87f7e3b7.json"
         },
         "1d": {
           "schema_version": 1,
-          "symbol": "ADAUSDT",
+          "symbol": "LINKUSDT",
           "interval": "1d",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:09.292316Z",
-          "saved_at_ns": 1789111029292344410,
-          "sha256": "575aa666aad0a146503d38340a6ee93f4d0d87ce24daa3e663e06759b05955d1",
+          "downloaded_at_utc": "2026-09-11T07:17:25.403479Z",
+          "saved_at_ns": 1789111045403515508,
+          "sha256": "9b1fe76d32415890287233575911bf90d0922f0eb6f9d6ae8853219608967016",
           "quality": {
             "bars": 820,
             "start_time": 1718236800000,
@@ -250,7 +250,7 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "ADAUSDT-1d-575aa666aad0.json"
+          "file": "LINKUSDT-1d-9b1fe76d3241.json"
         }
       },
       "XRPUSDT": {
@@ -297,16 +297,16 @@
           "file": "XRPUSDT-1d-e5f7a84cc594.json"
         }
       },
-      "LINKUSDT": {
+      "ADAUSDT": {
         "4h": {
           "schema_version": 1,
-          "symbol": "LINKUSDT",
+          "symbol": "ADAUSDT",
           "interval": "4h",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:23.210182Z",
-          "saved_at_ns": 1789111043210209250,
-          "sha256": "c1fd87f7e3b7a0937f57e0c74950f819f4b3eb9a9751c513c517311256c70e85",
+          "downloaded_at_utc": "2026-09-11T07:17:06.741623Z",
+          "saved_at_ns": 1789111026741646995,
+          "sha256": "394dcbf87d5acabd8c18db4645d2b8213439430f0dd4d5acd9a0aff21394922b",
           "quality": {
             "bars": 3600,
             "start_time": 1737259200000,
@@ -317,17 +317,17 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "LINKUSDT-4h-c1fd87f7e3b7.json"
+          "file": "ADAUSDT-4h-394dcbf87d5a.json"
         },
         "1d": {
           "schema_version": 1,
-          "symbol": "LINKUSDT",
+          "symbol": "ADAUSDT",
           "interval": "1d",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:25.403479Z",
-          "saved_at_ns": 1789111045403515508,
-          "sha256": "9b1fe76d32415890287233575911bf90d0922f0eb6f9d6ae8853219608967016",
+          "downloaded_at_utc": "2026-09-11T07:17:09.292316Z",
+          "saved_at_ns": 1789111029292344410,
+          "sha256": "575aa666aad0a146503d38340a6ee93f4d0d87ce24daa3e663e06759b05955d1",
           "quality": {
             "bars": 820,
             "start_time": 1718236800000,
@@ -338,7 +338,7 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "LINKUSDT-1d-9b1fe76d3241.json"
+          "file": "ADAUSDT-1d-575aa666aad0.json"
         }
       },
       "DOGEUSDT": {

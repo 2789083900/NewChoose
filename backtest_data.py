@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 from glob import glob
 from datetime import datetime, timezone
 
@@ -113,10 +114,23 @@ def load_dataset(cache_dir, symbol, interval, required_bars):
             ):
                 continue
             metadata = {**metadata, "file": os.path.basename(path)}
-            valid.append({"path": path, "metadata": metadata, "klines": klines[-required_bars:]})
+            valid.append({
+                "path": path,
+                "metadata": metadata,
+                "klines": klines[-required_bars:],
+                "_file_mtime_ns": os.stat(path).st_mtime_ns,
+            })
         except (OSError, ValueError, TypeError):
             continue
-    return max(valid, key=lambda item: item["metadata"].get("downloaded_at_utc", "")) if valid else None
+    return max(
+        valid,
+        key=lambda item: (
+            item["metadata"].get("downloaded_at_utc", ""),
+            int(item["metadata"].get("saved_at_ns", 0) or 0),
+            item["_file_mtime_ns"],
+            item["metadata"].get("file", ""),
+        ),
+    ) if valid else None
 
 
 def save_dataset(cache_dir, symbol, interval, source, market_type, klines, interval_ms):
@@ -131,7 +145,8 @@ def save_dataset(cache_dir, symbol, interval, source, market_type, klines, inter
         "interval": interval,
         "source": source,
         "market_type": market_type,
-        "downloaded_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "downloaded_at_utc": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+        "saved_at_ns": time.time_ns(),
         "sha256": checksum,
         "quality": quality,
     }

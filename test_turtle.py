@@ -967,6 +967,28 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(len(files), 2)
         self.assertEqual(loaded["metadata"]["sha256"], second["metadata"]["sha256"])
 
+    def test_backtest_dataset_refresh_uses_save_sequence_when_timestamps_match(self):
+        class FixedDateTime:
+            @classmethod
+            def now(cls, _timezone):
+                class FixedValue:
+                    def isoformat(self, timespec=None):
+                        return "2026-09-10T00:00:00.000000+00:00"
+                return FixedValue()
+
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(backtest_data.time, "time_ns", side_effect=[100, 200]), \
+             mock.patch.object(backtest_data, "datetime", FixedDateTime):
+            first = backtest_data.save_dataset(
+                directory, "TESTUSDT", "1d", "test", "spot", make_bars(3), 86400000
+            )
+            second = backtest_data.save_dataset(
+                directory, "TESTUSDT", "1d", "test", "spot", make_bars(3, close=101.0), 86400000
+            )
+            loaded = backtest_data.load_dataset(directory, "TESTUSDT", "1d", 3)
+        self.assertNotEqual(first["path"], second["path"])
+        self.assertEqual(loaded["metadata"]["sha256"], second["metadata"]["sha256"])
+
     def test_rolling_validation_does_not_select_variants(self):
         class Args:
             capital = 10000.0

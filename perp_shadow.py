@@ -92,6 +92,8 @@ def shadow_settings(config):
         "symbols": list(dict.fromkeys(symbols)),
         "interval": interval,
         "history_limit": int(_number(raw, "history_limit", 1000, 100)),
+        "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
+        "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
         "system": raw.get("system", "system2"),
         "account_value": _number(raw, "account_value", 10000.0, 1.0),
         "risk_fraction": _number(raw, "risk_fraction", 0.005),
@@ -130,6 +132,7 @@ def parameter_snapshot(settings):
         "execution_model": "signal_close_next_contract_bar_open",
         "risk_price": "mark_price",
         "margin_mode": "isolated_approximation",
+        "sample_collection_phase": "phase_1_btc_eth_shadow_only",
     }
 
 
@@ -508,8 +511,11 @@ def process_snapshot(snapshot, settings, state):
     return None
 
 
-def build_stats(state):
+def build_stats(state, settings=None):
     closed = state["closed_trades"]
+    settings = settings or {}
+    minimum_goal = int(settings.get("sample_goal_min_trades", 30))
+    preferred_goal = max(minimum_goal, int(settings.get("sample_goal_preferred_trades", 50)))
     wins = [item for item in closed if float(item.get("net_pnl") or 0) > 0]
     funding = sum(float(item.get("funding_cashflow") or 0) for item in closed + state["open_trades"])
     marked_equity, unrealized = _marked_equity(state)
@@ -535,6 +541,13 @@ def build_stats(state):
         "open_count": len(state["open_trades"]),
         "pending_entry_count": sum(item.get("status") == "pending_entry" for item in state["open_trades"]),
         "closed_count": len(closed),
+        "sample_goal_min_trades": minimum_goal,
+        "sample_goal_preferred_trades": preferred_goal,
+        "sample_reliability": (
+            "insufficient_sample" if len(closed) < minimum_goal
+            else "observation_sample" if len(closed) < preferred_goal
+            else "preferred_sample"
+        ),
         "rejected_count": len(state["rejected_signals"]),
         "wins": len(wins),
         "losses": len(closed) - len(wins),
@@ -569,7 +582,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state["last_errors"] = errors
     record_equity_snapshot(state)
     sw.atomic_write_json(state_path, state)
-    stats = build_stats(state)
+    stats = build_stats(state, settings)
     stats["errors"] = errors
     sw.atomic_write_json(stats_path, stats)
     return {"enabled": True, "processed_symbols": len(settings["symbols"]) - len(errors), "errors": errors, "stats": stats}

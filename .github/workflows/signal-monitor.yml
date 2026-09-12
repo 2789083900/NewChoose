@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: coinpulse-monitor
+  group: coinpulse-state-writer
   cancel-in-progress: false
 
 jobs:
@@ -67,7 +67,26 @@ jobs:
         if: github.event.inputs.test_push != 'true'
 
       - name: Track perpetual shadow trades
+        id: perpetual-shadow
+        continue-on-error: true
         run: python perp_shadow.py --config signal_watch.config.json
+        if: github.event.inputs.test_push != 'true'
+
+      - name: Report perpetual shadow sample progress
+        shell: bash
+        run: |
+          if [ -f perp_shadow_stats.json ]; then
+            python - <<'PY'
+            import json
+            with open("perp_shadow_stats.json", encoding="utf-8") as f:
+                stats = json.load(f)
+            print("perpetual shadow sample: closed={closed_count}, open={open_count}, reliability={sample_reliability}".format(**stats))
+            if stats.get("errors"):
+                print("perpetual shadow data errors:", stats["errors"])
+            PY
+          else
+            echo "perpetual shadow stats missing; the step may have failed before writing state" >&2
+          fi
         if: github.event.inputs.test_push != 'true'
 
       - name: Send test push
@@ -103,5 +122,22 @@ jobs:
             echo "state unchanged"
           else
             git commit -m "chore: update signal state"
-            git push origin HEAD:${GITHUB_REF_NAME}
+            for attempt in 1 2 3; do
+              if ! git fetch origin "${GITHUB_REF_NAME}"; then
+                echo "fetch conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+                git rebase --abort || true
+                echo "rebase conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if git push origin HEAD:${GITHUB_REF_NAME}; then exit 0; fi
+              echo "push conflict; retry ${attempt}/3"
+              sleep $((attempt * 2))
+            done
+            echo "unable to publish signal state after retries" >&2
+            exit 1
           fi

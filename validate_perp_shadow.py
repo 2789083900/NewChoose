@@ -117,6 +117,12 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
     for field, value in expected.items():
         if stats.get(field) != value:
             errors.append(f"stats {field} does not match state")
+    if not isinstance(stats.get("sample_reliability"), str):
+        errors.append("stats sample_reliability is missing")
+    if not isinstance(stats.get("sample_goal_min_trades"), int) or stats.get("sample_goal_min_trades", 0) < 1:
+        errors.append("stats sample_goal_min_trades is invalid")
+    if not isinstance(stats.get("sample_goal_preferred_trades"), int) or stats.get("sample_goal_preferred_trades", 0) < stats.get("sample_goal_min_trades", 1):
+        errors.append("stats sample_goal_preferred_trades is invalid")
     if not _finite(stats.get("equity")) or abs(float(stats["equity"]) - float(state["equity"])) > 1e-7:
         errors.append("stats equity does not match state")
     if not isinstance(state.get("equity_curve"), list):

@@ -17,7 +17,7 @@
     "TONUSDT"
   ],
   "derivatives": {
-    "enabled": false,
+    "enabled": true,
     "research_only": true,
     "venue": "binance",
     "market_type": "linear_perpetual",
@@ -27,6 +27,8 @@
     ],
     "interval": "4h",
     "history_limit": 1000,
+    "sample_goal_min_trades": 30,
+    "sample_goal_preferred_trades": 50,
     "strategy": "perp_trend_turtle",
     "system": "system2",
     "account_value": 10000,

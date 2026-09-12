@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 import derivatives_data
 import derivatives_risk
+import okx_data
 import signal_watch as sw
 
 
@@ -117,10 +118,14 @@ def shadow_settings(config):
         raise ValueError("perpetual shadow trading must remain research_only")
     interval = derivatives_data.validate_interval(raw.get("interval", "4h"))
     symbols = [derivatives_data.normalize_symbol(item) for item in raw.get("symbols", ["BTCUSDT", "ETHUSDT"])]
+    provider = str(raw.get("provider", "binance")).strip().lower()
+    if provider not in {"binance", "okx"}:
+        raise ValueError("derivatives.provider must be binance or okx")
     return {
         "enabled": bool(raw.get("enabled", False)),
         "research_only": True,
         "symbols": list(dict.fromkeys(symbols)),
+        "provider": provider,
         "interval": interval,
         "history_limit": int(_number(raw, "history_limit", 1000, 100)),
         "request_timeout_seconds": _number(raw, "request_timeout_seconds", derivatives_data.PERPETUAL_HTTP_TIMEOUT, 1.0),
@@ -572,6 +577,7 @@ def build_stats(state, settings=None):
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "market_type": derivatives_data.MARKET_TYPE,
         "research_only": True,
+        "provider": settings.get("provider", "binance"),
         "equity": round(float(state["equity"]), 8),
         "marked_equity": round(marked_equity, 8),
         "unrealized_pnl": round(unrealized, 8),
@@ -638,7 +644,14 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("last_success_at_epoch_ms", None)
     state.setdefault("last_successful_symbols", [])
     state.setdefault("symbol_health", {})
-    fetch = fetcher or derivatives_data.fetch_perpetual_snapshot
+    if fetcher:
+        fetch = fetcher
+    elif settings["provider"] == "okx":
+        fetch = okx_data.fetch_perpetual_snapshot
+    elif settings["provider"] == "binance":
+        fetch = derivatives_data.fetch_perpetual_snapshot
+    else:
+        raise ValueError("derivatives.provider must be binance or okx")
     errors = {}
     successful_market_times = {}
     symbol_health = {}

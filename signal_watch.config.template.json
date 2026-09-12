@@ -20,6 +20,7 @@
     "enabled": true,
     "research_only": true,
     "venue": "binance",
+    "provider": "binance",
     "market_type": "linear_perpetual",
     "symbols": [
       "BTCUSDT",

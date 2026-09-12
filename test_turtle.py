@@ -15,6 +15,7 @@ import validate_runtime_state
 import repair_runtime_state
 import derivatives_risk
 import derivatives_data
+import okx_data
 import perp_backtest
 import derivatives_snapshots
 import collect_perp_snapshot
@@ -439,6 +440,22 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(result, {"ok": True})
         self.assertEqual(getter.call_count, 2)
         self.assertTrue(getter.call_args_list[1].args[0].startswith("https://fapi1.binance.com/"))
+
+    def test_okx_perpetual_adapter_emits_normalized_snapshot(self):
+        rows = [[1700000000000, "100", "102", "99", "101", "12", "0", "0", "0"]]
+        def fake_get(url):
+            if "instruments" in url:
+                return {"code": "0", "data": [{"state": "live", "baseCcy": "BTC", "tickSz": "0.1", "lotSz": "0.001", "minSz": "0.001"}]}
+            if "funding-rate-history" in url:
+                return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
+            return {"code": "0", "data": rows}
+        snapshot = okx_data.fetch_perpetual_snapshot("btcusdt", "4h", limit=1,
+                                                      http_get=fake_get, closed_only=False,
+                                                      include_contract_specs=True)
+        self.assertEqual(snapshot["venue"], "okx")
+        self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
+        self.assertEqual(snapshot["contract_specs"]["quote_asset"], "USDT")
+        self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
 
     def test_perpetual_snapshot_can_report_component_failure_without_hiding_it(self):
         rows = [[1_700_000_000_000, "100", "102", "99", "101", "12"]]

@@ -14,11 +14,18 @@
       "marked_equity": 10000.0,
       "unrealized_pnl": 0.0,
       "open_count": 0
+    },
+    {
+      "time": 1789214400000,
+      "realized_equity": 10000.0,
+      "marked_equity": 10000.0,
+      "unrealized_pnl": 0.0,
+      "open_count": 0
     }
   ],
-  "run_count": 2,
+  "run_count": 3,
   "consecutive_unavailable_runs": 0,
-  "last_success_at_epoch_ms": 1789227570627,
+  "last_success_at_epoch_ms": 1789235432151,
   "last_successful_symbols": [
     "BTCUSDT",
     "ETHUSDT"
@@ -27,22 +34,22 @@
     "BTCUSDT": {
       "status": "healthy",
       "component_errors": {},
-      "data_lag_minutes": 459.16,
-      "latest_market_time": 1789200000000,
+      "data_lag_minutes": 350.24,
+      "latest_market_time": 1789214400000,
       "signal_status": "no_signal",
       "provider": "okx"
     },
     "ETHUSDT": {
       "status": "healthy",
       "component_errors": {},
-      "data_lag_minutes": 459.39,
-      "latest_market_time": 1789200000000,
+      "data_lag_minutes": 350.44,
+      "latest_market_time": 1789214400000,
       "signal_status": "no_signal",
       "provider": "okx"
     }
   },
-  "last_market_time": 1789200000000,
-  "updated_at_epoch_ms": 1789227570627,
+  "last_market_time": 1789214400000,
+  "updated_at_epoch_ms": 1789235432151,
   "last_errors": {},
   "data_status": "healthy"
 }

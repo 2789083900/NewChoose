@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: perp_runtime_cache
-          key: perpetual-runtime-cache-${{ runner.os }}
+          key: perpetual-runtime-cache-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             perpetual-runtime-cache-
 

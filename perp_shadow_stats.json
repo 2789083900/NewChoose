@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-09-12T12:21:13Z",
+  "market_type": "linear_perpetual",
+  "research_only": true,
+  "provider": "auto",
+  "equity": 10000.0,
+  "marked_equity": 10000.0,
+  "unrealized_pnl": 0.0,
+  "max_drawdown_pct": 0.0,
+  "open_count": 0,
+  "pending_entry_count": 0,
+  "closed_count": 0,
+  "sample_goal_min_trades": 30,
+  "sample_goal_preferred_trades": 50,
+  "sample_progress_pct": 0.0,
+  "sample_next_milestone": "minimum_goal",
+  "sample_reliability": "insufficient_sample",
+  "run_count": 1,
+  "consecutive_unavailable_runs": 0,
+  "last_success_at_epoch_ms": 1789215673833,
+  "data_status": "healthy",
+  "last_successful_symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "symbol_health": {
+    "BTCUSDT": {
+      "status": "healthy",
+      "component_errors": {},
+      "data_lag_minutes": 261.01,
+      "latest_market_time": 1789200000000,
+      "signal_status": "no_signal",
+      "provider": "okx"
+    },
+    "ETHUSDT": {
+      "status": "healthy",
+      "component_errors": {},
+      "data_lag_minutes": 261.15,
+      "latest_market_time": 1789200000000,
+      "signal_status": "no_signal",
+      "provider": "okx"
+    }
+  },
+  "healthy_symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "stale_symbols": [],
+  "cached_symbols": [],
+  "max_data_lag_minutes": 261.15,
+  "rejected_count": 0,
+  "wins": 0,
+  "losses": 0,
+  "win_rate": 0,
+  "net_pnl": 0,
+  "funding_cashflow": 0,
+  "funding_to_gross_pnl_pct": 0,
+  "avg_mfe_pct": 0,
+  "avg_mae_pct": 0,
+  "avg_holding_hours": 0,
+  "liquidations": 0,
+  "errors": {},
+  "requested_symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "successful_symbols": [
+    "BTCUSDT",
+    "ETHUSDT"
+  ],
+  "successful_market_times": {
+    "BTCUSDT": 1789200000000,
+    "ETHUSDT": 1789200000000
+  }
+}

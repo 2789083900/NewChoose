@@ -81,7 +81,7 @@ jobs:
             with open("perp_shadow_stats.json", encoding="utf-8") as f:
                 stats = json.load(f)
             print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
-            print("perpetual shadow data coverage: {}/{} symbols".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", []))))
+            print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
             if stats.get("errors"):
                 print("perpetual shadow data errors:", stats["errors"])
             PY

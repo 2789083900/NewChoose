@@ -568,6 +568,18 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(result["stats"]["requested_symbols"], ["BTCUSDT"])
             self.assertEqual(result["stats"]["sample_next_milestone"], "minimum_goal")
 
+    def test_perpetual_shadow_tracks_data_availability_across_runs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            config = {"derivatives": {"enabled": True, "research_only": True, "symbols": ["BTCUSDT"], "interval": "4h"}}
+            failing = lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("timeout"))
+            first = perp_shadow.run(config, state_path, stats_path, fetcher=failing)
+            second = perp_shadow.run(config, state_path, stats_path, fetcher=failing)
+            self.assertEqual(first["stats"]["data_status"], "unavailable")
+            self.assertEqual(second["stats"]["consecutive_unavailable_runs"], 2)
+            self.assertEqual(second["stats"]["run_count"], 2)
+
     def test_perpetual_shadow_rejects_a_missed_next_bar_entry(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
                  "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001,

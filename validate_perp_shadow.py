@@ -135,6 +135,14 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
         errors.append("stats successful_symbols is not a subset of requested_symbols")
     if not isinstance(stats.get("successful_market_times"), dict):
         errors.append("stats successful_market_times is missing")
+    if not isinstance(stats.get("run_count"), int) or stats.get("run_count", 0) < 0:
+        errors.append("stats run_count is invalid")
+    if not isinstance(stats.get("consecutive_unavailable_runs"), int) or stats.get("consecutive_unavailable_runs", 0) < 0:
+        errors.append("stats consecutive_unavailable_runs is invalid")
+    if stats.get("data_status") not in {"unknown", "healthy", "degraded", "unavailable"}:
+        errors.append("stats data_status is invalid")
+    if not isinstance(stats.get("last_successful_symbols"), list):
+        errors.append("stats last_successful_symbols is missing")
     if not isinstance(state.get("equity_curve"), list):
         errors.append("equity_curve must be a list")
     else:

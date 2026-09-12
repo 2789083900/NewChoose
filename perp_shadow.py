@@ -38,6 +38,10 @@ def empty_state(account_value=10000.0):
         "rejected_signals": [],
         "seen_signal_ids": [],
         "equity_curve": [],
+        "run_count": 0,
+        "consecutive_unavailable_runs": 0,
+        "last_success_at_epoch_ms": None,
+        "last_successful_symbols": [],
     }
 
 
@@ -556,6 +560,11 @@ def build_stats(state, settings=None):
             else "observation_sample" if len(closed) < preferred_goal
             else "preferred_sample"
         ),
+        "run_count": int(state.get("run_count") or 0),
+        "consecutive_unavailable_runs": int(state.get("consecutive_unavailable_runs") or 0),
+        "last_success_at_epoch_ms": state.get("last_success_at_epoch_ms"),
+        "data_status": state.get("data_status") or "unknown",
+        "last_successful_symbols": list(state.get("last_successful_symbols") or []),
         "rejected_count": len(state["rejected_signals"]),
         "wins": len(wins),
         "losses": len(closed) - len(wins),
@@ -575,6 +584,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     if not settings["enabled"]:
         return {"enabled": False, "processed_symbols": 0}
     state = load_state(state_path, settings["account_value"])
+    state.setdefault("run_count", 0)
+    state.setdefault("consecutive_unavailable_runs", 0)
+    state.setdefault("last_success_at_epoch_ms", None)
+    state.setdefault("last_successful_symbols", [])
     fetch = fetcher or derivatives_data.fetch_perpetual_snapshot
     errors = {}
     successful_market_times = {}
@@ -591,6 +604,18 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             errors[symbol] = str(exc)
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors
+    state["run_count"] = int(state.get("run_count") or 0) + 1
+    state["last_successful_symbols"] = sorted(successful_market_times)
+    if not errors:
+        state["data_status"] = "healthy"
+        state["consecutive_unavailable_runs"] = 0
+        state["last_success_at_epoch_ms"] = state["updated_at_epoch_ms"]
+    elif successful_market_times:
+        state["data_status"] = "degraded"
+        state["consecutive_unavailable_runs"] = 0
+    else:
+        state["data_status"] = "unavailable"
+        state["consecutive_unavailable_runs"] = int(state.get("consecutive_unavailable_runs") or 0) + 1
     record_equity_snapshot(state)
     sw.atomic_write_json(state_path, state)
     stats = build_stats(state, settings)

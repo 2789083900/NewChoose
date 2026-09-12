@@ -17,6 +17,11 @@ import signal_watch as sw
 
 
 BASE_URL = "https://fapi.binance.com"
+PERPETUAL_BASE_URLS = (
+    BASE_URL,
+    "https://fapi1.binance.com",
+    "https://fapi2.binance.com",
+)
 MARKET_TYPE = "linear_perpetual"
 PERPETUAL_HTTP_TIMEOUT = 15
 PERPETUAL_HTTP_ATTEMPTS = 4
@@ -69,8 +74,17 @@ def perpetual_http_get_json(url, timeout=PERPETUAL_HTTP_TIMEOUT,
     Spot monitoring keeps its short timeout so a derivatives outage cannot
     delay the normal scan.  Tests and callers may still inject ``http_get``.
     """
-    return sw.http_get_json(url, timeout=timeout, attempts=attempts,
-                            backoff_seconds=backoff_seconds)
+    candidates = [url]
+    if url.startswith(BASE_URL):
+        candidates = [host + url[len(BASE_URL):] for host in PERPETUAL_BASE_URLS]
+    last_error = None
+    for candidate in candidates:
+        try:
+            return sw.http_get_json(candidate, timeout=timeout, attempts=attempts,
+                                    backoff_seconds=backoff_seconds)
+        except Exception as exc:
+            last_error = exc
+    raise last_error
 
 
 def parse_kline_rows(rows):

@@ -428,6 +428,17 @@ class TurtleCoreTests(unittest.TestCase):
             backoff_seconds=derivatives_data.PERPETUAL_HTTP_BACKOFF_SECONDS,
         )
 
+    def test_perpetual_http_fails_over_to_secondary_binance_endpoint(self):
+        with mock.patch.object(sw, "http_get_json", side_effect=[
+            TimeoutError("primary unavailable"), {"ok": True}
+        ]) as getter:
+            result = derivatives_data.perpetual_http_get_json(
+                derivatives_data._url("/fapi/v1/time"), attempts=1
+            )
+        self.assertEqual(result, {"ok": True})
+        self.assertEqual(getter.call_count, 2)
+        self.assertTrue(getter.call_args_list[1].args[0].startswith("https://fapi1.binance.com/"))
+
     def test_perpetual_snapshot_can_report_component_failure_without_hiding_it(self):
         rows = [[1_700_000_000_000, "100", "102", "99", "101", "12"]]
         def partial_get(url):

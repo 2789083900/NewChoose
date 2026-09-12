@@ -42,6 +42,7 @@ def empty_state(account_value=10000.0):
         "consecutive_unavailable_runs": 0,
         "last_success_at_epoch_ms": None,
         "last_successful_symbols": [],
+        "symbol_health": {},
     }
 
 
@@ -96,6 +97,9 @@ def shadow_settings(config):
         "symbols": list(dict.fromkeys(symbols)),
         "interval": interval,
         "history_limit": int(_number(raw, "history_limit", 1000, 100)),
+        "request_timeout_seconds": _number(raw, "request_timeout_seconds", derivatives_data.PERPETUAL_HTTP_TIMEOUT, 1.0),
+        "request_attempts": int(_number(raw, "request_attempts", derivatives_data.PERPETUAL_HTTP_ATTEMPTS, 1)),
+        "request_backoff_seconds": _number(raw, "request_backoff_seconds", derivatives_data.PERPETUAL_HTTP_BACKOFF_SECONDS, 0.0),
         "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
         "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
         "system": raw.get("system", "system2"),
@@ -565,6 +569,19 @@ def build_stats(state, settings=None):
         "last_success_at_epoch_ms": state.get("last_success_at_epoch_ms"),
         "data_status": state.get("data_status") or "unknown",
         "last_successful_symbols": list(state.get("last_successful_symbols") or []),
+        "symbol_health": dict(state.get("symbol_health") or {}),
+        "healthy_symbols": sorted(
+            symbol for symbol, health in (state.get("symbol_health") or {}).items()
+            if health.get("status") == "healthy"
+        ),
+        "stale_symbols": sorted(
+            symbol for symbol, health in (state.get("symbol_health") or {}).items()
+            if health.get("status") == "stale"
+        ),
+        "max_data_lag_minutes": round(max(
+            (float(health.get("data_lag_minutes") or 0)
+             for health in (state.get("symbol_health") or {}).values()), default=0
+        ), 2),
         "rejected_count": len(state["rejected_signals"]),
         "wins": len(wins),
         "losses": len(closed) - len(wins),
@@ -588,25 +605,56 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("consecutive_unavailable_runs", 0)
     state.setdefault("last_success_at_epoch_ms", None)
     state.setdefault("last_successful_symbols", [])
+    state.setdefault("symbol_health", {})
     fetch = fetcher or derivatives_data.fetch_perpetual_snapshot
     errors = {}
     successful_market_times = {}
+    symbol_health = {}
     for symbol in settings["symbols"]:
         try:
-            snapshot = fetch(
-                symbol, settings["interval"], limit=settings["history_limit"], closed_only=True,
-                include_contract_specs=True,
-            )
-            process_snapshot(snapshot, settings, state)
+            fetch_kwargs = {
+                "limit": settings["history_limit"], "closed_only": True,
+                "include_contract_specs": True,
+            }
+            if fetcher is None:
+                fetch_kwargs["allow_partial"] = True
+                fetch_kwargs["request_timeout"] = settings["request_timeout_seconds"]
+                fetch_kwargs["request_attempts"] = settings["request_attempts"]
+                fetch_kwargs["request_backoff_seconds"] = settings["request_backoff_seconds"]
+            snapshot = fetch(symbol, settings["interval"], **fetch_kwargs)
+            health = snapshot.get("data_health") or {}
+            component_errors = dict(health.get("component_errors") or {})
+            required = ("contract_klines", "mark_price_klines", "index_price_klines", "contract_specs")
+            missing_required = [name for name in required if not snapshot.get(name)]
+            if missing_required:
+                raise RuntimeError("required perpetual data unavailable: " + ", ".join(missing_required))
+            signal = process_snapshot(snapshot, settings, state)
             if snapshot.get("contract_klines"):
                 successful_market_times[symbol] = int(snapshot["contract_klines"][-1]["time"])
+            lag = max((float(value) for value in (health.get("data_lag_minutes") or {}).values()), default=0.0)
+            lag_limit = sw.INTERVAL_MS[settings["interval"]] * 3 / 60000
+            status = "stale" if lag > lag_limit else ("partial" if component_errors else "healthy")
+            symbol_health[symbol] = {
+                "status": status, "component_errors": component_errors,
+                "data_lag_minutes": round(lag, 2),
+                "latest_market_time": successful_market_times.get(symbol),
+                "signal_status": "signal_created" if signal else "no_signal",
+            }
         except Exception as exc:
             errors[symbol] = str(exc)
+            error_text = str(exc)
+            symbol_health[symbol] = {
+                "status": "stale" if "stale" in error_text.lower() else "unavailable",
+                "component_errors": {"snapshot": error_text},
+                "data_lag_minutes": None, "latest_market_time": None,
+                "signal_status": "not_evaluated",
+            }
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors
     state["run_count"] = int(state.get("run_count") or 0) + 1
     state["last_successful_symbols"] = sorted(successful_market_times)
-    if not errors:
+    state["symbol_health"] = symbol_health
+    if not errors and not any(item.get("status") == "partial" for item in symbol_health.values()):
         state["data_status"] = "healthy"
         state["consecutive_unavailable_runs"] = 0
         state["last_success_at_epoch_ms"] = state["updated_at_epoch_ms"]
@@ -623,6 +671,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     stats["requested_symbols"] = list(settings["symbols"])
     stats["successful_symbols"] = sorted(successful_market_times)
     stats["successful_market_times"] = successful_market_times
+    stats["symbol_health"] = symbol_health
+    stats["healthy_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "healthy")
+    stats["stale_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "stale")
+    stats["max_data_lag_minutes"] = round(max((float(health.get("data_lag_minutes") or 0) for health in symbol_health.values()), default=0.0), 2)
     sw.atomic_write_json(stats_path, stats)
     return {"enabled": True, "processed_symbols": len(settings["symbols"]) - len(errors), "errors": errors, "stats": stats}
 

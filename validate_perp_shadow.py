@@ -143,6 +143,26 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
         errors.append("stats data_status is invalid")
     if not isinstance(stats.get("last_successful_symbols"), list):
         errors.append("stats last_successful_symbols is missing")
+    symbol_health = stats.get("symbol_health")
+    if not isinstance(symbol_health, dict):
+        errors.append("stats symbol_health is missing")
+    else:
+        allowed = {"healthy", "partial", "stale", "unavailable"}
+        for symbol, health in symbol_health.items():
+            if not isinstance(health, dict) or health.get("status") not in allowed:
+                errors.append(f"stats symbol_health for {symbol} is invalid")
+                continue
+            lag = health.get("data_lag_minutes")
+            if lag is not None and (not _finite(lag) or float(lag) < 0):
+                errors.append(f"stats symbol_health for {symbol} has invalid lag")
+        healthy = stats.get("healthy_symbols")
+        stale = stats.get("stale_symbols")
+        if not isinstance(healthy, list) or set(healthy) != {s for s, h in symbol_health.items() if h.get("status") == "healthy"}:
+            errors.append("stats healthy_symbols does not match symbol_health")
+        if not isinstance(stale, list) or set(stale) != {s for s, h in symbol_health.items() if h.get("status") == "stale"}:
+            errors.append("stats stale_symbols does not match symbol_health")
+    if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
+        errors.append("stats max_data_lag_minutes is invalid")
     if not isinstance(state.get("equity_curve"), list):
         errors.append("equity_curve must be a list")
     else:

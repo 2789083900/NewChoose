@@ -18,6 +18,9 @@ import signal_watch as sw
 
 BASE_URL = "https://fapi.binance.com"
 MARKET_TYPE = "linear_perpetual"
+PERPETUAL_HTTP_TIMEOUT = 15
+PERPETUAL_HTTP_ATTEMPTS = 4
+PERPETUAL_HTTP_BACKOFF_SECONDS = 0.5
 SUPPORTED_INTERVALS = set(sw.INTERVAL_MS)
 OPEN_INTEREST_PERIODS = {
     "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"
@@ -56,6 +59,18 @@ def _history_limit(value, maximum=20000):
 def _url(path, **params):
     clean = {key: value for key, value in params.items() if value is not None}
     return f"{BASE_URL}{path}?{urllib.parse.urlencode(clean)}"
+
+
+def perpetual_http_get_json(url, timeout=PERPETUAL_HTTP_TIMEOUT,
+                            attempts=PERPETUAL_HTTP_ATTEMPTS,
+                            backoff_seconds=PERPETUAL_HTTP_BACKOFF_SECONDS):
+    """Use a longer timeout for the slower USD-M public endpoints.
+
+    Spot monitoring keeps its short timeout so a derivatives outage cannot
+    delay the normal scan.  Tests and callers may still inject ``http_get``.
+    """
+    return sw.http_get_json(url, timeout=timeout, attempts=attempts,
+                            backoff_seconds=backoff_seconds)
 
 
 def parse_kline_rows(rows):
@@ -435,36 +450,59 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
 
 
 def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
-                             closed_only=True, include_contract_specs=False):
+                             closed_only=True, include_contract_specs=False,
+                             allow_partial=False, request_timeout=None,
+                             request_attempts=None, request_backoff_seconds=None):
     symbol_value = normalize_symbol(symbol)
     interval_value = validate_interval(interval)
     history_limit = _history_limit(limit)
-    getter = http_get or sw.http_get_json
+    if http_get:
+        getter = http_get
+    else:
+        getter = lambda url: perpetual_http_get_json(
+            url,
+            timeout=request_timeout or PERPETUAL_HTTP_TIMEOUT,
+            attempts=request_attempts or PERPETUAL_HTTP_ATTEMPTS,
+            backoff_seconds=(PERPETUAL_HTTP_BACKOFF_SECONDS
+                             if request_backoff_seconds is None else request_backoff_seconds),
+        )
+    component_errors = {}
+
+    def collect(name, callback, default):
+        try:
+            return callback()
+        except Exception as exc:
+            if not allow_partial:
+                raise
+            component_errors[name] = str(exc)
+            return default
+
+    fetched_at = int(time.time() * 1000)
     snapshot = {
         "schema_version": 1,
         "venue": "binance",
         "market_type": MARKET_TYPE,
         "symbol": symbol_value,
         "interval": interval_value,
-        "fetched_at_epoch_ms": int(time.time() * 1000),
-        "contract_klines": fetch_kline_history(
+        "fetched_at_epoch_ms": fetched_at,
+        "contract_klines": collect("contract_klines", lambda: fetch_kline_history(
             "contract", symbol_value, interval_value, history_limit,
             http_get=getter, closed_only=closed_only
-        ),
-        "mark_price_klines": fetch_kline_history(
+        ), []),
+        "mark_price_klines": collect("mark_price_klines", lambda: fetch_kline_history(
             "mark", symbol_value, interval_value, history_limit,
             http_get=getter, closed_only=closed_only
-        ),
-        "index_price_klines": fetch_kline_history(
+        ), []),
+        "index_price_klines": collect("index_price_klines", lambda: fetch_kline_history(
             "index", symbol_value, interval_value, history_limit,
             http_get=getter, closed_only=closed_only
-        ),
-        "funding_rates": fetch_funding_history(
+        ), []),
+        "funding_rates": collect("funding_rates", lambda: fetch_funding_history(
             symbol_value, limit=history_limit, http_get=getter
-        ),
-        "open_interest": fetch_open_interest_history(
+        ), []),
+        "open_interest": collect("open_interest", lambda: fetch_open_interest_history(
             symbol_value, period=interval_value, limit=min(500, history_limit), http_get=getter
-        ),
+        ), []),
         "collection": {
             "requested_kline_bars": history_limit,
             "funding_events_limit": history_limit,
@@ -473,5 +511,18 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
         },
     }
     if include_contract_specs:
-        snapshot["contract_specs"] = fetch_contract_specs(symbol_value, http_get=getter)
+        snapshot["contract_specs"] = collect(
+            "contract_specs", lambda: fetch_contract_specs(symbol_value, http_get=getter), None
+        )
+    latest = {}
+    for name in ("contract_klines", "mark_price_klines", "index_price_klines", "funding_rates", "open_interest"):
+        rows = snapshot.get(name) or []
+        if rows:
+            latest[name] = max(int(row["time"]) for row in rows if isinstance(row, dict) and "time" in row)
+    snapshot["data_health"] = {
+        "component_errors": component_errors,
+        "complete": not component_errors,
+        "latest_data_times": latest,
+        "data_lag_minutes": {name: round(max(0, fetched_at - ts) / 60000, 2) for name, ts in latest.items()},
+    }
     return snapshot

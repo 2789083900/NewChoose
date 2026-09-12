@@ -181,10 +181,12 @@ def turtle_filter_options(strategy_config=None):
     return options
 
 
-def _urlopen_with_retry(request, timeout):
+def _urlopen_with_retry(request, timeout, attempts=MAX_REQUEST_ATTEMPTS,
+                        backoff_seconds=RETRY_BACKOFF_SECONDS):
     """Retry transient network/rate-limit failures without hiding bad data."""
     last_error = None
-    for attempt in range(MAX_REQUEST_ATTEMPTS):
+    attempts = max(1, int(attempts))
+    for attempt in range(attempts):
         try:
             return urllib.request.urlopen(request, timeout=timeout)
         except urllib.error.HTTPError as exc:
@@ -193,17 +195,18 @@ def _urlopen_with_retry(request, timeout):
                 raise
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             last_error = exc
-        if attempt + 1 < MAX_REQUEST_ATTEMPTS:
-            time.sleep(RETRY_BACKOFF_SECONDS * (2 ** attempt))
+        if attempt + 1 < attempts:
+            time.sleep(float(backoff_seconds) * (2 ** attempt))
     raise last_error
 
 
-def http_get_json(url, timeout=5):
+def http_get_json(url, timeout=5, attempts=MAX_REQUEST_ATTEMPTS,
+                  backoff_seconds=RETRY_BACKOFF_SECONDS):
     req = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "User-Agent": "CoinPulse/1.0"}
     )
-    with _urlopen_with_retry(req, timeout) as resp:
+    with _urlopen_with_retry(req, timeout, attempts, backoff_seconds) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
 

@@ -419,6 +419,33 @@ class TurtleCoreTests(unittest.TestCase):
             derivatives_data.validate_perpetual_snapshot(snapshot, "4h", now_ms=now), []
         )
 
+    def test_perpetual_http_defaults_use_extended_timeout_and_retry_budget(self):
+        with mock.patch.object(sw, "http_get_json", return_value={}) as getter:
+            derivatives_data.perpetual_http_get_json("https://example.test/data")
+        getter.assert_called_once_with(
+            "https://example.test/data", timeout=derivatives_data.PERPETUAL_HTTP_TIMEOUT,
+            attempts=derivatives_data.PERPETUAL_HTTP_ATTEMPTS,
+            backoff_seconds=derivatives_data.PERPETUAL_HTTP_BACKOFF_SECONDS,
+        )
+
+    def test_perpetual_snapshot_can_report_component_failure_without_hiding_it(self):
+        rows = [[1_700_000_000_000, "100", "102", "99", "101", "12"]]
+        def partial_get(url):
+            if "markPriceKlines" in url:
+                raise TimeoutError("mark endpoint timeout")
+            if "fundingRate" in url:
+                return []
+            if "openInterestHist" in url:
+                return []
+            return rows
+        snapshot = derivatives_data.fetch_perpetual_snapshot(
+            "BTCUSDT", "4h", limit=1, http_get=partial_get,
+            closed_only=False, allow_partial=True,
+        )
+        self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
+        self.assertIn("mark_price_klines", snapshot["data_health"]["component_errors"])
+        self.assertFalse(snapshot["data_health"]["complete"])
+
     def test_perpetual_snapshot_validator_rejects_spot_and_bad_ohlc(self):
         bad = {
             "market_type": "spot",

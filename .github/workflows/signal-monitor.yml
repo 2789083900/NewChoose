@@ -83,21 +83,21 @@ jobs:
       - name: Report perpetual shadow sample progress
         shell: bash
         run: |
-          if [ -f perp_shadow_stats.json ]; then
-            python - <<'PY'
-            import json
-            with open("perp_shadow_stats.json", encoding="utf-8") as f:
-                stats = json.load(f)
-            print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
-            print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
-            if stats.get("cached_symbols"):
-                print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
-            if stats.get("errors"):
-                print("perpetual shadow data errors:", stats["errors"])
-            PY
-          else
-            echo "perpetual shadow stats missing; the step may have failed before writing state" >&2
-          fi
+          python - <<'PY'
+          import json
+          import os
+          if not os.path.exists("perp_shadow_stats.json"):
+              print("perpetual shadow stats missing; the step may have failed before writing state")
+          else:
+              with open("perp_shadow_stats.json", encoding="utf-8") as f:
+                  stats = json.load(f)
+              print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
+              print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
+              if stats.get("cached_symbols"):
+                  print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
+              if stats.get("errors"):
+                  print("perpetual shadow data errors:", stats["errors"])
+          PY
         if: github.event.inputs.test_push != 'true'
 
       - name: Send test push

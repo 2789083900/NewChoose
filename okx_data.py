@@ -46,8 +46,8 @@ def _data(document):
     return document.get("data") or []
 
 
-def _candles(inst_id, bar, limit, endpoint, getter):
-    rows = _data(getter(_url(endpoint, instId=inst_id, bar=bar, limit=min(100, int(limit)))))
+def _candles(inst_id, bar, limit, endpoint, getter, after=None):
+    rows = _data(getter(_url(endpoint, instId=inst_id, bar=bar, limit=min(100, int(limit)), after=after)))
     parsed = []
     for row in rows:
         if not isinstance(row, (list, tuple)) or len(row) < 5:
@@ -55,8 +55,28 @@ def _candles(inst_id, bar, limit, endpoint, getter):
         parsed.append({"time": int(row[0]), "open": float(row[1]), "high": float(row[2]),
                        "low": float(row[3]), "close": float(row[4]),
                        "volume": float(row[5]) if len(row) > 5 else 0.0})
-    return sw.filter_closed_klines(sorted(parsed, key=lambda item: item["time"]),
-                                   next(key for key, value in BAR_MAP.items() if value == bar))
+    return sorted(parsed, key=lambda item: item["time"])
+
+
+def _paged_candles(inst_id, bar, limit, endpoint, getter, interval):
+    target = max(1, int(limit))
+    collected = {}
+    cursor = None
+    for _ in range((target + 99) // 100 + 2):
+        page = _candles(inst_id, bar, min(100, target - len(collected)), endpoint, getter, cursor)
+        if not page:
+            break
+        before = len(collected)
+        for row in page:
+            collected[int(row["time"])] = row
+        if len(collected) == before:
+            break
+        earliest = min(int(row["time"]) for row in page)
+        cursor = str(earliest - 1)
+        if len(collected) >= target or len(page) < 100:
+            break
+    rows = sorted(collected.values(), key=lambda item: item["time"])[-target:]
+    return sw.filter_closed_klines(rows, interval)
 
 
 def _funding(inst_id, limit, getter):
@@ -80,6 +100,18 @@ def _specs(inst_id, getter):
             "min_notional": 0.0}
 
 
+def _open_interest(inst_id, getter):
+    rows = _data(getter(_url("/api/v5/public/open-interest", instType="SWAP", instId=inst_id)))
+    if not rows:
+        return []
+    row = rows[0]
+    if not isinstance(row, dict):
+        return []
+    timestamp = int(row.get("ts") or int(time.time() * 1000))
+    oi = float(row.get("oi") or 0)
+    return [{"time": timestamp, "open_interest": oi, "open_interest_value": 0.0}]
+
+
 def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                              closed_only=True, include_contract_specs=False,
                              allow_partial=False, request_timeout=None,
@@ -101,15 +133,15 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
 
     bar = BAR_MAP[interval_value]
     fetched = int(time.time() * 1000)
-    contract = collect("contract_klines", lambda: _candles(inst_id, bar, limit, "/api/v5/market/candles", getter), [])
-    mark = collect("mark_price_klines", lambda: _candles(inst_id, bar, limit, "/api/v5/market/mark-price-candles", getter), [])
+    contract = collect("contract_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-candles", getter, interval_value), [])
+    mark = collect("mark_price_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-mark-price-candles", getter, interval_value), [])
     index_inst_id = inst_id.replace("-SWAP", "")
-    index = collect("index_price_klines", lambda: _candles(index_inst_id, bar, limit, "/api/v5/market/index-candles", getter), [])
+    index = collect("index_price_klines", lambda: _paged_candles(index_inst_id, bar, limit, "/api/v5/market/history-index-candles", getter, interval_value), [])
     snapshot = {"schema_version": 1, "venue": "okx", "market_type": binance.MARKET_TYPE,
                 "symbol": symbol_value, "interval": interval_value, "fetched_at_epoch_ms": fetched,
                 "contract_klines": contract, "mark_price_klines": mark, "index_price_klines": index,
                 "funding_rates": collect("funding_rates", lambda: _funding(inst_id, limit, getter), []),
-                "open_interest": [],
+                "open_interest": collect("open_interest", lambda: _open_interest(inst_id, getter), []),
                 "collection": {"requested_kline_bars": int(limit), "funding_events_limit": min(100, int(limit)),
                                 "open_interest_limit": 0, "open_interest_source_unavailable": True}}
     if include_contract_specs:

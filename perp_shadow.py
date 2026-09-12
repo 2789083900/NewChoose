@@ -118,14 +118,22 @@ def shadow_settings(config):
         raise ValueError("perpetual shadow trading must remain research_only")
     interval = derivatives_data.validate_interval(raw.get("interval", "4h"))
     symbols = [derivatives_data.normalize_symbol(item) for item in raw.get("symbols", ["BTCUSDT", "ETHUSDT"])]
-    provider = str(raw.get("provider", "binance")).strip().lower()
-    if provider not in {"binance", "okx"}:
-        raise ValueError("derivatives.provider must be binance or okx")
+    provider = str(raw.get("provider", "auto")).strip().lower()
+    if provider not in {"binance", "okx", "auto"}:
+        raise ValueError("derivatives.provider must be auto, binance or okx")
+    providers = [str(item).strip().lower() for item in (raw.get("providers") or [])]
+    if provider != "auto":
+        providers = [provider]
+    else:
+        providers = providers or ["binance", "okx"]
+    if any(item not in {"binance", "okx"} for item in providers):
+        raise ValueError("derivatives.providers must contain only binance or okx")
     return {
         "enabled": bool(raw.get("enabled", False)),
         "research_only": True,
         "symbols": list(dict.fromkeys(symbols)),
         "provider": provider,
+        "providers": list(dict.fromkeys(providers)),
         "interval": interval,
         "history_limit": int(_number(raw, "history_limit", 1000, 100)),
         "request_timeout_seconds": _number(raw, "request_timeout_seconds", derivatives_data.PERPETUAL_HTTP_TIMEOUT, 1.0),
@@ -644,23 +652,21 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("last_success_at_epoch_ms", None)
     state.setdefault("last_successful_symbols", [])
     state.setdefault("symbol_health", {})
-    if fetcher:
-        fetch = fetcher
-    elif settings["provider"] == "okx":
-        fetch = okx_data.fetch_perpetual_snapshot
-    elif settings["provider"] == "binance":
-        fetch = derivatives_data.fetch_perpetual_snapshot
-    else:
-        raise ValueError("derivatives.provider must be binance or okx")
+    fetchers = {"binance": derivatives_data.fetch_perpetual_snapshot,
+                "okx": okx_data.fetch_perpetual_snapshot}
     errors = {}
     successful_market_times = {}
     symbol_health = {}
     for symbol in settings["symbols"]:
-        try:
+        provider_errors = {}
+        selected = None
+        for provider in (["custom"] if fetcher else settings["providers"]):
+          try:
             fetch_kwargs = {
                 "limit": settings["history_limit"], "closed_only": True,
                 "include_contract_specs": True,
             }
+            fetch = fetcher or fetchers[provider]
             if fetcher is None:
                 fetch_kwargs["allow_partial"] = True
                 fetch_kwargs["request_timeout"] = settings["request_timeout_seconds"]
@@ -685,28 +691,34 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "data_lag_minutes": round(lag, 2),
                 "latest_market_time": successful_market_times.get(symbol),
                 "signal_status": "signal_created" if signal else "no_signal",
+                "provider": snapshot.get("venue", provider),
             }
-        except Exception as exc:
-            errors[symbol] = str(exc)
-            error_text = str(exc)
-            cached = _load_snapshot_cache(
-                settings["cache_dir"], symbol, settings["interval"],
-                settings["cache_max_stale_minutes"],
-            )
-            if cached:
-                _, age_minutes = cached
-                symbol_health[symbol] = {
-                    "status": "stale_cache", "component_errors": {"snapshot": error_text},
-                    "data_lag_minutes": age_minutes, "latest_market_time": None,
-                    "signal_status": "not_evaluated",
-                }
-                continue
+            selected = provider
+            break
+          except Exception as exc:
+            provider_errors[provider] = str(exc)
+        if selected:
+            continue
+        error_text = " | ".join(f"{name}: {message}" for name, message in provider_errors.items())
+        errors[symbol] = error_text
+        cached = _load_snapshot_cache(
+            settings["cache_dir"], symbol, settings["interval"],
+            settings["cache_max_stale_minutes"],
+        )
+        if cached:
+            _, age_minutes = cached
             symbol_health[symbol] = {
-                "status": "stale" if "stale" in error_text.lower() else "unavailable",
-                "component_errors": {"snapshot": error_text},
-                "data_lag_minutes": None, "latest_market_time": None,
-                "signal_status": "not_evaluated",
+                "status": "stale_cache", "component_errors": provider_errors,
+                "data_lag_minutes": age_minutes, "latest_market_time": None,
+                "signal_status": "not_evaluated", "provider": "cache",
             }
+            continue
+        symbol_health[symbol] = {
+            "status": "stale" if "stale" in error_text.lower() else "unavailable",
+            "component_errors": provider_errors,
+            "data_lag_minutes": None, "latest_market_time": None,
+            "signal_status": "not_evaluated", "provider": None,
+        }
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors
     state["run_count"] = int(state.get("run_count") or 0) + 1

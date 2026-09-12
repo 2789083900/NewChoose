@@ -656,6 +656,25 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["signal_status"], "not_evaluated")
             self.assertEqual(result["stats"]["cached_symbols"], ["BTCUSDT"])
 
+    def test_perpetual_auto_provider_fails_over_without_mixing_sources(self):
+        specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
+                 "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001, "min_notional": 5.0}
+        snapshot = {"market_type": "linear_perpetual", "venue": "okx", "symbol": "BTCUSDT",
+                    "interval": "4h", "contract_klines": [{"time": 1, "close": 100}],
+                    "mark_price_klines": [{"time": 1, "close": 100}],
+                    "index_price_klines": [{"time": 1, "close": 100}],
+                    "funding_rates": [], "open_interest": [], "contract_specs": specs,
+                    "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(derivatives_data, "fetch_perpetual_snapshot", side_effect=RuntimeError("binance down")), \
+             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=snapshot), \
+             mock.patch.object(perp_shadow, "process_snapshot", return_value=None):
+            result = perp_shadow.run({"derivatives": {"enabled": True, "research_only": True,
+                "provider": "auto", "symbols": ["BTCUSDT"], "interval": "4h"}},
+                os.path.join(directory, "state.json"), os.path.join(directory, "stats.json"))
+        self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["provider"], "okx")
+        self.assertEqual(result["stats"]["errors"], {})
+
     def test_perpetual_shadow_rejects_a_missed_next_bar_entry(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
                  "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001,

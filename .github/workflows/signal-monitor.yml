@@ -93,6 +93,7 @@ jobs:
                   stats = json.load(f)
               print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
               print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
+              print("perpetual shadow providers:", {symbol: health.get("provider") for symbol, health in (stats.get("symbol_health") or {}).items()})
               if stats.get("cached_symbols"):
                   print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
               if stats.get("errors"):

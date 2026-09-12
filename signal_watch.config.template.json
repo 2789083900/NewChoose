@@ -20,7 +20,8 @@
     "enabled": true,
     "research_only": true,
     "venue": "binance",
-    "provider": "binance",
+    "provider": "auto",
+    "providers": ["binance", "okx"],
     "market_type": "linear_perpetual",
     "symbols": [
       "BTCUSDT",

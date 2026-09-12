@@ -30,6 +30,8 @@
     "request_timeout_seconds": 15,
     "request_attempts": 4,
     "request_backoff_seconds": 0.5,
+    "cache_max_stale_minutes": 720,
+    "cache_dir": "perp_runtime_cache",
     "sample_goal_min_trades": 30,
     "sample_goal_preferred_trades": 50,
     "strategy": "perp_trend_turtle",

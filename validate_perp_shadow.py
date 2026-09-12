@@ -147,7 +147,7 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
     if not isinstance(symbol_health, dict):
         errors.append("stats symbol_health is missing")
     else:
-        allowed = {"healthy", "partial", "stale", "unavailable"}
+        allowed = {"healthy", "partial", "stale", "stale_cache", "unavailable"}
         for symbol, health in symbol_health.items():
             if not isinstance(health, dict) or health.get("status") not in allowed:
                 errors.append(f"stats symbol_health for {symbol} is invalid")
@@ -159,8 +159,11 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
         stale = stats.get("stale_symbols")
         if not isinstance(healthy, list) or set(healthy) != {s for s, h in symbol_health.items() if h.get("status") == "healthy"}:
             errors.append("stats healthy_symbols does not match symbol_health")
-        if not isinstance(stale, list) or set(stale) != {s for s, h in symbol_health.items() if h.get("status") == "stale"}:
+        if not isinstance(stale, list) or set(stale) != {s for s, h in symbol_health.items() if h.get("status") in {"stale", "stale_cache"}}:
             errors.append("stats stale_symbols does not match symbol_health")
+        cached = stats.get("cached_symbols")
+        if not isinstance(cached, list) or set(cached) != {s for s, h in symbol_health.items() if h.get("status") == "stale_cache"}:
+            errors.append("stats cached_symbols does not match symbol_health")
     if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
         errors.append("stats max_data_lag_minutes is invalid")
     if not isinstance(state.get("equity_curve"), list):

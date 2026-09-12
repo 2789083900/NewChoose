@@ -31,6 +31,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore perpetual runtime cache
+        uses: actions/cache@v4
+        with:
+          path: perp_runtime_cache
+          key: perpetual-runtime-cache-${{ runner.os }}
+          restore-keys: |
+            perpetual-runtime-cache-
+
       - name: Generate config from secrets
         shell: bash
         env:
@@ -82,6 +90,8 @@ jobs:
                 stats = json.load(f)
             print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
             print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
+            if stats.get("cached_symbols"):
+                print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
             if stats.get("errors"):
                 print("perpetual shadow data errors:", stats["errors"])
             PY

@@ -2,6 +2,7 @@ import unittest
 import json
 import os
 import tempfile
+import time
 import urllib.parse
 from unittest import mock
 
@@ -617,6 +618,26 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(first["stats"]["data_status"], "unavailable")
             self.assertEqual(second["stats"]["consecutive_unavailable_runs"], 2)
             self.assertEqual(second["stats"]["run_count"], 2)
+
+    def test_perpetual_shadow_uses_recent_cache_for_health_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = os.path.join(directory, "cache")
+            os.makedirs(cache_dir)
+            cached = {"symbol": "BTCUSDT", "interval": "4h",
+                      "fetched_at_epoch_ms": int(time.time() * 1000),
+                      "contract_klines": [], "data_health": {}}
+            with open(os.path.join(cache_dir, "BTCUSDT-4h.json"), "w", encoding="utf-8") as file:
+                json.dump(cached, file)
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            result = perp_shadow.run({"derivatives": {
+                "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+                "interval": "4h", "cache_dir": cache_dir,
+            }}, state_path, stats_path,
+                fetcher=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("offline")))
+            self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["status"], "stale_cache")
+            self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["signal_status"], "not_evaluated")
+            self.assertEqual(result["stats"]["cached_symbols"], ["BTCUSDT"])
 
     def test_perpetual_shadow_rejects_a_missed_next_bar_entry(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",

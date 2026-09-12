@@ -75,6 +75,32 @@ def load_state(path, account_value=10000.0):
     return state
 
 
+def _cache_path(cache_dir, symbol, interval):
+    if not cache_dir:
+        return None
+    return os.path.join(cache_dir, f"{symbol}-{interval}.json")
+
+
+def _save_snapshot_cache(cache_dir, snapshot):
+    path = _cache_path(cache_dir, snapshot.get("symbol"), snapshot.get("interval"))
+    if path:
+        sw.atomic_write_json(path, snapshot)
+
+
+def _load_snapshot_cache(cache_dir, symbol, interval, max_stale_minutes):
+    path = _cache_path(cache_dir, symbol, interval)
+    if not path:
+        return None
+    cached = load_json(path, None)
+    if not isinstance(cached, dict):
+        return None
+    fetched = int(cached.get("fetched_at_epoch_ms") or 0)
+    age_minutes = (int(time.time() * 1000) - fetched) / 60000 if fetched else float("inf")
+    if age_minutes < 0 or age_minutes > float(max_stale_minutes):
+        return None
+    return cached, round(age_minutes, 2)
+
+
 def _number(config, key, default, minimum=0.0):
     try:
         value = float(config.get(key, default))
@@ -100,6 +126,8 @@ def shadow_settings(config):
         "request_timeout_seconds": _number(raw, "request_timeout_seconds", derivatives_data.PERPETUAL_HTTP_TIMEOUT, 1.0),
         "request_attempts": int(_number(raw, "request_attempts", derivatives_data.PERPETUAL_HTTP_ATTEMPTS, 1)),
         "request_backoff_seconds": _number(raw, "request_backoff_seconds", derivatives_data.PERPETUAL_HTTP_BACKOFF_SECONDS, 0.0),
+        "cache_max_stale_minutes": _number(raw, "cache_max_stale_minutes", 720.0, 0.0),
+        "cache_dir": str(raw.get("cache_dir") or ""),
         "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
         "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
         "system": raw.get("system", "system2"),
@@ -576,7 +604,11 @@ def build_stats(state, settings=None):
         ),
         "stale_symbols": sorted(
             symbol for symbol, health in (state.get("symbol_health") or {}).items()
-            if health.get("status") == "stale"
+            if health.get("status") in {"stale", "stale_cache"}
+        ),
+        "cached_symbols": sorted(
+            symbol for symbol, health in (state.get("symbol_health") or {}).items()
+            if health.get("status") == "stale_cache"
         ),
         "max_data_lag_minutes": round(max(
             (float(health.get("data_lag_minutes") or 0)
@@ -629,6 +661,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             if missing_required:
                 raise RuntimeError("required perpetual data unavailable: " + ", ".join(missing_required))
             signal = process_snapshot(snapshot, settings, state)
+            _save_snapshot_cache(settings["cache_dir"], snapshot)
             if snapshot.get("contract_klines"):
                 successful_market_times[symbol] = int(snapshot["contract_klines"][-1]["time"])
             lag = max((float(value) for value in (health.get("data_lag_minutes") or {}).values()), default=0.0)
@@ -643,6 +676,18 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
         except Exception as exc:
             errors[symbol] = str(exc)
             error_text = str(exc)
+            cached = _load_snapshot_cache(
+                settings["cache_dir"], symbol, settings["interval"],
+                settings["cache_max_stale_minutes"],
+            )
+            if cached:
+                _, age_minutes = cached
+                symbol_health[symbol] = {
+                    "status": "stale_cache", "component_errors": {"snapshot": error_text},
+                    "data_lag_minutes": age_minutes, "latest_market_time": None,
+                    "signal_status": "not_evaluated",
+                }
+                continue
             symbol_health[symbol] = {
                 "status": "stale" if "stale" in error_text.lower() else "unavailable",
                 "component_errors": {"snapshot": error_text},
@@ -658,7 +703,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
         state["data_status"] = "healthy"
         state["consecutive_unavailable_runs"] = 0
         state["last_success_at_epoch_ms"] = state["updated_at_epoch_ms"]
-    elif successful_market_times:
+    elif successful_market_times or any(item.get("status") == "stale_cache" for item in symbol_health.values()):
         state["data_status"] = "degraded"
         state["consecutive_unavailable_runs"] = 0
     else:
@@ -673,7 +718,8 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     stats["successful_market_times"] = successful_market_times
     stats["symbol_health"] = symbol_health
     stats["healthy_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "healthy")
-    stats["stale_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "stale")
+    stats["stale_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] in {"stale", "stale_cache"})
+    stats["cached_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "stale_cache")
     stats["max_data_lag_minutes"] = round(max((float(health.get("data_lag_minutes") or 0) for health in symbol_health.values()), default=0.0), 2)
     sw.atomic_write_json(stats_path, stats)
     return {"enabled": True, "processed_symbols": len(settings["symbols"]) - len(errors), "errors": errors, "stats": stats}

@@ -119,12 +119,22 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
             errors.append(f"stats {field} does not match state")
     if not isinstance(stats.get("sample_reliability"), str):
         errors.append("stats sample_reliability is missing")
+    if not _finite(stats.get("sample_progress_pct")) or not 0 <= float(stats.get("sample_progress_pct")) <= 100:
+        errors.append("stats sample_progress_pct is invalid")
+    if stats.get("sample_next_milestone") not in {"minimum_goal", "preferred_goal", "complete"}:
+        errors.append("stats sample_next_milestone is invalid")
     if not isinstance(stats.get("sample_goal_min_trades"), int) or stats.get("sample_goal_min_trades", 0) < 1:
         errors.append("stats sample_goal_min_trades is invalid")
     if not isinstance(stats.get("sample_goal_preferred_trades"), int) or stats.get("sample_goal_preferred_trades", 0) < stats.get("sample_goal_min_trades", 1):
         errors.append("stats sample_goal_preferred_trades is invalid")
     if not _finite(stats.get("equity")) or abs(float(stats["equity"]) - float(state["equity"])) > 1e-7:
         errors.append("stats equity does not match state")
+    if not isinstance(stats.get("requested_symbols"), list) or not isinstance(stats.get("successful_symbols"), list):
+        errors.append("stats symbol progress fields are missing")
+    elif not set(stats["successful_symbols"]).issubset(set(stats["requested_symbols"])):
+        errors.append("stats successful_symbols is not a subset of requested_symbols")
+    if not isinstance(stats.get("successful_market_times"), dict):
+        errors.append("stats successful_market_times is missing")
     if not isinstance(state.get("equity_curve"), list):
         errors.append("equity_curve must be a list")
     else:

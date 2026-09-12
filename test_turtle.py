@@ -548,6 +548,26 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertFalse(os.path.exists(state_path))
             self.assertFalse(os.path.exists(stats_path))
 
+    def test_perpetual_shadow_stats_report_sample_progress_and_symbol_coverage(self):
+        state = perp_shadow.empty_state(10000)
+        state["closed_trades"] = [{"net_pnl": 1.0}] * 3
+        settings = {"sample_goal_min_trades": 5, "sample_goal_preferred_trades": 10}
+        stats = perp_shadow.build_stats(state, settings)
+        self.assertEqual(stats["sample_progress_pct"], 30.0)
+        self.assertEqual(stats["sample_next_milestone"], "minimum_goal")
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            state["closed_trades"] = []
+            result = perp_shadow.run(
+                {"derivatives": {"enabled": True, "research_only": True, "symbols": ["BTCUSDT"], "interval": "4h"}},
+                state_path, stats_path,
+                fetcher=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("temporary data failure")),
+            )
+            self.assertEqual(result["stats"]["successful_symbols"], [])
+            self.assertEqual(result["stats"]["requested_symbols"], ["BTCUSDT"])
+            self.assertEqual(result["stats"]["sample_next_milestone"], "minimum_goal")
+
     def test_perpetual_shadow_rejects_a_missed_next_bar_entry(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
                  "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001,
@@ -1219,6 +1239,20 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(second["status"], "stale")
             self.assertEqual(notify.call_count, 1)
 
+    def test_monitor_health_alert_includes_scan_diagnostics(self):
+        health = {
+            "updated_at": "2026-09-11 13:29:28",
+            "scan": {
+                "run_id": "abc123", "coverage_pct": 0.0,
+                "successful_markets": 0, "expected_markets": 11,
+                "failed_markets": 11, "failures": ["BTCUSDT|4h: timeout"],
+            },
+        }
+        detail = check_monitor_health.health_alert_detail(health, 1692)
+        self.assertIn("abc123", detail)
+        self.assertIn("覆盖率：0.0%", detail)
+        self.assertIn("BTCUSDT|4h: timeout", detail)
+
     def test_empty_portfolio_backtest_returns_a_valid_equity_curve(self):
         class Args:
             capital = 10000.0
@@ -1258,6 +1292,59 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(result["trades"], 0)
         self.assertEqual(result["ending_equity"], Args.capital)
         self.assertTrue(result["equity_curve"])
+
+    def test_portfolio_metrics_include_reliability_exposure_and_cost_fields(self):
+        class Args:
+            capital = 10000.0
+            fee_rate = 0.001
+            slippage = 0.0005
+            portfolio_max_symbol_units = 4
+            portfolio_max_total_units = 12
+            portfolio_max_direction_units = 12
+
+        bars = [
+            {"time": index * 4 * 60 * 60 * 1000, "open": 100.0,
+             "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0}
+            for index in range(400)
+        ]
+        daily = [
+            {"time": index * 24 * 60 * 60 * 1000, "open": 100.0,
+             "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0}
+            for index in range(420)
+        ]
+        result = backtest_turtle.simulate_portfolio(
+            {"BTCUSDT": (bars, daily), "ETHUSDT": (bars, daily)},
+            backtest_turtle.backtest_variants()["production_default"], Args(),
+        )
+        self.assertEqual(result["sample_reliability"], "insufficient_sample")
+        self.assertIn("max_consecutive_losses", result)
+        self.assertIn("max_margin_used", result)
+        self.assertEqual(result["margin_model"], "spot_notional_proxy")
+        self.assertIn("max_direction_exposure", result)
+        self.assertIn("direction_exposure_peak", result)
+
+    def test_backtest_report_gate_rejects_incomplete_portfolio_cost_sensitivity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "report.json")
+            snapshot_file = os.path.join(directory, "snapshot.json")
+            with open(snapshot_file, "w", encoding="utf-8") as file:
+                file.write("{}")
+            report = {
+                "report_schema_version": 2, "generated_at": "now", "interval": "4h", "system": "system2",
+                "sample_reliability_threshold_trades": 10, "symbols_disabled": [],
+                "data_snapshot": {"directory": ".", "datasets": {"BTCUSDT": {"4h": {"sha256": "0" * 64, "file": "snapshot.json"}}}},
+                "results": {"BTCUSDT": {}},
+                "portfolio": {
+                    "full": {"trades": 0, "sample_reliability": "insufficient_sample", "max_consecutive_losses": 0,
+                              "max_margin_used": 0, "max_direction_exposure": 0, "cost_sensitivity": {"baseline_return": 0}},
+                    "rolling_validation": {"enabled": True, "windows": [{}]},
+                },
+                "errors": {},
+            }
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(report, file)
+            errors = validate_reports.validate_backtest_report(path)
+        self.assertTrue(any("成本敏感性缺少字段" in error for error in errors))
 
     def test_turtle_push_text_distinguishes_trigger_from_shadow_fill(self):
         plan = {

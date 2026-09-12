@@ -516,6 +516,8 @@ def build_stats(state, settings=None):
     settings = settings or {}
     minimum_goal = int(settings.get("sample_goal_min_trades", 30))
     preferred_goal = max(minimum_goal, int(settings.get("sample_goal_preferred_trades", 50)))
+    progress_target = preferred_goal
+    closed_count = len(closed)
     wins = [item for item in closed if float(item.get("net_pnl") or 0) > 0]
     funding = sum(float(item.get("funding_cashflow") or 0) for item in closed + state["open_trades"])
     marked_equity, unrealized = _marked_equity(state)
@@ -540,9 +542,15 @@ def build_stats(state, settings=None):
         "max_drawdown_pct": round(max_drawdown * 100, 4),
         "open_count": len(state["open_trades"]),
         "pending_entry_count": sum(item.get("status") == "pending_entry" for item in state["open_trades"]),
-        "closed_count": len(closed),
+        "closed_count": closed_count,
         "sample_goal_min_trades": minimum_goal,
         "sample_goal_preferred_trades": preferred_goal,
+        "sample_progress_pct": round(min(100.0, closed_count / progress_target * 100), 2),
+        "sample_next_milestone": (
+            "minimum_goal" if closed_count < minimum_goal
+            else "preferred_goal" if closed_count < preferred_goal
+            else "complete"
+        ),
         "sample_reliability": (
             "insufficient_sample" if len(closed) < minimum_goal
             else "observation_sample" if len(closed) < preferred_goal
@@ -569,6 +577,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state = load_state(state_path, settings["account_value"])
     fetch = fetcher or derivatives_data.fetch_perpetual_snapshot
     errors = {}
+    successful_market_times = {}
     for symbol in settings["symbols"]:
         try:
             snapshot = fetch(
@@ -576,6 +585,8 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 include_contract_specs=True,
             )
             process_snapshot(snapshot, settings, state)
+            if snapshot.get("contract_klines"):
+                successful_market_times[symbol] = int(snapshot["contract_klines"][-1]["time"])
         except Exception as exc:
             errors[symbol] = str(exc)
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
@@ -584,6 +595,9 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     sw.atomic_write_json(state_path, state)
     stats = build_stats(state, settings)
     stats["errors"] = errors
+    stats["requested_symbols"] = list(settings["symbols"])
+    stats["successful_symbols"] = sorted(successful_market_times)
+    stats["successful_market_times"] = successful_market_times
     sw.atomic_write_json(stats_path, stats)
     return {"enabled": True, "processed_symbols": len(settings["symbols"]) - len(errors), "errors": errors, "stats": stats}
 

@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-13 06:17:25",
+  "updated_at": "2026-09-13 12:03:18",
   "scan": {
-    "run_id": "173d79e2d824",
+    "run_id": "32dc72a23595",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789257600000,
-    "data_lag_minutes": 377.4,
+    "latest_bar_time": 1789286400000,
+    "data_lag_minutes": 243.3,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -30,7 +30,7 @@
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789280245,
+  "updated_at_epoch": 1789300998,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,

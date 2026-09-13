@@ -1,6 +1,6 @@
 {
-  "status": "stale",
-  "checked_at_epoch": 1789079336,
-  "health_age_seconds": 1691,
+  "status": "healthy",
+  "checked_at_epoch": 1789316457,
+  "health_age_seconds": 626,
   "last_health_status": "ok"
 }

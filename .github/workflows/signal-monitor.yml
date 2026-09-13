@@ -75,7 +75,7 @@ jobs:
         if: github.event.inputs.test_push != 'true'
 
       - name: Track perpetual shadow trades
-        id: perpetual-shadow
+        id: perpetual_shadow
         continue-on-error: true
         run: python perp_shadow.py --config signal_watch.config.json
         if: github.event.inputs.test_push != 'true'
@@ -94,6 +94,7 @@ jobs:
               print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
               print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
               print("perpetual shadow providers:", {symbol: health.get("provider") for symbol, health in (stats.get("symbol_health") or {}).items()})
+              print("perpetual shadow provider attempts:", {symbol: health.get("provider_attempts") for symbol, health in (stats.get("symbol_health") or {}).items()})
               if stats.get("cached_symbols"):
                   print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
               if stats.get("errors"):
@@ -112,6 +113,12 @@ jobs:
       - name: Validate perpetual shadow state
         run: python validate_perp_shadow.py
         if: github.event.inputs.test_push != 'true'
+
+      - name: Fail when perpetual shadow execution failed
+        if: always() && github.event.inputs.test_push != 'true' && steps.perpetual_shadow.outcome == 'failure'
+        run: |
+          echo "perpetual shadow execution failed; refusing to publish stale shadow state" >&2
+          exit 1
 
       - name: Save signal state
         shell: bash

@@ -23,6 +23,7 @@ PERPETUAL_BASE_URLS = (
     "https://fapi2.binance.com",
 )
 MARKET_TYPE = "linear_perpetual"
+FUNDING_SETTLEMENT_INTERVAL_MS = 8 * 60 * 60 * 1000
 PERPETUAL_HTTP_TIMEOUT = 15
 PERPETUAL_HTTP_ATTEMPTS = 4
 PERPETUAL_HTTP_BACKOFF_SECONDS = 0.5
@@ -340,6 +341,14 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
         return ["snapshot must be an object"]
     if snapshot.get("market_type") != MARKET_TYPE:
         errors.append(f"market_type must be {MARKET_TYPE}")
+    if snapshot.get("symbol") not in (None, ""):
+        try:
+            if normalize_symbol(snapshot.get("symbol")) != str(snapshot.get("symbol")).upper():
+                errors.append("symbol must be normalized uppercase")
+        except ValueError:
+            errors.append("symbol is invalid")
+    if snapshot.get("venue") not in (None, "", "binance", "okx"):
+        errors.append("venue must be binance or okx")
     specs = snapshot.get("contract_specs")
     if specs is not None:
         if not isinstance(specs, dict):
@@ -351,6 +360,10 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
                 errors.append("contract_specs must describe a perpetual contract")
             if specs.get("quote_asset") != "USDT":
                 errors.append("contract_specs must be USDT-margined")
+            allowed_statuses = (None, "", "live") if snapshot.get("venue") == "okx" else (None, "", "TRADING")
+            if specs.get("status") not in allowed_statuses:
+                expected_status = "live" if snapshot.get("venue") == "okx" else "TRADING"
+                errors.append(f"contract_specs status must be {expected_status}")
             for field in ("price_tick", "quantity_step"):
                 try:
                     value = float(specs[field])
@@ -439,6 +452,8 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
                     errors.append("funding_rates contains an invalid mark price")
         if len(funding_times) != len(set(funding_times)):
             errors.append("funding_rates contains duplicate timestamps")
+        if funding_times != sorted(funding_times):
+            errors.append("funding_rates must be sorted by timestamp")
     open_interest = snapshot.get("open_interest")
     if open_interest is not None and not isinstance(open_interest, list):
         errors.append("open_interest must be a list")
@@ -449,6 +464,8 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
                 errors.append("open_interest contains a non-object")
                 continue
             for field in ("time", "open_interest", "open_interest_value"):
+                if field == "open_interest_value" and event.get(field) in (None, ""):
+                    continue
                 try:
                     value = float(event[field])
                 except (KeyError, TypeError, ValueError):
@@ -460,6 +477,8 @@ def validate_perpetual_snapshot(snapshot, interval, now_ms=None,
                     oi_times.append(int(value))
         if len(oi_times) != len(set(oi_times)):
             errors.append("open_interest contains duplicate timestamps")
+        if oi_times != sorted(oi_times):
+            errors.append("open_interest must be sorted by timestamp")
     return errors
 
 
@@ -522,6 +541,9 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
             "funding_events_limit": history_limit,
             "open_interest_limit": min(500, history_limit),
             "open_interest_history_limited_by_source": history_limit > 500,
+            "closed_only": bool(closed_only),
+            "provider": "binance",
+            "interval_ms": sw.INTERVAL_MS[interval_value],
         },
     }
     if include_contract_specs:
@@ -529,14 +551,32 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
             "contract_specs", lambda: fetch_contract_specs(symbol_value, http_get=getter), None
         )
     latest = {}
+    latest_bar_open_times = {}
     for name in ("contract_klines", "mark_price_klines", "index_price_klines", "funding_rates", "open_interest"):
         rows = snapshot.get(name) or []
         if rows:
-            latest[name] = max(int(row["time"]) for row in rows if isinstance(row, dict) and "time" in row)
-    snapshot["data_health"] = {
+            latest_row = max(
+                (row for row in rows if isinstance(row, dict) and "time" in row),
+                key=lambda row: int(row["time"]),
+            )
+            latest_open = int(latest_row["time"])
+            latest_bar_open_times[name] = latest_open if name.endswith("klines") else None
+            latest[name] = latest_open + (sw.INTERVAL_MS[interval_value] if name.endswith("klines") else 0)
+    data_health = {
         "component_errors": component_errors,
         "complete": not component_errors,
         "latest_data_times": latest,
+        "latest_bar_open_times": {name: value for name, value in latest_bar_open_times.items() if value is not None},
         "data_lag_minutes": {name: round(max(0, fetched_at - ts) / 60000, 2) for name, ts in latest.items()},
     }
+    for field in ("funding_rates", "open_interest"):
+        times = sorted({int(row["time"]) for row in (snapshot.get(field) or [])
+                        if isinstance(row, dict) and row.get("time") not in (None, "")})
+        gaps = [right - left for left, right in zip(times, times[1:])]
+        data_health[f"{field}_observation_count"] = len(times)
+        data_health[f"{field}_max_gap_ms"] = max(gaps, default=0)
+        expected_gap = (FUNDING_SETTLEMENT_INTERVAL_MS
+                        if field == "funding_rates" else sw.INTERVAL_MS[interval_value])
+        data_health[f"{field}_gap_count"] = sum(gap > expected_gap * 3 for gap in gaps)
+    snapshot["data_health"] = data_health
     return snapshot

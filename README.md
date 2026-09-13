@@ -62,7 +62,7 @@ python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\
 
 ### 永续影子交易
 
-永续影子交易使用独立的 `perp_shadow_state.json` 和 `perp_shadow_stats.json`，不会读写现货的 `signal_watch.state.json`、`signal_records.json` 或 `trade_stats.json`。它只访问 Binance USD-M 公开接口，不使用 API 密钥，也不提交订单。
+永续影子交易使用独立的 `perp_shadow_state.json` 和 `perp_shadow_stats.json`，不会读写现货的 `signal_watch.state.json`、`signal_records.json` 或 `trade_stats.json`。它只访问 Binance/OKX 公开接口，不使用 API 密钥，也不提交订单。
 
 当前第一阶段研究配置已启用永续影子交易，但范围严格限制为 BTCUSDT、ETHUSDT 的 4h 合约数据；`research_only` 保持为 `true`，没有真实账户、API 密钥或自动下单。统计文件会记录 `closed_count`、当前开放样本、数据错误和样本可靠性：完成交易少于 30 笔只能视为不足样本，30～49 笔为观察样本，达到 50 笔才达到本阶段的优选样本门槛。
 
@@ -74,9 +74,12 @@ python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\
 python perp_shadow.py --config signal_watch.config.json
 ```
 
-每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。配置默认 `enabled: false` 且强制 `research_only: true`，当前不会自动推送或自动下单。
+每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。`provider=auto` 会按币种执行 Binance -> OKX 故障转移，并对连续失败的数据源应用 `provider_cooldown_seconds` 冷却；`perp_shadow_stats.json` 会记录每次尝试、切换原因、请求延迟和按 provider 分组的已完成样本。缓存按 provider 分文件保存，旧版无后缀缓存仍可读取。`research_data_mode` 默认是 `price_only_research`，允许 funding/OI 暂缺但会保留覆盖诊断；设置为 `full_perpetual_research` 后，缺少 funding、历史 OI、funding/OI 未覆盖合约 K 线窗口，或内部观测存在过大缺口的快照不会创建新样本（资金费按约 8 小时结算周期容差判断，内部最大缺口不超过预期周期的 3 倍，OI 至少需要两个不同时间点）。快照会记录采集 provider、是否仅使用已闭合 K 线和 interval 元数据，回测报告会回显这些信息；非 TRADING/live 合约会被拒绝。多币种权益曲线使用请求币种共同拥有的最新收盘时间，避免不同步数据混入同一组合时间点。模板当前 `enabled: true`，但始终强制 `research_only: true`，不会自动推送或自动下单；若需仅手动运行，可在本地配置中设为 `enabled: false`。
 
 每笔已成交记录还会保存 MFE/MAE（以首笔入场价为基准，避免加仓改写历史路径）、持仓小时数，以及入场/退出时的合约价、标记价、指数价、基差和 OI 快照。状态中的 `equity` 是已实现权益，`marked_equity` 会按最近标记价加入未实现盈亏；统计文件会给出最大回撤、平均 MFE/MAE、平均持仓时间和资金费率占毛收益比例。权益曲线按每轮处理到的最新已收盘合约 K 线时间采样，同一市场时间会覆盖旧点，不代表逐笔成交或逐根 K 线的完整组合净值。
+每轮权益曲线还会记录开放名义价值、保证金、做多/做空方向暴露和开放风险比例；统计文件会汇总这些字段的峰值以及最大连续亏损，用于后续组合风险评估。
+
+永续影子模块会复用 `channels` 中已配置的推送渠道，发送信号创建、影子成交、加仓、退出和拒绝事件。消息包含入场/止损/数量/杠杆/风险、资金费和数据口径，并通过交易 ID 去重；所有消息均标注为研究影子信号，需要人工确认，不会自动下单。
 
 ## 本地订单流服务（Phase 1）
 

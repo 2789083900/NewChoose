@@ -19,6 +19,12 @@ def _bar_map(rows):
     return {int(row["time"]): row for row in rows}
 
 
+def _stop_from_fill(entry, n, direction):
+    """Compute the initial stop from the actual executable fill price."""
+    return (float(entry) - 2 * float(n) if direction == "long"
+            else float(entry) + 2 * float(n))
+
+
 def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                        leverage=2.0, fee_rate=0.0004, slippage_rate=0.0005,
                        maintenance_margin_rate=0.005,
@@ -88,7 +94,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                 equity -= entry_fee
                 position = {"direction": pending["direction"], "entry": entry,
                             "quantity": quantity, "entry_time": int(bar["time"]),
-                            "stop": pending["stop"], "exit_level": pending["exit_level"],
+                            "stop": _stop_from_fill(entry, n, pending["direction"]),
+                            "exit_level": pending["exit_level"],
                             "funding_index": 0, "fees": entry_fee,
                             "funding": 0.0, "units": 1}
                 entered_this_bar = True
@@ -103,7 +110,9 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
             # Settle every funding event that occurred since the last bar.
             while position["funding_index"] < len(funding) and int(funding[position["funding_index"]]["time"]) <= bar_time:
                 event = funding[position["funding_index"]]
-                if int(event["time"]) >= position["entry_time"]:
+                # Match shadow trading: a funding event at the exact entry
+                # timestamp belongs to the pre-entry settlement window.
+                if int(event["time"]) > position["entry_time"]:
                     funding_mark = event.get("mark_price")
                     try:
                         funding_mark = float(funding_mark) if funding_mark not in (None, "") else mark_price
@@ -167,7 +176,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
 
         if position is None and pending is None:
             direction, _reasons, plan = sw.build_turtle_signal(
-                contract[: index + 1], system, account_value, risk_fraction,
+                contract[: index + 1], system, equity, risk_fraction,
                 interval, filter_options=filters or {
                     "higher_timeframe": False, "volume_confirmation": False,
                     "volatility_filter": False, "anomaly_filter": False,
@@ -183,6 +192,30 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
 
     if position:
         last = marks[-1]
+        final_time = int(last["time"])
+        final_mark_price = float(last["close"])
+        # The loop stops one bar early so a pending entry can be generated
+        # safely. Settle funding and mark the final bar before force-closing.
+        while position["funding_index"] < len(funding) and int(funding[position["funding_index"]]["time"]) <= final_time:
+            event = funding[position["funding_index"]]
+            # Match the intrabar settlement rule above and shadow trading.
+            if int(event["time"]) > position["entry_time"]:
+                funding_mark = event.get("mark_price")
+                try:
+                    funding_mark = float(funding_mark) if funding_mark not in (None, "") else final_mark_price
+                except (TypeError, ValueError):
+                    funding_mark = final_mark_price
+                cashflow = derivatives_risk.funding_payment(
+                    derivatives_risk.position_notional(funding_mark, position["quantity"]),
+                    event["funding_rate"], position["direction"],
+                )
+                equity += cashflow
+                funding_total += cashflow
+                position["funding"] += cashflow
+            position["funding_index"] += 1
+        final_marked = mark_equity(final_mark_price)
+        peak = max(peak, final_marked)
+        max_drawdown = max(max_drawdown, (peak - final_marked) / peak if peak else 0)
         fill = float(last["close"]) * (1 - slippage_rate if position["direction"] == "long" else 1 + slippage_rate)
         if specs:
             fill = derivatives_data.quantize_price(

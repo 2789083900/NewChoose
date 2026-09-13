@@ -558,6 +558,9 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
     rejected_by_limit = {}
     max_total_units = 0
     max_direction_units = 0
+    max_margin_used = 0.0
+    max_long_exposure = 0.0
+    max_short_exposure = 0.0
     peak = cash
     max_drawdown = 0.0
     equity_curve = []
@@ -698,6 +701,28 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
             max_direction_units,
             max((sum(len(position["units"]) for position in positions.values() if position["direction"] == side) for side in ("long", "short")), default=0)
         )
+        # Portfolio-level exposure snapshots use marked close notional.  This
+        # keeps the statistic comparable across symbols with different prices
+        # and includes every open unit in the shared cash pool.
+        margin_used = sum(
+            float(position["avg_entry"]) * float(position["quantity"])
+            for position in positions.values()
+        )
+        long_exposure = sum(
+            float(prepared[symbol]["klines"][prepared[symbol]["index_by_time"][current_time]]["close"])
+            * float(position["quantity"])
+            for symbol, position in positions.items()
+            if position["direction"] == "long"
+        )
+        short_exposure = sum(
+            float(prepared[symbol]["klines"][prepared[symbol]["index_by_time"][current_time]]["close"])
+            * float(position["quantity"])
+            for symbol, position in positions.items()
+            if position["direction"] == "short"
+        )
+        max_margin_used = max(max_margin_used, margin_used)
+        max_long_exposure = max(max_long_exposure, long_exposure)
+        max_short_exposure = max(max_short_exposure, short_exposure)
         peak = max(peak, equity)
         max_drawdown = min(max_drawdown, (equity - peak) / peak) if peak else max_drawdown
         equity_curve.append({"time": current_time, "equity": round(equity, 2)})
@@ -707,10 +732,27 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
         close_position(symbol, index, prepared[symbol]["klines"][index]["close"], "期末强制平仓")
     max_drawdown = min(max_drawdown, (cash - peak) / peak) if peak else max_drawdown
     wins = sum(1 for trade in trades if trade["return"] > 0)
+    max_consecutive_losses = 0
+    consecutive_losses = 0
+    for trade in trades:
+        if trade["return"] <= 0:
+            consecutive_losses += 1
+            max_consecutive_losses = max(max_consecutive_losses, consecutive_losses)
+        else:
+            consecutive_losses = 0
+    sample_reliability = (
+        "insufficient_sample" if len(trades) < MIN_RELIABLE_TRADES else "actionable_sample"
+    )
     return {
         "symbols": symbols, "trades": len(trades), "wins": wins,
         "losses": len(trades) - wins,
         "trade_win_rate": round(wins / len(trades) * 100, 2) if trades else 0,
+        "sample_reliability": sample_reliability,
+        "sample_reliability_note": (
+            f"组合交易数 {len(trades)}，至少需要 {MIN_RELIABLE_TRADES} 笔才作统计判断"
+            if sample_reliability == "insufficient_sample" else "组合交易样本达到最低统计门槛"
+        ),
+        "max_consecutive_losses": max_consecutive_losses,
         "ending_equity": round(cash, 2),
         "return": round((cash / args.capital - 1) * 100, 2),
         "max_drawdown": round(max_drawdown * 100, 2),
@@ -718,6 +760,17 @@ def simulate_portfolio(market_data, filters, args, start_index=None, end_index=N
         "rejected_by_limit": rejected_by_limit,
         "max_total_units_observed": max_total_units,
         "max_direction_units_observed": max_direction_units,
+        "max_margin_used": round(max_margin_used, 2),
+        "margin_peak": round(max_margin_used, 2),
+        "margin_model": "spot_notional_proxy",
+        "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+        "max_long_exposure": round(max_long_exposure, 2),
+        "max_short_exposure": round(max_short_exposure, 2),
+        "max_direction_exposure": round(max(max_long_exposure, max_short_exposure), 2),
+        "direction_exposure_peak": {
+            "long": round(max_long_exposure, 2),
+            "short": round(max_short_exposure, 2),
+        },
         "risk_limits": {
             "max_symbol_units": args.portfolio_max_symbol_units,
             "max_total_units": args.portfolio_max_total_units,
@@ -902,19 +955,44 @@ def main():
         split_index = max(
             1, int(aligned_bars * (1 - max(0.0, min(0.9, args.test_ratio))))
         )
-        portfolio = {
+        periods = {
+            "full": {},
+            "in_sample": {"end_index": split_index},
+            "out_of_sample": {"start_index": split_index},
+        }
+        for period, bounds in periods.items():
+            baseline = simulate_portfolio(market_data, filters, args, **bounds)
+            scenarios = {"baseline": baseline}
+            for name, multiplier in (("double", 2), ("quadruple", 4)):
+                stress_args = copy.copy(args)
+                stress_args.fee_rate = args.fee_rate * multiplier
+                stress_args.slippage = args.slippage * multiplier
+                scenarios[name] = simulate_portfolio(
+                    market_data, filters, stress_args, **bounds
+                )
+            baseline["cost_sensitivity"] = {
+                "baseline_return": scenarios["baseline"].get("return", 0),
+                "double_cost_return": scenarios["double"].get("return", 0),
+                "quadruple_cost_return": scenarios["quadruple"].get("return", 0),
+                "baseline_ending_equity": scenarios["baseline"].get("ending_equity", 0),
+                "double_cost_ending_equity": scenarios["double"].get("ending_equity", 0),
+                "quadruple_cost_ending_equity": scenarios["quadruple"].get("ending_equity", 0),
+                "quadruple_cost_turns_negative": (
+                    scenarios["quadruple"].get("return", 0) < 0
+                    and scenarios["baseline"].get("return", 0) >= 0
+                ),
+            }
+            portfolio[period] = baseline
+        portfolio.update({
             "variant": "production_default",
-            "full": simulate_portfolio(market_data, filters, args),
-            "in_sample": simulate_portfolio(
-                market_data, filters, args, end_index=split_index
-            ),
-            "out_of_sample": simulate_portfolio(
-                market_data, filters, args, start_index=split_index
-            ),
+            "cost_sensitivity": {
+                period: portfolio[period].get("cost_sensitivity", {})
+                for period in ("full", "in_sample", "out_of_sample")
+            },
             "rolling_validation": portfolio_rolling_validation(
                 market_data, filters, args
             ),
-        }
+        })
 
     report = {
         "generated_at": __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M:%S"),

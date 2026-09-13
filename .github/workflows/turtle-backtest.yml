@@ -25,7 +25,9 @@ permissions:
   contents: write
 
 concurrency:
-  group: coinpulse-turtle-backtest
+  # All scheduled jobs that commit runtime/report artifacts share one writer
+  # lock, so a weekly backtest cannot race the 5-minute monitor push.
+  group: coinpulse-state-writer
   cancel-in-progress: false
 
 jobs:
@@ -79,5 +81,22 @@ jobs:
             echo "backtest report unchanged"
           else
             git commit -m "chore: update turtle backtest report"
-            git push origin HEAD:${GITHUB_REF_NAME}
+            for attempt in 1 2 3; do
+              if ! git fetch origin "${GITHUB_REF_NAME}"; then
+                echo "fetch conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+                git rebase --abort || true
+                echo "rebase conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if git push origin HEAD:${GITHUB_REF_NAME}; then exit 0; fi
+              echo "push conflict; retry ${attempt}/3"
+              sleep $((attempt * 2))
+            done
+            echo "unable to publish backtest report after retries" >&2
+            exit 1
           fi

@@ -40,6 +40,8 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "file": loaded["metadata"].get("file"),
             "sha256": loaded["metadata"].get("sha256"),
             "saved_at_utc": loaded["metadata"].get("saved_at_utc"),
+            "collection": snapshot.get("collection") or {},
+            "data_health": snapshot.get("data_health") or {},
         },
         "parameters": {
             "account_value": account_value, "risk_fraction": risk_fraction,

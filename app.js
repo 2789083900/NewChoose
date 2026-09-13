@@ -2294,7 +2294,8 @@ function loadBacktestOverview() {
       const base = window.validation.baseline_cost;
       const stress = window.validation.double_cost;
       const extreme = window.validation.quadruple_cost;
-      return `<tr><td>#${index + 1}</td><td>${formatDateShort(window.validation.start_time)} — ${formatDateShort(window.validation.end_time)}</td><td>${base.trades ?? 0}</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td class="${valueClass(extreme?.return)}">${extreme ? formatPct(extreme.return) : '--'}</td><td>${base.rejected_signals ?? 0}</td></tr>`;
+      const reliability = base.sample_reliability === 'actionable_sample' ? '达到门槛' : '样本不足';
+      return `<tr><td>#${index + 1}</td><td>${formatDateShort(window.validation.start_time)} — ${formatDateShort(window.validation.end_time)}</td><td>${base.trades ?? 0}（${reliability}）</td><td class="${valueClass(base.return)}">${formatPct(base.return)}</td><td>${base.max_drawdown ?? 0}%</td><td class="${valueClass(stress.return)}">${formatPct(stress.return)}</td><td class="${valueClass(extreme?.return)}">${extreme ? formatPct(extreme.return) : '--'}</td><td>${base.rejected_signals ?? 0}</td></tr>`;
     }).join('');
     const symbolSummary = windows.length ? `
       <div class="bt-validation-summary">
@@ -2337,7 +2338,14 @@ function loadBacktestOverview() {
         }).join('');
         const portfolio = report.portfolio?.[period];
         const threshold = report.sample_reliability_threshold_trades || 10;
-        const portfolioNote = portfolio && !portfolio.error ? `<p class="strategy-note">组合：收益 ${portfolio.return}% · 回撤 ${portfolio.max_drawdown}% · 交易 ${portfolio.trades} · 胜率 ${portfolio.trades < threshold ? '样本不足' : `${portfolio.trade_win_rate}%`} · 拒绝信号 ${portfolio.rejected_signals}</p>` : '';
+        const portfolioNote = portfolio && !portfolio.error ? (() => {
+          const reliability = portfolio.sample_reliability === 'insufficient_sample' || Number(portfolio.trades || 0) < threshold ? '样本不足' : '达到门槛';
+          const cost = portfolio.cost_sensitivity || {};
+          const exposure = portfolio.max_direction_exposure != null ? ` · 方向暴露峰值 ${Number(portfolio.max_direction_exposure).toFixed(0)}` : '';
+          const margin = portfolio.max_margin_used != null ? ` · 名义占用峰值 ${Number(portfolio.max_margin_used).toFixed(0)}` : '';
+          const stress = cost.quadruple_cost_return != null ? ` · 四倍成本 ${cost.quadruple_cost_return}%` : '';
+          return `<p class="strategy-note">组合：收益 ${portfolio.return}% · 回撤 ${portfolio.max_drawdown}% · 交易 ${portfolio.trades}（${reliability}） · 胜率 ${reliability === '样本不足' ? '样本不足' : `${portfolio.trade_win_rate}%`} · 最大连续亏损 ${portfolio.max_consecutive_losses ?? 0} · 拒绝信号 ${portfolio.rejected_signals}${exposure}${margin}${stress}</p>`;
+        })() : '';
         tableEl.innerHTML = `<table class="bt-table"><thead><tr><th>币种</th><th>交易</th><th>胜率</th><th>PF</th><th>年化</th><th>最大回撤</th></tr></thead><tbody>${rows}</tbody></table><p class="bt-validation-note">交易数少于 ${threshold} 笔时仅作观察，不对胜率、PF 和年化收益作统计判断。</p>${portfolioNote}`;
         };
         const disabledNote = report.symbols_disabled?.length ? ` · 已排除停用币种：${report.symbols_disabled.join(', ')}` : '';

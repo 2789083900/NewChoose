@@ -80,12 +80,33 @@ def _paged_candles(inst_id, bar, limit, endpoint, getter, interval):
 
 
 def _funding(inst_id, limit, getter):
-    result = []
-    rows = _data(getter(_url("/api/v5/public/funding-rate-history", instId=inst_id, limit=min(100, int(limit)))))
-    for row in rows:
-        result.append({"time": int(row["fundingTime"]), "funding_rate": float(row["fundingRate"]),
-                       "mark_price": None})
-    return sorted(result, key=lambda item: item["time"])
+    """Page OKX funding history backwards until the requested target is met."""
+    target = max(1, int(limit))
+    collected = {}
+    cursor = None
+    for _ in range((target + 99) // 100 + 2):
+        rows = _data(getter(_url(
+            "/api/v5/public/funding-rate-history", instId=inst_id,
+            limit=min(100, target - len(collected)), before=cursor,
+        )))
+        if not rows:
+            break
+        before_count = len(collected)
+        for row in rows:
+            if not isinstance(row, dict) or "fundingTime" not in row or "fundingRate" not in row:
+                raise RuntimeError("invalid OKX funding-rate row")
+            collected[int(row["fundingTime"])] = {
+                "time": int(row["fundingTime"]),
+                "funding_rate": float(row["fundingRate"]),
+                "mark_price": None,
+            }
+        if len(collected) == before_count:
+            break
+        earliest = min(collected)
+        cursor = str(earliest - 1)
+        if len(collected) >= target:
+            break
+    return sorted(collected.values(), key=lambda item: item["time"])[-target:]
 
 
 def _specs(inst_id, getter):
@@ -107,9 +128,13 @@ def _open_interest(inst_id, getter):
     row = rows[0]
     if not isinstance(row, dict):
         return []
-    timestamp = int(row.get("ts") or int(time.time() * 1000))
+    if row.get("ts") in (None, ""):
+        raise RuntimeError("OKX open-interest row is missing timestamp")
+    timestamp = int(row["ts"])
     oi = float(row.get("oi") or 0)
-    return [{"time": timestamp, "open_interest": oi, "open_interest_value": 0.0}]
+    oi_value = row.get("oiUsd")
+    return [{"time": timestamp, "open_interest": oi,
+             "open_interest_value": float(oi_value) if oi_value not in (None, "") else None}]
 
 
 def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
@@ -142,17 +167,34 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                 "contract_klines": contract, "mark_price_klines": mark, "index_price_klines": index,
                 "funding_rates": collect("funding_rates", lambda: _funding(inst_id, limit, getter), []),
                 "open_interest": collect("open_interest", lambda: _open_interest(inst_id, getter), []),
-                "collection": {"requested_kline_bars": int(limit), "funding_events_limit": min(100, int(limit)),
-                                "open_interest_limit": 0, "open_interest_source_unavailable": True}}
+                "collection": {"requested_kline_bars": int(limit), "funding_events_limit": int(limit),
+                "funding_history_paginated": True, "closed_only": bool(closed_only),
+                "provider": "okx", "interval_ms": sw.INTERVAL_MS[interval_value],
+                "open_interest_limit": 1, "open_interest_coverage": "latest_only"}}
     if include_contract_specs:
         snapshot["contract_specs"] = collect("contract_specs", lambda: _specs(inst_id, getter), None)
     latest = {}
-    for name in ("contract_klines", "mark_price_klines", "index_price_klines", "funding_rates"):
+    latest_bar_open_times = {}
+    interval_ms = sw.INTERVAL_MS[interval_value]
+    for name in ("contract_klines", "mark_price_klines", "index_price_klines", "funding_rates", "open_interest"):
         rows = snapshot.get(name) or []
         if rows:
-            latest[name] = max(int(row["time"]) for row in rows)
+            latest_open = max(int(row["time"]) for row in rows)
+            if name.endswith("klines"):
+                latest_bar_open_times[name] = latest_open
+            latest[name] = latest_open + (interval_ms if name.endswith("klines") else 0)
     snapshot["data_health"] = {"component_errors": errors, "complete": not errors,
                                "latest_data_times": latest,
+                               "latest_bar_open_times": latest_bar_open_times,
                                "data_lag_minutes": {name: round(max(0, fetched - ts) / 60000, 2)
                                                     for name, ts in latest.items()}}
+    for field in ("funding_rates", "open_interest"):
+        times = sorted({int(row["time"]) for row in (snapshot.get(field) or [])
+                        if isinstance(row, dict) and row.get("time") not in (None, "")})
+        gaps = [right - left for left, right in zip(times, times[1:])]
+        snapshot["data_health"][f"{field}_observation_count"] = len(times)
+        snapshot["data_health"][f"{field}_max_gap_ms"] = max(gaps, default=0)
+        expected_gap = (binance.FUNDING_SETTLEMENT_INTERVAL_MS
+                        if field == "funding_rates" else interval_ms)
+        snapshot["data_health"][f"{field}_gap_count"] = sum(gap > expected_gap * 3 for gap in gaps)
     return snapshot

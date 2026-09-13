@@ -417,6 +417,8 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
         self.assertEqual(snapshot["open_interest"][0]["open_interest_value"], 2020.0)
+        self.assertEqual(snapshot["data_health"]["latest_data_times"]["contract_klines"], rows[-1][0] + 4 * 60 * 60 * 1000)
+        self.assertEqual(snapshot["data_health"]["latest_bar_open_times"]["contract_klines"], rows[-1][0])
         self.assertEqual(
             derivatives_data.validate_perpetual_snapshot(snapshot, "4h", now_ms=now), []
         )
@@ -456,6 +458,30 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
         self.assertEqual(snapshot["contract_specs"]["quote_asset"], "USDT")
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
+
+    def test_okx_funding_history_paginates_and_marks_oi_latest_only(self):
+        calls = []
+        def fake_get(url):
+            calls.append(url)
+            if "funding-rate-history" in url:
+                if len([item for item in calls if "funding-rate-history" in item]) > 1:
+                    return {"code": "0", "data": [{"fundingTime": "1699999000000", "fundingRate": "0.0002"}]}
+                return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
+            if "open-interest" in url:
+                return {"code": "0", "data": [{"ts": "1700000000000", "oi": "12"}]}
+            return {"code": "0", "data": []}
+        funding = okx_data._funding("BTC-USDT-SWAP", 2, fake_get)
+        self.assertEqual(len(funding), 2)
+        self.assertEqual(len([url for url in calls if "funding-rate-history" in url]), 2)
+        oi = okx_data._open_interest("BTC-USDT-SWAP", fake_get)
+        self.assertIsNone(oi[0]["open_interest_value"])
+
+    def test_okx_open_interest_requires_exchange_timestamp(self):
+        with self.assertRaises(RuntimeError):
+            okx_data._open_interest(
+                "BTC-USDT-SWAP",
+                lambda _url: {"code": "0", "data": [{"oi": "12"}]},
+            )
 
     def test_perpetual_snapshot_can_report_component_failure_without_hiding_it(self):
         rows = [[1_700_000_000_000, "100", "102", "99", "101", "12"]]
@@ -518,6 +544,30 @@ class TurtleCoreTests(unittest.TestCase):
             path = os.path.join(directory, "state.json")
             with open(path, "w", encoding="utf-8") as file:
                 json.dump({"market_type": "spot", "open_trades": []}, file)
+            with self.assertRaises(ValueError):
+                perp_shadow.load_state(path)
+
+    def test_perpetual_shadow_does_not_silently_reset_corrupt_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "state.json")
+            with open(path, "w", encoding="utf-8") as file:
+                file.write("{not-json")
+            with self.assertRaises(ValueError):
+                perp_shadow.load_state(path)
+
+    def test_perpetual_shadow_rejects_invalid_state_collection_types(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "state.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump({"market_type": "linear_perpetual", "open_trades": {}}, file)
+            with self.assertRaises(ValueError):
+                perp_shadow.load_state(path)
+
+    def test_perpetual_shadow_rejects_unknown_state_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "state.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump({"schema_version": 99, "market_type": "linear_perpetual"}, file)
             with self.assertRaises(ValueError):
                 perp_shadow.load_state(path)
 
@@ -624,6 +674,46 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(result["stats"]["requested_symbols"], ["BTCUSDT"])
             self.assertEqual(result["stats"]["sample_next_milestone"], "minimum_goal")
 
+    def test_perpetual_notification_contains_execution_parameters(self):
+        trade = {
+            "id": "perp-notify-test", "symbol": "BTCUSDT", "interval": "4h",
+            "direction": "long", "provider": "binance", "status": "pending_entry",
+            "entry_trigger": 100.0, "fill_time": 200, "n": 2.0,
+            "leverage": 3.0, "risk_fraction": 0.005,
+        }
+        content = perp_shadow._perpetual_notification_content("signal_created", trade)
+        self.assertIn("BTCUSDT", content)
+        self.assertIn("触发价：100.0", content)
+        self.assertIn("杠杆：3.0", content)
+        self.assertIn("不会自动下单", content)
+
+    def test_perpetual_notifications_are_deduplicated(self):
+        state = perp_shadow.empty_state()
+        trade = {
+            "id": "perp-notify-test", "symbol": "BTCUSDT", "interval": "4h",
+            "direction": "long", "provider": "binance", "status": "pending_entry",
+            "entry_trigger": 100.0, "fill_time": 200, "n": 2.0,
+            "leverage": 3.0, "risk_fraction": 0.005,
+        }
+        config = {"channels": {"generic": {"webhook": "https://example.invalid"}}}
+        with mock.patch.object(sw, "has_channel", return_value=True), \
+             mock.patch.object(sw, "send_notification", return_value=[{"channel": "mock", "ok": True}]) as notify:
+            first = perp_shadow.dispatch_perpetual_notifications(
+                [("signal_created", trade, {})], state, config
+            )
+            second = perp_shadow.dispatch_perpetual_notifications(
+                [("signal_created", trade, {})], state, config
+            )
+        self.assertEqual(len(first), 1)
+        self.assertEqual(second, [])
+        notify.assert_called_once()
+
+    def test_perpetual_shadow_rejects_unsafe_risk_parameters(self):
+        with self.assertRaises(ValueError):
+            perp_shadow.shadow_settings({"derivatives": {"max_leverage": 21}})
+        with self.assertRaises(ValueError):
+            perp_shadow.shadow_settings({"derivatives": {"risk_fraction": 1.1}})
+
     def test_perpetual_shadow_tracks_data_availability_across_runs(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = os.path.join(directory, "state.json")
@@ -635,6 +725,131 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(first["stats"]["data_status"], "unavailable")
             self.assertEqual(second["stats"]["consecutive_unavailable_runs"], 2)
             self.assertEqual(second["stats"]["run_count"], 2)
+
+    def test_perpetual_full_research_mode_rejects_missing_history_components(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            snapshot = {"market_type": "linear_perpetual", "venue": "binance", "symbol": "BTCUSDT",
+                        "interval": "4h", "contract_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                        "mark_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                        "index_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                        "funding_rates": [], "open_interest": [], "contract_specs": {"symbol": "BTCUSDT"},
+                        "collection": {"open_interest_coverage": "latest_only"},
+                        "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+            result = perp_shadow.run({"derivatives": {"enabled": True, "research_only": True,
+                "research_data_mode": "full_perpetual_research", "symbols": ["BTCUSDT"], "interval": "4h"}},
+                state_path, stats_path, fetcher=lambda *_args, **_kwargs: snapshot)
+        self.assertEqual(result["stats"]["successful_symbols"], [])
+        self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["status"], "unavailable")
+
+    def test_perpetual_full_research_mode_rejects_sparse_binance_open_interest(self):
+        interval = 4 * 60 * 60 * 1000
+        start = 1_700_000_000_000
+        bars = [{"time": start + index * interval, "open": 100, "high": 101,
+                 "low": 99, "close": 100, "volume": 1} for index in range(3)]
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance", "symbol": "BTCUSDT",
+            "interval": "4h", "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars,
+            "funding_rates": [{"time": start, "funding_rate": 0.0},
+                               {"time": start + 2 * interval, "funding_rate": 0.0}],
+            "open_interest": [{"time": start, "open_interest": 1.0,
+                                "open_interest_value": 100.0}],
+            "contract_specs": {"symbol": "BTCUSDT"},
+            "collection": {},
+            "data_health": {"component_errors": {}, "data_lag_minutes": {}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = perp_shadow.run(
+                {"derivatives": {"enabled": True, "research_only": True,
+                    "research_data_mode": "full_perpetual_research", "symbols": ["BTCUSDT"],
+                    "interval": "4h"}},
+                os.path.join(directory, "state.json"), os.path.join(directory, "stats.json"),
+                fetcher=lambda *_args, **_kwargs: snapshot,
+            )
+        self.assertEqual(result["stats"]["successful_symbols"], [])
+        component_errors = result["stats"]["symbol_health"]["BTCUSDT"].get("component_errors", {})
+        self.assertIn("open_interest_coverage", " ".join(component_errors.values()))
+
+    def test_perpetual_research_coverage_accepts_historical_funding_and_open_interest(self):
+        interval = 4 * 60 * 60 * 1000
+        start = 1_700_000_000_000
+        bars = [{"time": start + index * interval} for index in range(3)]
+        snapshot = {
+            "contract_klines": bars,
+            "funding_rates": [{"time": start, "funding_rate": 0.0},
+                               {"time": start + 2 * interval, "funding_rate": 0.0}],
+            "open_interest": [{"time": start, "open_interest": 1.0},
+                               {"time": start + 2 * interval, "open_interest": 1.1}],
+        }
+        self.assertTrue(perp_shadow._historical_coverage(snapshot, "funding_rates", interval))
+        self.assertTrue(perp_shadow._historical_coverage(snapshot, "open_interest", interval))
+        self.assertTrue(perp_shadow._historical_density_ok(snapshot, "funding_rates", interval))
+        self.assertTrue(perp_shadow._historical_density_ok(snapshot, "open_interest", interval))
+
+    def test_perpetual_full_research_mode_rejects_large_internal_funding_gap(self):
+        interval = 4 * 60 * 60 * 1000
+        start = 1_700_000_000_000
+        bars = [{"time": start + index * interval, "open": 100, "high": 101,
+                 "low": 99, "close": 100, "volume": 1} for index in range(10)]
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance", "symbol": "BTCUSDT",
+            "interval": "4h", "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars,
+            "funding_rates": [{"time": start, "funding_rate": 0.0},
+                               {"time": start + 9 * interval, "funding_rate": 0.0}],
+            "open_interest": [{"time": start, "open_interest": 1.0},
+                               {"time": start + 9 * interval, "open_interest": 1.1}],
+            "contract_specs": {"symbol": "BTCUSDT"}, "collection": {},
+            "data_health": {"component_errors": {}, "data_lag_minutes": {}},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = perp_shadow.run(
+                {"derivatives": {"enabled": True, "research_only": True,
+                    "research_data_mode": "full_perpetual_research", "symbols": ["BTCUSDT"],
+                    "interval": "4h"}},
+                os.path.join(directory, "state.json"), os.path.join(directory, "stats.json"),
+                fetcher=lambda *_args, **_kwargs: snapshot,
+            )
+        component_errors = result["stats"]["symbol_health"]["BTCUSDT"].get("component_errors", {})
+        self.assertIn("funding_history_gaps", " ".join(component_errors.values()))
+
+    def test_perpetual_shadow_uses_common_market_time_for_portfolio_curve(self):
+        state = perp_shadow.empty_state()
+        state["market_time_by_symbol"] = {"BTCUSDT": 200, "ETHUSDT": 100}
+        state["last_market_time"] = 100
+        point = perp_shadow.record_equity_snapshot(state)
+        self.assertEqual(point["time"], 100)
+
+    def test_perpetual_shadow_does_not_append_out_of_order_equity_point(self):
+        state = perp_shadow.empty_state()
+        state["equity_curve"] = [{
+            "time": 200, "realized_equity": 10000.0,
+            "marked_equity": 10000.0, "unrealized_pnl": 0.0,
+            "open_count": 0, "open_margin": 0.0, "open_notional": 0.0,
+            "long_notional": 0.0, "short_notional": 0.0,
+            "open_risk_fraction": 0.0,
+        }]
+        state["last_market_time"] = 100
+        point = perp_shadow.record_equity_snapshot(state)
+        self.assertEqual(point["time"], 200)
+        self.assertEqual(len(state["equity_curve"]), 1)
+
+    def test_perpetual_shadow_equity_snapshot_includes_portfolio_exposure(self):
+        state = perp_shadow.empty_state(10000)
+        state["last_market_time"] = 100
+        state["open_trades"] = [{"status": "open", "direction": "long",
+                                  "avg_entry": 100, "quantity": 2, "leverage": 2,
+                                  "risk_fraction": 0.005, "units": [{}, {}],
+                                  "last_mark_price": 101}]
+        point = perp_shadow.record_equity_snapshot(state)
+        self.assertEqual(point["open_notional"], 200.0)
+        self.assertEqual(point["open_margin"], 100.0)
+        self.assertEqual(point["long_notional"], 200.0)
+        stats = perp_shadow.build_stats(state)
+        self.assertEqual(stats["max_margin_used"], 100.0)
+        self.assertEqual(stats["max_direction_exposure"], 200.0)
 
     def test_perpetual_shadow_uses_recent_cache_for_health_only(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -674,6 +889,77 @@ class TurtleCoreTests(unittest.TestCase):
                 os.path.join(directory, "state.json"), os.path.join(directory, "stats.json"))
         self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["provider"], "okx")
         self.assertEqual(result["stats"]["errors"], {})
+        health = result["stats"]["symbol_health"]["BTCUSDT"]
+        self.assertEqual([item["provider"] for item in health["provider_attempts"]], ["binance", "okx"])
+        self.assertEqual(health["provider_switch_reason"], "fallback_after_1_failure(s)")
+        self.assertIsInstance(health["provider_latency_ms"], float)
+
+    def test_perpetual_provider_cooldown_skips_repeated_primary_failure(self):
+        specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
+                 "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001, "min_notional": 5.0}
+        snapshot = {"market_type": "linear_perpetual", "venue": "okx", "symbol": "BTCUSDT",
+                    "interval": "4h", "contract_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                    "mark_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                    "index_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}],
+                    "funding_rates": [], "open_interest": [], "contract_specs": specs,
+                    "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(derivatives_data, "fetch_perpetual_snapshot", side_effect=RuntimeError("binance down")), \
+             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=snapshot) as okx_fetch, \
+             mock.patch.object(perp_shadow, "process_snapshot", return_value=None):
+            config = {"derivatives": {"enabled": True, "research_only": True,
+                "provider": "auto", "symbols": ["BTCUSDT"], "interval": "4h",
+                "provider_cooldown_seconds": 3600}}
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            perp_shadow.run(config, state_path, stats_path)
+            second = perp_shadow.run(config, state_path, stats_path)
+        attempts = second["stats"]["symbol_health"]["BTCUSDT"]["provider_attempts"]
+        self.assertEqual(attempts[0]["status"], "skipped_cooldown")
+        self.assertEqual(attempts[1]["provider"], "okx")
+        self.assertEqual(second["stats"]["symbol_health"]["BTCUSDT"]["provider_switch_reason"],
+                         "fallback_after_provider_cooldown")
+        self.assertEqual(okx_fetch.call_count, 2)
+
+    def test_perpetual_snapshot_cache_is_separated_by_provider(self):
+        with tempfile.TemporaryDirectory() as directory:
+            binance = {"symbol": "BTCUSDT", "interval": "4h", "venue": "binance",
+                       "fetched_at_epoch_ms": int(time.time() * 1000), "contract_klines": []}
+            okx = {**binance, "venue": "okx", "fetched_at_epoch_ms": binance["fetched_at_epoch_ms"] + 1}
+            perp_shadow._save_snapshot_cache(directory, binance)
+            perp_shadow._save_snapshot_cache(directory, okx)
+            files = sorted(name for name in os.listdir(directory) if name.endswith(".json"))
+            self.assertEqual(files, ["BTCUSDT-4h-binance.json", "BTCUSDT-4h-okx.json"])
+            cached, _ = perp_shadow._load_snapshot_cache(directory, "BTCUSDT", "4h", 10)
+            self.assertEqual(cached["venue"], "okx")
+
+    def test_perpetual_open_trade_is_not_updated_from_another_provider(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"], "interval": "4h"}})
+        state = perp_shadow.empty_state()
+        state["open_trades"].append({"symbol": "BTCUSDT", "provider": "binance", "status": "open"})
+        snapshot = {"market_type": "linear_perpetual", "venue": "okx", "symbol": "BTCUSDT",
+                    "interval": "4h", "contract_klines": [], "mark_price_klines": [],
+                    "index_price_klines": [], "contract_specs": {"symbol": "BTCUSDT"}}
+        with mock.patch.object(derivatives_data, "validate_perpetual_snapshot", return_value=[]), \
+             mock.patch.object(perp_shadow, "update_trade") as update, \
+             mock.patch.object(perp_shadow, "create_signal", return_value=None):
+            perp_shadow.process_snapshot(snapshot, settings, state)
+        update.assert_not_called()
+
+    def test_perpetual_provider_mismatch_does_not_advance_market_time(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"], "interval": "4h"}})
+        state = perp_shadow.empty_state()
+        state["market_time_by_symbol"] = {"BTCUSDT": 2_000}
+        state["open_trades"].append({"symbol": "BTCUSDT", "provider": "binance", "status": "open"})
+        snapshot = {"market_type": "linear_perpetual", "venue": "okx", "symbol": "BTCUSDT",
+                    "interval": "4h", "contract_klines": [{"time": 10_000, "open": 100,
+                    "high": 101, "low": 99, "close": 100}], "mark_price_klines": [],
+                    "index_price_klines": [], "contract_specs": {"symbol": "BTCUSDT"}}
+        with mock.patch.object(derivatives_data, "validate_perpetual_snapshot", return_value=[]):
+            self.assertIsNone(perp_shadow.process_snapshot(snapshot, settings, state))
+        self.assertEqual(state["market_time_by_symbol"]["BTCUSDT"], 2_000)
 
     def test_perpetual_shadow_rejects_a_missed_next_bar_entry(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
@@ -852,6 +1138,20 @@ class TurtleCoreTests(unittest.TestCase):
         errors = derivatives_data.validate_perpetual_snapshot(snapshot, "4h", now_ms=1)
         self.assertIn("contract_specs symbol mismatch", errors)
 
+    def test_perpetual_snapshot_rejects_non_trading_contract_status(self):
+        snapshot = {
+            "market_type": "linear_perpetual", "symbol": "BTCUSDT",
+            "contract_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100}],
+            "mark_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100}],
+            "index_price_klines": [{"time": 1, "open": 100, "high": 101, "low": 99, "close": 100}],
+            "funding_rates": [], "open_interest": [],
+            "contract_specs": {"symbol": "BTCUSDT", "contract_type": "PERPETUAL",
+                                "quote_asset": "USDT", "status": "BREAK",
+                                "price_tick": 0.1, "quantity_step": 0.001},
+        }
+        errors = derivatives_data.validate_perpetual_snapshot(snapshot, "4h", now_ms=1)
+        self.assertIn("contract_specs status must be TRADING", errors)
+
     def test_perpetual_backtest_returns_cost_and_liquidation_metrics(self):
         bars = []
         for index in range(360):
@@ -930,7 +1230,62 @@ class TurtleCoreTests(unittest.TestCase):
             snapshot, account_value=10000, risk_fraction=0.005, leverage=2,
             fee_rate=0.0004, slippage_rate=0.0005,
         )
-        self.assertEqual(result["funding_delta"], 0.0)
+        self.assertGreaterEqual(result["funding_delta"], 0.0)
+
+    def test_perpetual_backtest_recomputes_stop_from_actual_gap_fill(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+                for index in range(334)]
+        bars[331]["open"] = 110
+        bars[331]["high"] = 111
+        bars[331]["low"] = 109
+        bars[331]["close"] = 110
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        with mock.patch.object(sw, "build_turtle_signal", side_effect=[
+            ("long", ["test breakout"], {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        ] + [(None, [], None)] * 10):
+            result = perp_backtest.backtest_perpetual(snapshot, fee_rate=0, slippage_rate=0,
+                                                      account_value=10000, risk_fraction=0.005)
+        self.assertEqual(result["trade_count"], 1)
+        self.assertEqual(result["trades"][0]["entry"], 110)
+
+    def test_perpetual_backtest_settles_funding_on_final_mark_bar(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+                for index in range(334)]
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars,
+                    "funding_rates": [{"time": bars[-1]["time"], "funding_rate": 0.001}]}
+        signal = ("long", ["test breakout"], {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        with mock.patch.object(sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 10), \
+             mock.patch.object(sw, "turtle_levels", return_value={"exit_low": 1.0, "exit_high": 200.0}):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, account_value=10000, risk_fraction=0.005,
+                leverage=2, fee_rate=0, slippage_rate=0,
+            )
+        self.assertEqual(result["trade_count"], 1)
+        self.assertLess(result["funding_cashflow"], 0)
+
+    def test_perpetual_backtest_excludes_funding_at_exact_entry_time(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+                for index in range(334)]
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars,
+                    "funding_rates": [{"time": bars[331]["time"], "funding_rate": 0.001}]}
+        signal = ("long", ["test breakout"], {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        with mock.patch.object(sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 10), \
+             mock.patch.object(sw, "turtle_levels", return_value={"exit_low": 1.0, "exit_high": 200.0}):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, account_value=10000, risk_fraction=0.005,
+                leverage=2, fee_rate=0, slippage_rate=0,
+            )
+        self.assertEqual(result["trade_count"], 1)
+        self.assertEqual(result["funding_cashflow"], 0.0)
 
     def test_perpetual_snapshot_storage_is_content_addressed_and_detects_tampering(self):
         bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,

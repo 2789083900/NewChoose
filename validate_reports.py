@@ -58,6 +58,33 @@ def validate_backtest_report(path):
                 if not os.path.exists(os.path.join(data_dir, filename)):
                     errors.append(f"{symbol}/{interval} 快照文件不存在：{filename}")
     portfolio = report.get("portfolio") or {}
+    # Portfolio metrics are the account-level evidence and must carry the
+    # same sample gate as per-symbol results.  Keep this conditional so older
+    # hand-written fixtures can still report the more fundamental errors.
+    for period in ("full", "in_sample", "out_of_sample"):
+        metrics = portfolio.get(period)
+        if not isinstance(metrics, dict) or metrics.get("error"):
+            continue
+        if "sample_reliability" not in metrics:
+            errors.append(f"组合/{period} 缺少样本可靠性字段")
+        elif metrics.get("sample_reliability") == "insufficient_sample" and int(metrics.get("trades", 0)) >= threshold:
+            errors.append(f"组合/{period} 样本状态与交易数矛盾")
+        for field in ("max_consecutive_losses", "max_margin_used", "margin_model", "max_direction_exposure", "cost_sensitivity"):
+            if field not in metrics:
+                errors.append(f"组合/{period} 缺少字段：{field}")
+        if metrics.get("margin_model") and metrics.get("margin_model") != "spot_notional_proxy":
+            errors.append(f"组合/{period} 保证金模型不受支持：{metrics.get('margin_model')}")
+        sensitivity = metrics.get("cost_sensitivity")
+        if isinstance(sensitivity, dict):
+            required_cost_fields = (
+                "baseline_return", "double_cost_return", "quadruple_cost_return",
+                "quadruple_cost_turns_negative",
+            )
+            for field in required_cost_fields:
+                if field not in sensitivity:
+                    errors.append(f"组合/{period} 成本敏感性缺少字段：{field}")
+        elif "cost_sensitivity" in metrics:
+            errors.append(f"组合/{period} 成本敏感性字段格式无效")
     rolling = portfolio.get("rolling_validation") or {}
     if not rolling.get("enabled"):
         errors.append("组合滚动验证未启用")

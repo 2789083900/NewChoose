@@ -85,6 +85,10 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
                 for field in ("entry", "quantity", "leverage", "fees", "funding_cashflow"):
                     if not _finite(trade.get(field)):
                         errors.append(f"{trade_id} has invalid {field}")
+                if _finite(trade.get("quantity")) and float(trade.get("quantity")) < 0:
+                    errors.append(f"{trade_id} has negative quantity")
+                if _finite(trade.get("leverage")) and not 0 < float(trade.get("leverage")) <= 20:
+                    errors.append(f"{trade_id} has unsupported leverage")
                 for field in ("mfe_pct", "mae_pct", "initial_entry", "last_mark_price"):
                     if field in trade and trade.get(field) is not None and not _finite(trade.get(field)):
                         errors.append(f"{trade_id} has invalid {field}")
@@ -155,6 +159,18 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
             lag = health.get("data_lag_minutes")
             if lag is not None and (not _finite(lag) or float(lag) < 0):
                 errors.append(f"stats symbol_health for {symbol} has invalid lag")
+            attempts = health.get("provider_attempts")
+            if attempts is not None:
+                if not isinstance(attempts, list):
+                    errors.append(f"stats symbol_health for {symbol} has invalid provider_attempts")
+                else:
+                    for attempt in attempts:
+                        if not isinstance(attempt, dict) or attempt.get("status") not in {"success", "error", "skipped_cooldown"}:
+                            errors.append(f"stats symbol_health for {symbol} has invalid provider attempt")
+                            continue
+                        latency = attempt.get("latency_ms")
+                        if latency is not None and (not _finite(latency) or float(latency) < 0):
+                            errors.append(f"stats symbol_health for {symbol} has invalid provider latency")
         healthy = stats.get("healthy_symbols")
         stale = stats.get("stale_symbols")
         if not isinstance(healthy, list) or set(healthy) != {s for s, h in symbol_health.items() if h.get("status") == "healthy"}:
@@ -166,14 +182,51 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH):
             errors.append("stats cached_symbols does not match symbol_health")
     if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
         errors.append("stats max_data_lag_minutes is invalid")
+    provider_health = stats.get("provider_health")
+    if provider_health is not None:
+        if not isinstance(provider_health, dict):
+            errors.append("stats provider_health must be an object")
+        else:
+            for key, value in provider_health.items():
+                if not isinstance(value, dict):
+                    errors.append(f"stats provider_health for {key} is invalid")
+                    continue
+                failures = value.get("consecutive_failures")
+                if not isinstance(failures, int) or failures < 0:
+                    errors.append(f"stats provider_health for {key} has invalid failure count")
+                cooldown = value.get("cooldown_until_epoch_ms")
+                if cooldown is not None and (not isinstance(cooldown, (int, float)) or cooldown < 0):
+                    errors.append(f"stats provider_health for {key} has invalid cooldown")
+                latency = value.get("last_latency_ms")
+                if latency is not None and (not _finite(latency) or float(latency) < 0):
+                    errors.append(f"stats provider_health for {key} has invalid latency")
+    closed_by_provider = stats.get("closed_count_by_provider")
+    if closed_by_provider is not None:
+        expected_by_provider = {}
+        for trade in state.get("closed_trades") or []:
+            provider = str(trade.get("provider") or "unknown")
+            expected_by_provider[provider] = expected_by_provider.get(provider, 0) + 1
+        if closed_by_provider != expected_by_provider:
+            errors.append("stats closed_count_by_provider does not match state")
+    market_times = stats.get("market_time_by_symbol")
+    if market_times is not None:
+        if not isinstance(market_times, dict) or any(
+                not isinstance(value, int) or value <= 0 for value in market_times.values()):
+            errors.append("stats market_time_by_symbol is invalid")
     if not isinstance(state.get("equity_curve"), list):
         errors.append("equity_curve must be a list")
     else:
         previous = None
         for point in state["equity_curve"]:
+            required_curve_fields = ("realized_equity", "marked_equity", "unrealized_pnl", "open_count")
+            exposure_curve_fields = ("open_margin", "open_notional", "long_notional",
+                                     "short_notional", "open_risk_fraction")
             if not isinstance(point, dict) or any(
                 not _finite(point.get(field))
-                for field in ("realized_equity", "marked_equity", "unrealized_pnl", "open_count")
+                for field in required_curve_fields
+            ) or any(
+                field in point and (not _finite(point.get(field)) or float(point[field]) < 0)
+                for field in exposure_curve_fields
             ):
                 errors.append("equity_curve contains an invalid point")
                 continue

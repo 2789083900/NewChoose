@@ -8,8 +8,11 @@ the spot watcher.
 """
 
 import argparse
+import copy
+from glob import glob
 import hashlib
 import json
+import math
 import os
 import sys
 import time
@@ -26,6 +29,7 @@ DEFAULT_CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
 DEFAULT_STATE_PATH = os.path.join(BASE_DIR, "perp_shadow_state.json")
 DEFAULT_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
 SCHEMA_VERSION = 1
+FUNDING_SETTLEMENT_INTERVAL_MS = 8 * 60 * 60 * 1000
 
 
 def empty_state(account_value=10000.0):
@@ -44,6 +48,9 @@ def empty_state(account_value=10000.0):
         "last_success_at_epoch_ms": None,
         "last_successful_symbols": [],
         "symbol_health": {},
+        "provider_health": {},
+        "market_time_by_symbol": {},
+        "notification_history": [],
     }
 
 
@@ -57,16 +64,53 @@ def load_json(path, default):
 
 
 def load_state(path, account_value=10000.0):
-    state = load_json(path, empty_state(account_value))
+    if os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as file:
+                state = json.load(file)
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"cannot read perpetual shadow state: {exc}") from exc
+    else:
+        state = empty_state(account_value)
+    had_schema = isinstance(state, dict) and "schema_version" in state
     if not isinstance(state, dict) or state.get("market_type") not in (None, derivatives_data.MARKET_TYPE):
         raise ValueError("invalid or mixed-market perpetual shadow state")
+    if had_schema and state.get("market_type") is None:
+        raise ValueError("perpetual shadow state is missing market_type")
+    if state.get("market_type") is None:
+        state["migration_applied"] = "legacy_missing_market_type"
+    try:
+        schema_version = int(state.get("schema_version", SCHEMA_VERSION))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid perpetual shadow state schema_version") from exc
+    if schema_version != SCHEMA_VERSION:
+        raise ValueError(
+            f"unsupported perpetual shadow state schema_version: {schema_version}"
+        )
     state.setdefault("schema_version", SCHEMA_VERSION)
     state["market_type"] = derivatives_data.MARKET_TYPE
     state["research_only"] = True
     state.setdefault("equity", float(account_value))
     for key in ("open_trades", "closed_trades", "rejected_signals", "seen_signal_ids", "equity_curve"):
         state.setdefault(key, [])
+        if not isinstance(state[key], list):
+            raise ValueError(f"perpetual shadow state field {key} must be a list")
+    state.setdefault("notification_history", [])
+    if not isinstance(state["notification_history"], list):
+        raise ValueError("perpetual shadow state field notification_history must be a list")
+    try:
+        state["equity"] = float(state["equity"])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("perpetual shadow state equity must be numeric") from exc
+    if not math.isfinite(state["equity"]) or state["equity"] < 0:
+        raise ValueError("perpetual shadow state equity must be finite and non-negative")
+    if not isinstance(state.get("provider_health"), dict):
+        state["provider_health"] = {}
+    if not isinstance(state.get("market_time_by_symbol"), dict):
+        state["market_time_by_symbol"] = {}
     for trade in state["open_trades"] + state["closed_trades"]:
+        if not isinstance(trade, dict):
+            raise ValueError("perpetual shadow state contains a non-object trade")
         if trade.get("market_type") != derivatives_data.MARKET_TYPE or trade.get("research_only") is not True:
             raise ValueError("perpetual shadow state contains an invalid trade")
         if trade.get("status") == "open" and not trade.get("initial_entry"):
@@ -76,30 +120,48 @@ def load_state(path, account_value=10000.0):
     return state
 
 
-def _cache_path(cache_dir, symbol, interval):
+def _cache_path(cache_dir, symbol, interval, provider=None):
     if not cache_dir:
         return None
-    return os.path.join(cache_dir, f"{symbol}-{interval}.json")
+    suffix = f"-{str(provider).lower()}" if provider else ""
+    return os.path.join(cache_dir, f"{symbol}-{interval}{suffix}.json")
 
 
 def _save_snapshot_cache(cache_dir, snapshot):
-    path = _cache_path(cache_dir, snapshot.get("symbol"), snapshot.get("interval"))
+    path = _cache_path(
+        cache_dir, snapshot.get("symbol"), snapshot.get("interval"), snapshot.get("venue")
+    )
     if path:
         sw.atomic_write_json(path, snapshot)
 
 
-def _load_snapshot_cache(cache_dir, symbol, interval, max_stale_minutes):
-    path = _cache_path(cache_dir, symbol, interval)
-    if not path:
+def _load_snapshot_cache(cache_dir, symbol, interval, max_stale_minutes, provider=None):
+    """Load a recent source-specific cache, with legacy path compatibility."""
+    paths = []
+    if provider:
+        paths.append(_cache_path(cache_dir, symbol, interval, provider))
+    elif cache_dir:
+        paths.extend(glob(os.path.join(cache_dir, f"{symbol}-{interval}-*.json")))
+    paths.append(_cache_path(cache_dir, symbol, interval))
+    candidates = []
+    for path in paths:
+        if not path:
+            continue
+        cached = load_json(path, None)
+        if not isinstance(cached, dict):
+            continue
+        try:
+            fetched = int(cached.get("fetched_at_epoch_ms") or 0)
+        except (TypeError, ValueError):
+            continue
+        age_minutes = (int(time.time() * 1000) - fetched) / 60000 if fetched else float("inf")
+        if age_minutes < 0 or age_minutes > float(max_stale_minutes):
+            continue
+        candidates.append((fetched, cached, round(age_minutes, 2)))
+    if not candidates:
         return None
-    cached = load_json(path, None)
-    if not isinstance(cached, dict):
-        return None
-    fetched = int(cached.get("fetched_at_epoch_ms") or 0)
-    age_minutes = (int(time.time() * 1000) - fetched) / 60000 if fetched else float("inf")
-    if age_minutes < 0 or age_minutes > float(max_stale_minutes):
-        return None
-    return cached, round(age_minutes, 2)
+    _, cached, age_minutes = max(candidates, key=lambda item: item[0])
+    return cached, age_minutes
 
 
 def _number(config, key, default, minimum=0.0):
@@ -128,30 +190,45 @@ def shadow_settings(config):
         providers = providers or ["binance", "okx"]
     if any(item not in {"binance", "okx"} for item in providers):
         raise ValueError("derivatives.providers must contain only binance or okx")
+    data_mode = str(raw.get("research_data_mode", "price_only_research")).strip().lower()
+    if data_mode not in {"price_only_research", "full_perpetual_research"}:
+        raise ValueError("derivatives.research_data_mode must be price_only_research or full_perpetual_research")
+    leverage = _number(raw, "max_leverage", 2.0, 0.01)
+    maintenance = _number(raw, "maintenance_margin_rate", 0.005)
+    liquidation_fee = _number(raw, "liquidation_fee_rate", 0.0)
+    risk_fraction = _number(raw, "risk_fraction", 0.005)
+    max_open_risk = _number(raw, "max_total_open_risk", 0.03)
+    if leverage > 20 or maintenance >= 1 or liquidation_fee >= 1:
+        raise ValueError("derivatives risk parameters are outside supported bounds")
+    if risk_fraction > 1 or max_open_risk > 1:
+        raise ValueError("derivatives risk fractions must be <= 1")
     return {
         "enabled": bool(raw.get("enabled", False)),
         "research_only": True,
         "symbols": list(dict.fromkeys(symbols)),
         "provider": provider,
         "providers": list(dict.fromkeys(providers)),
+        "research_data_mode": data_mode,
         "interval": interval,
         "history_limit": int(_number(raw, "history_limit", 1000, 100)),
         "request_timeout_seconds": _number(raw, "request_timeout_seconds", derivatives_data.PERPETUAL_HTTP_TIMEOUT, 1.0),
         "request_attempts": int(_number(raw, "request_attempts", derivatives_data.PERPETUAL_HTTP_ATTEMPTS, 1)),
         "request_backoff_seconds": _number(raw, "request_backoff_seconds", derivatives_data.PERPETUAL_HTTP_BACKOFF_SECONDS, 0.0),
+        "provider_cooldown_seconds": _number(raw, "provider_cooldown_seconds", 900.0, 0.0),
+        "provider_failure_threshold": int(_number(raw, "provider_failure_threshold", 1, 1)),
         "cache_max_stale_minutes": _number(raw, "cache_max_stale_minutes", 720.0, 0.0),
         "cache_dir": str(raw.get("cache_dir") or ""),
         "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
         "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
         "system": raw.get("system", "system2"),
         "account_value": _number(raw, "account_value", 10000.0, 1.0),
-        "risk_fraction": _number(raw, "risk_fraction", 0.005),
-        "leverage": _number(raw, "max_leverage", 2.0, 0.01),
-        "maintenance_margin_rate": _number(raw, "maintenance_margin_rate", 0.005),
-        "liquidation_fee_rate": _number(raw, "liquidation_fee_rate", 0.0),
+        "risk_fraction": risk_fraction,
+        "leverage": leverage,
+        "maintenance_margin_rate": maintenance,
+        "liquidation_fee_rate": liquidation_fee,
         "fee_rate": _number(raw, "fee_rate", 0.0004),
         "slippage_rate": _number(raw, "slippage_rate", 0.0005),
-        "max_total_open_risk": _number(raw, "max_total_open_risk", 0.03),
+        "max_total_open_risk": max_open_risk,
         "filters": raw.get("filters") or {
             "higher_timeframe": False,
             "volume_confirmation": False,
@@ -178,6 +255,7 @@ def parameter_snapshot(settings):
         "add_n": 0.5,
         "stop_n": 2.0,
         "filters": settings["filters"],
+        "research_data_mode": settings["research_data_mode"],
         "execution_model": "signal_close_next_contract_bar_open",
         "risk_price": "mark_price",
         "margin_mode": "isolated_approximation",
@@ -188,6 +266,48 @@ def parameter_snapshot(settings):
 def parameter_checksum(parameters):
     canonical = json.dumps(parameters, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _series_time_bounds(rows):
+    """Return the earliest/latest timestamps for a validated time series."""
+    times = [int(row["time"]) for row in (rows or [])
+             if isinstance(row, dict) and row.get("time") not in (None, "")]
+    return (min(times), max(times)) if times else None
+
+
+def _historical_coverage(snapshot, field, interval_ms):
+    """Check whether a research series spans the contract-kline window.
+
+    Funding settles on an approximately eight-hour cadence, so its boundary
+    tolerance is wider than the per-bar OI series tolerance.
+    """
+    contract_bounds = _series_time_bounds(snapshot.get("contract_klines"))
+    series_bounds = _series_time_bounds(snapshot.get(field))
+    if not contract_bounds or not series_bounds:
+        return False
+    contract_start, contract_last_open = contract_bounds
+    contract_end = contract_last_open + int(interval_ms)
+    tolerance = (
+        FUNDING_SETTLEMENT_INTERVAL_MS
+        if field == "funding_rates" else int(interval_ms)
+    )
+    if field == "open_interest" and series_bounds[1] <= series_bounds[0]:
+        return False
+    return (
+        series_bounds[0] <= contract_start + tolerance
+        and series_bounds[1] >= contract_end - tolerance
+    )
+
+
+def _historical_density_ok(snapshot, field, interval_ms):
+    """Reject research series with an excessive internal observation gap."""
+    times = sorted({int(row["time"]) for row in (snapshot.get(field) or [])
+                    if isinstance(row, dict) and row.get("time") not in (None, "")})
+    if len(times) < 2:
+        return False
+    expected = FUNDING_SETTLEMENT_INTERVAL_MS if field == "funding_rates" else int(interval_ms)
+    max_gap = max(right - left for left, right in zip(times, times[1:]))
+    return max_gap <= expected * 3
 
 
 def _trade_settings(trade, current):
@@ -258,7 +378,10 @@ def _market_context(snapshot, timestamp):
         "index_close": index_price,
         "basis_pct": round(basis_pct, 6) if basis_pct is not None else None,
         "open_interest": float(oi["open_interest"]) if oi else None,
-        "open_interest_value": float(oi["open_interest_value"]) if oi else None,
+        "open_interest_value": (
+            float(oi["open_interest_value"])
+            if oi and oi.get("open_interest_value") not in (None, "") else None
+        ),
         "open_interest_time": int(oi["time"]) if oi else None,
     }
 
@@ -297,8 +420,30 @@ def _marked_equity(state):
     return float(state["equity"]) + unrealized, unrealized
 
 
+def _portfolio_exposure(state):
+    """Return current notional, margin and directional exposure for open trades."""
+    result = {"margin": 0.0, "notional": 0.0, "long_notional": 0.0,
+              "short_notional": 0.0, "risk_fraction": 0.0}
+    for trade in state.get("open_trades") or []:
+        if trade.get("status") != "open":
+            continue
+        notional = float(trade.get("avg_entry") or 0) * float(trade.get("quantity") or 0)
+        margin = derivatives_risk.margin_required(
+            float(trade.get("avg_entry") or 0), float(trade.get("quantity") or 0),
+            float(trade.get("leverage") or 1),
+        ) if notional > 0 else 0.0
+        result["notional"] += notional
+        result["margin"] += margin
+        result["risk_fraction"] += float(trade.get("risk_fraction") or 0) * max(1, len(trade.get("units") or []))
+        side = "long_notional" if trade.get("direction") == "long" else "short_notional"
+        result[side] += notional
+    result["directional_peak"] = max(result["long_notional"], result["short_notional"])
+    return result
+
+
 def record_equity_snapshot(state):
     marked, unrealized = _marked_equity(state)
+    exposure = _portfolio_exposure(state)
     times = [int(item.get("last_processed_bar") or item.get("entry_time") or 0)
              for item in state["open_trades"]]
     timestamp = int(state.get("last_market_time") or max(times + [0]))
@@ -311,7 +456,18 @@ def record_equity_snapshot(state):
         "unrealized_pnl": round(unrealized, 8),
         "open_count": len(state["open_trades"]),
     }
+    point.update({
+        "open_margin": round(exposure["margin"], 8),
+        "open_notional": round(exposure["notional"], 8),
+        "long_notional": round(exposure["long_notional"], 8),
+        "short_notional": round(exposure["short_notional"], 8),
+        "open_risk_fraction": round(exposure["risk_fraction"], 8),
+    })
     curve = state.setdefault("equity_curve", [])
+    # A provider fallback or delayed response can arrive with an older market
+    # timestamp. Never append an out-of-order point to the persisted curve.
+    if curve and timestamp < int(curve[-1].get("time") or 0):
+        return curve[-1]
     if curve and int(curve[-1].get("time") or 0) == timestamp:
         curve[-1] = point
     else:
@@ -514,6 +670,7 @@ def create_signal(snapshot, settings, state):
         state["rejected_signals"].append({
             "id": signal_id, "status": "rejected", "rejection_reason": "portfolio_risk_limit",
             "market_type": derivatives_data.MARKET_TYPE, "symbol": snapshot["symbol"],
+            "provider": snapshot.get("venue", "unknown"),
             "research_only": True, "signal_bar_time": signal_time,
         })
         return None
@@ -521,6 +678,7 @@ def create_signal(snapshot, settings, state):
     trade = {
         "id": signal_id, "market_type": derivatives_data.MARKET_TYPE,
         "research_only": True, "symbol": snapshot["symbol"],
+        "provider": snapshot.get("venue", "unknown"),
         "interval": settings["interval"], "system": settings["system"],
         "direction": direction, "status": "pending_entry",
         "signal_bar_time": signal_time,
@@ -536,20 +694,150 @@ def create_signal(snapshot, settings, state):
     return trade
 
 
+def _notification_event_id(event_type, trade):
+    return "perp-notify|{}|{}|{}|{}".format(
+        event_type, trade.get("id", ""), trade.get("status", ""),
+        trade.get("exit_time") or trade.get("entry_time") or trade.get("fill_time") or
+        len(trade.get("units") or []),
+    )
+
+
+def _perpetual_notification_content(event_type, trade, snapshot=None):
+    direction = "做多" if trade.get("direction") == "long" else "做空"
+    symbol = trade.get("symbol", "UNKNOWN")
+    interval = trade.get("interval", "")
+    provider = trade.get("provider", "unknown")
+    lines = [
+        f"永续{direction} · {symbol} · {interval}",
+        f"事件：{event_type}",
+        f"Provider：{provider}",
+        f"交易ID：{trade.get('id', '--')}",
+    ]
+    if event_type == "signal_created":
+        trigger = trade.get("entry_trigger")
+        n = trade.get("n")
+        stop = (float(trigger) - 2 * float(n) if trade.get("direction") == "long"
+                else float(trigger) + 2 * float(n)) if trigger not in (None, "") and n not in (None, "") else None
+        lines.extend([
+            f"触发价：{trigger if trigger is not None else '--'}",
+            f"预定成交时间：{trade.get('fill_time', '--')}",
+            f"初始止损参考：{round(stop, 8) if stop is not None else '--'}",
+            f"杠杆：{trade.get('leverage', '--')} · 风险占比：{float(trade.get('risk_fraction') or 0) * 100:.2f}%",
+            "状态：等待下一根合约 K 线开盘影子成交",
+        ])
+    elif event_type == "entry_filled":
+        lines.extend([
+            f"成交价：{trade.get('entry', '--')} · 数量：{trade.get('quantity', '--')}",
+            f"止损：{trade.get('stop', '--')} · 杠杆：{trade.get('leverage', '--')}",
+            f"手续费：{float(trade.get('fees') or 0):.8f}",
+        ])
+    elif event_type == "scale_in":
+        lines.extend([
+            f"最新成交价：{trade.get('latest_entry', '--')} · 总数量：{trade.get('quantity', '--')}",
+            f"单位数：{len(trade.get('units') or [])} · 新止损：{trade.get('stop', '--')}",
+        ])
+    elif event_type == "closed":
+        lines.extend([
+            f"入场：{trade.get('entry', '--')} · 出场：{trade.get('exit', '--')}",
+            f"原因：{trade.get('exit_reason', '--')} · 净盈亏：{float(trade.get('net_pnl') or 0):+.8f}",
+            f"资金费：{float(trade.get('funding_cashflow') or 0):+.8f}",
+        ])
+    elif event_type == "rejected":
+        lines.append(f"拒绝原因：{trade.get('rejection_reason', '--')}")
+    context = _market_context(snapshot or {}, snapshot.get("contract_klines", [{}])[-1].get("time", 0)) if snapshot and snapshot.get("contract_klines") else {}
+    if context:
+        lines.append(
+            f"标记价：{context.get('mark_close', '--')} · 指数价：{context.get('index_close', '--')} · "
+            f"基差：{context.get('basis_pct', '--')}%"
+        )
+    lines.append("研究影子信号：需人工确认，不会自动下单")
+    return "\n".join(lines)
+
+
+def _collect_notification_events(before_state, state, signal, snapshot):
+    events = []
+    before = {item.get("id"): item for item in before_state.get("open_trades", [])}
+    if signal and signal.get("id") not in before:
+        events.append(("signal_created", signal, snapshot))
+    for trade in state.get("open_trades", []):
+        previous = before.get(trade.get("id"))
+        if not previous:
+            continue
+        if previous.get("status") == "pending_entry" and trade.get("status") == "open":
+            events.append(("entry_filled", trade, snapshot))
+        elif len(trade.get("units") or []) > len(previous.get("units") or []):
+            events.append(("scale_in", trade, snapshot))
+    before_closed = {item.get("id") for item in before_state.get("closed_trades", [])}
+    events.extend(("closed", trade, snapshot) for trade in state.get("closed_trades", [])
+                   if trade.get("id") not in before_closed)
+    before_rejected = {item.get("id") for item in before_state.get("rejected_signals", [])}
+    events.extend(("rejected", trade, snapshot) for trade in state.get("rejected_signals", [])
+                   if trade.get("id") not in before_rejected)
+    return events
+
+
+def dispatch_perpetual_notifications(events, state, config):
+    """Send deduplicated lifecycle notifications through existing channels."""
+    history = state.setdefault("notification_history", [])
+    deliveries = []
+    if not sw.has_channel(config):
+        return deliveries
+    sent_ids = {str(item.get("event_id")) for item in history if item.get("ok")}
+    for event_type, trade, snapshot in events:
+        event_id = _notification_event_id(event_type, trade)
+        if event_id in sent_ids:
+            continue
+        title = f"CoinPulse 永续 {trade.get('symbol', 'UNKNOWN')} {event_type}"
+        content = _perpetual_notification_content(event_type, trade, snapshot)
+        results = sw.send_notification(title, content, config)
+        ok = any(item.get("ok") for item in results)
+        history.append({"event_id": event_id, "event_type": event_type,
+                        "trade_id": trade.get("id"), "attempted_at_epoch_ms": int(time.time() * 1000),
+                        "ok": ok, "results": results})
+        deliveries.append({"event_id": event_id, "event_type": event_type,
+                           "trade_id": trade.get("id"), "results": results})
+        if ok:
+            sent_ids.add(event_id)
+    state["notification_history"] = history[-500:]
+    return deliveries
+
+
 def process_snapshot(snapshot, settings, state):
     errors = derivatives_data.validate_perpetual_snapshot(snapshot, settings["interval"])
     if errors:
         raise RuntimeError("invalid perpetual shadow snapshot: " + "; ".join(errors))
     if not snapshot.get("contract_specs"):
         raise RuntimeError("perpetual shadow trading requires contract_specs")
-    if snapshot.get("contract_klines"):
-        state["last_market_time"] = max(
-            int(state.get("last_market_time") or 0),
-            int(snapshot["contract_klines"][-1]["time"]),
-        )
+    contract_status = snapshot["contract_specs"].get("status")
+    allowed_statuses = (None, "", "live") if snapshot.get("venue") == "okx" else (None, "", "TRADING")
+    if contract_status not in allowed_statuses:
+        raise RuntimeError(f"perpetual contract is not tradable: status={contract_status}")
     symbol = snapshot["symbol"]
+    snapshot_provider = snapshot.get("venue")
     open_for_symbol = [item for item in state["open_trades"] if item["symbol"] == symbol]
+    bound_providers = {
+        str(item.get("provider")).lower()
+        for item in open_for_symbol
+        if item.get("provider") not in (None, "", "unknown")
+    }
+    if bound_providers and snapshot_provider and str(snapshot_provider).lower() not in bound_providers:
+        # A direct caller may provide a fallback snapshot. Preserve the
+        # existing contract: skip it without advancing time or mutating trades.
+        return None
+    if snapshot.get("contract_klines"):
+        market_time = int(snapshot["contract_klines"][-1]["time"]) + sw.INTERVAL_MS[settings["interval"]]
+        market_times = state.setdefault("market_time_by_symbol", {})
+        market_times[snapshot["symbol"]] = max(
+            int(market_times.get(snapshot["symbol"]) or 0), market_time
+        )
     for trade in open_for_symbol:
+        trade_provider = trade.get("provider")
+        if (trade_provider not in (None, "", "unknown") and snapshot_provider
+                and trade_provider != snapshot_provider):
+            # Keep one shadow sample tied to one complete data source. A
+            # provider failover must not silently splice another venue into
+            # an existing position's price/funding path.
+            continue
         result = update_trade(trade, snapshot, settings, state)
         if result in ("closed", "rejected"):
             state["open_trades"].remove(trade)
@@ -580,12 +868,33 @@ def build_stats(state, settings=None):
             max_drawdown = max(max_drawdown, (peak - value) / peak)
     gross_total = sum(abs(float(item.get("gross_pnl") or 0)) for item in closed)
     absolute_funding = sum(abs(float(item.get("funding_cashflow") or 0)) for item in closed)
+    exposure_points = state.get("equity_curve") or []
+    max_margin_used = max((float(item.get("open_margin") or 0) for item in exposure_points), default=0.0)
+    max_notional = max((float(item.get("open_notional") or 0) for item in exposure_points), default=0.0)
+    max_directional_exposure = max((max(float(item.get("long_notional") or 0),
+                                         float(item.get("short_notional") or 0))
+                                    for item in exposure_points), default=0.0)
+    max_open_risk = max((float(item.get("open_risk_fraction") or 0) for item in exposure_points), default=0.0)
+    loss_streak = max_loss_streak = 0
+    for trade in closed:
+        if float(trade.get("net_pnl") or 0) < 0:
+            loss_streak += 1
+            max_loss_streak = max(max_loss_streak, loss_streak)
+        else:
+            loss_streak = 0
+    provider_sample_counts = {}
+    for trade in closed:
+        provider = str(trade.get("provider") or "unknown")
+        provider_sample_counts[provider] = provider_sample_counts.get(provider, 0) + 1
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "market_type": derivatives_data.MARKET_TYPE,
         "research_only": True,
         "provider": settings.get("provider", "binance"),
+        "provider_cooldown_seconds": float(settings.get("provider_cooldown_seconds", 0) or 0),
+        "provider_failure_threshold": int(settings.get("provider_failure_threshold", 1) or 1),
+        "research_data_mode": settings.get("research_data_mode", "price_only_research"),
         "equity": round(float(state["equity"]), 8),
         "marked_equity": round(marked_equity, 8),
         "unrealized_pnl": round(unrealized, 8),
@@ -593,6 +902,12 @@ def build_stats(state, settings=None):
         "open_count": len(state["open_trades"]),
         "pending_entry_count": sum(item.get("status") == "pending_entry" for item in state["open_trades"]),
         "closed_count": closed_count,
+        "closed_count_by_provider": provider_sample_counts,
+        "max_margin_used": round(max_margin_used, 8),
+        "max_open_notional": round(max_notional, 8),
+        "max_direction_exposure": round(max_directional_exposure, 8),
+        "max_open_risk_fraction": round(max_open_risk, 8),
+        "max_consecutive_losses": max_loss_streak,
         "sample_goal_min_trades": minimum_goal,
         "sample_goal_preferred_trades": preferred_goal,
         "sample_progress_pct": round(min(100.0, closed_count / progress_target * 100), 2),
@@ -612,6 +927,8 @@ def build_stats(state, settings=None):
         "data_status": state.get("data_status") or "unknown",
         "last_successful_symbols": list(state.get("last_successful_symbols") or []),
         "symbol_health": dict(state.get("symbol_health") or {}),
+        "provider_health": dict(state.get("provider_health") or {}),
+        "market_time_by_symbol": dict(state.get("market_time_by_symbol") or {}),
         "healthy_symbols": sorted(
             symbol for symbol, health in (state.get("symbol_health") or {}).items()
             if health.get("status") == "healthy"
@@ -652,15 +969,36 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("last_success_at_epoch_ms", None)
     state.setdefault("last_successful_symbols", [])
     state.setdefault("symbol_health", {})
+    state.setdefault("provider_health", {})
+    state.setdefault("market_time_by_symbol", {})
     fetchers = {"binance": derivatives_data.fetch_perpetual_snapshot,
                 "okx": okx_data.fetch_perpetual_snapshot}
     errors = {}
     successful_market_times = {}
     symbol_health = {}
+    notification_events = []
     for symbol in settings["symbols"]:
         provider_errors = {}
+        provider_attempts = []
         selected = None
+        switch_reason = None
         for provider in (["custom"] if fetcher else settings["providers"]):
+          provider_key = f"{symbol}|{provider}"
+          provider_health = state["provider_health"].setdefault(provider_key, {
+              "consecutive_failures": 0, "last_failure_at_epoch_ms": None,
+              "cooldown_until_epoch_ms": 0, "last_success_at_epoch_ms": None,
+              "last_latency_ms": None,
+          })
+          now_ms = int(time.time() * 1000)
+          cooldown_until = int(provider_health.get("cooldown_until_epoch_ms") or 0)
+          if not fetcher and cooldown_until > now_ms:
+            provider_errors[provider] = f"cooldown_until_epoch_ms={cooldown_until}"
+            provider_attempts.append({
+                "provider": provider, "status": "skipped_cooldown",
+                "cooldown_until_epoch_ms": cooldown_until,
+            })
+            continue
+          started = time.perf_counter()
           try:
             fetch_kwargs = {
                 "limit": settings["history_limit"], "closed_only": True,
@@ -673,16 +1011,68 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 fetch_kwargs["request_attempts"] = settings["request_attempts"]
                 fetch_kwargs["request_backoff_seconds"] = settings["request_backoff_seconds"]
             snapshot = fetch(symbol, settings["interval"], **fetch_kwargs)
+            latency_ms = round((time.perf_counter() - started) * 1000, 2)
+            provider_attempts.append({
+                "provider": provider, "status": "success", "latency_ms": latency_ms,
+            })
             health = snapshot.get("data_health") or {}
             component_errors = dict(health.get("component_errors") or {})
             required = ("contract_klines", "mark_price_klines", "index_price_klines", "contract_specs")
             missing_required = [name for name in required if not snapshot.get(name)]
+            bound_providers = {
+                str(item.get("provider")).lower()
+                for item in state.get("open_trades", [])
+                if item.get("symbol") == symbol
+                and item.get("provider") not in (None, "", "unknown")
+            }
+            snapshot_provider = str(snapshot.get("venue") or provider).lower()
+            if bound_providers and snapshot_provider not in bound_providers:
+                raise RuntimeError(
+                    f"provider mismatch for open perpetual trade: bound={sorted(bound_providers)}, "
+                    f"snapshot={snapshot_provider}"
+                )
+            if settings["research_data_mode"] == "full_perpetual_research":
+                if not snapshot.get("funding_rates"):
+                    missing_required.append("funding_rates")
+                elif not _historical_coverage(
+                    snapshot, "funding_rates", sw.INTERVAL_MS[settings["interval"]]
+                ):
+                    missing_required.append("funding_history_coverage")
+                elif not _historical_density_ok(
+                    snapshot, "funding_rates", sw.INTERVAL_MS[settings["interval"]]
+                ):
+                    missing_required.append("funding_history_gaps")
+                if not snapshot.get("open_interest"):
+                    missing_required.append("open_interest")
+                elif (snapshot.get("collection") or {}).get("open_interest_coverage") == "latest_only":
+                    missing_required.append("historical_open_interest")
+                elif not _historical_coverage(
+                    snapshot, "open_interest", sw.INTERVAL_MS[settings["interval"]]
+                ):
+                    missing_required.append("open_interest_coverage")
+                elif not _historical_density_ok(
+                    snapshot, "open_interest", sw.INTERVAL_MS[settings["interval"]]
+                ):
+                    missing_required.append("open_interest_gaps")
             if missing_required:
                 raise RuntimeError("required perpetual data unavailable: " + ", ".join(missing_required))
+            state_before_symbol = copy.deepcopy(state)
             signal = process_snapshot(snapshot, settings, state)
+            notification_events.extend(
+                _collect_notification_events(state_before_symbol, state, signal, snapshot)
+            )
             _save_snapshot_cache(settings["cache_dir"], snapshot)
+            provider_health.update({
+                "consecutive_failures": 0,
+                "last_success_at_epoch_ms": int(time.time() * 1000),
+                "last_latency_ms": latency_ms,
+                "cooldown_until_epoch_ms": 0,
+            })
             if snapshot.get("contract_klines"):
-                successful_market_times[symbol] = int(snapshot["contract_klines"][-1]["time"])
+                observed_time = int(snapshot["contract_klines"][-1]["time"]) + sw.INTERVAL_MS[settings["interval"]]
+                successful_market_times[symbol] = max(
+                    int(state["market_time_by_symbol"].get(symbol) or 0), observed_time
+                )
             lag = max((float(value) for value in (health.get("data_lag_minutes") or {}).values()), default=0.0)
             lag_limit = sw.INTERVAL_MS[settings["interval"]] * 3 / 60000
             status = "stale" if lag > lag_limit else ("partial" if component_errors else "healthy")
@@ -692,11 +1082,35 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "latest_market_time": successful_market_times.get(symbol),
                 "signal_status": "signal_created" if signal else "no_signal",
                 "provider": snapshot.get("venue", provider),
+                "provider_attempts": provider_attempts,
+                "provider_switch_reason": switch_reason,
+                "provider_latency_ms": latency_ms,
             }
+            if any(item.get("status") == "error" for item in provider_attempts):
+                symbol_health[symbol]["provider_switch_reason"] = (
+                    f"fallback_after_{sum(item.get('status') == 'error' for item in provider_attempts)}_failure(s)"
+                )
+            elif any(item.get("status") == "skipped_cooldown" for item in provider_attempts):
+                symbol_health[symbol]["provider_switch_reason"] = "fallback_after_provider_cooldown"
             selected = provider
             break
           except Exception as exc:
+            latency_ms = round((time.perf_counter() - started) * 1000, 2)
             provider_errors[provider] = str(exc)
+            failures = int(provider_health.get("consecutive_failures") or 0) + 1
+            provider_health.update({
+                "consecutive_failures": failures,
+                "last_failure_at_epoch_ms": int(time.time() * 1000),
+                "last_latency_ms": latency_ms,
+            })
+            if failures >= settings["provider_failure_threshold"]:
+                provider_health["cooldown_until_epoch_ms"] = int(time.time() * 1000 + settings["provider_cooldown_seconds"] * 1000)
+            provider_attempts.append({
+                "provider": provider, "status": "error", "latency_ms": latency_ms,
+                "error": str(exc), "consecutive_failures": failures,
+            })
+            if selected is None and len(provider_attempts) > 1:
+                switch_reason = f"{provider_attempts[-2].get('provider')} failed; tried {provider}"
         if selected:
             continue
         error_text = " | ".join(f"{name}: {message}" for name, message in provider_errors.items())
@@ -711,6 +1125,9 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "status": "stale_cache", "component_errors": provider_errors,
                 "data_lag_minutes": age_minutes, "latest_market_time": None,
                 "signal_status": "not_evaluated", "provider": "cache",
+                "provider_attempts": provider_attempts,
+                "provider_switch_reason": switch_reason,
+                "provider_latency_ms": None,
             }
             continue
         symbol_health[symbol] = {
@@ -718,11 +1135,22 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             "component_errors": provider_errors,
             "data_lag_minutes": None, "latest_market_time": None,
             "signal_status": "not_evaluated", "provider": None,
+            "provider_attempts": provider_attempts,
+            "provider_switch_reason": switch_reason,
+            "provider_latency_ms": None,
         }
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors
     state["run_count"] = int(state.get("run_count") or 0) + 1
     state["last_successful_symbols"] = sorted(successful_market_times)
+    state["market_time_by_symbol"].update(successful_market_times)
+    available_times = [int(state["market_time_by_symbol"].get(symbol) or 0)
+                       for symbol in settings["symbols"]]
+    available_times = [value for value in available_times if value > 0]
+    if available_times:
+        state["last_market_time"] = max(
+            int(state.get("last_market_time") or 0), min(available_times)
+        )
     state["symbol_health"] = symbol_health
     if not errors and not any(item.get("status") == "partial" for item in symbol_health.values()):
         state["data_status"] = "healthy"
@@ -746,6 +1174,12 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     stats["stale_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] in {"stale", "stale_cache"})
     stats["cached_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "stale_cache")
     stats["max_data_lag_minutes"] = round(max((float(health.get("data_lag_minutes") or 0) for health in symbol_health.values()), default=0.0), 2)
+    deliveries = dispatch_perpetual_notifications(notification_events, state, config)
+    stats["notification_deliveries"] = deliveries
+    stats["notification_history_count"] = len(state.get("notification_history") or [])
+    # Persist notification deduplication state after dispatch so a rerun cannot
+    # resend an already delivered lifecycle event.
+    sw.atomic_write_json(state_path, state)
     sw.atomic_write_json(stats_path, stats)
     return {"enabled": True, "processed_symbols": len(settings["symbols"]) - len(errors), "errors": errors, "stats": stats}
 

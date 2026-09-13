@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: coinpulse-monitor
+  group: coinpulse-state-writer
   cancel-in-progress: false
 
 jobs:
@@ -43,7 +43,24 @@ jobs:
           git add -f monitor_alert_state.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "chore: update monitor health alert state"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          for attempt in 1 2 3; do
+            if ! git fetch origin "${GITHUB_REF_NAME}"; then
+              echo "fetch conflict; retry ${attempt}/3"
+              sleep $((attempt * 2))
+              continue
+            fi
+            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+              git rebase --abort || true
+              echo "rebase conflict; retry ${attempt}/3"
+              sleep $((attempt * 2))
+              continue
+            fi
+            if git push origin HEAD:${GITHUB_REF_NAME}; then exit 0; fi
+            echo "push conflict; retry ${attempt}/3"
+            sleep $((attempt * 2))
+          done
+          echo "unable to publish health state after retries" >&2
+          exit 1
 
       - name: Fail stale health check
         if: steps.check.outcome == 'failure'

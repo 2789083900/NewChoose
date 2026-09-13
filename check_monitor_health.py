@@ -52,6 +52,27 @@ def send_serverchan(sendkey, title, content):
         return 200 <= response.status < 300
 
 
+def health_alert_detail(health, age_seconds):
+    """Build a diagnostic alert without exposing channel credentials."""
+    scan = health.get("scan") or {}
+    parts = ["monitor_health.json 未在预期周期内更新，或最近扫描失败。"]
+    if age_seconds is not None:
+        parts.append(f"最近更新距今约 {round(age_seconds / 60, 1)} 分钟。")
+    if health.get("updated_at"):
+        parts.append(f"最后健康时间：{health['updated_at']}。")
+    if scan.get("run_id"):
+        parts.append(f"运行 ID：{scan['run_id']}。")
+    if scan.get("coverage_pct") is not None:
+        parts.append(
+            f"行情覆盖率：{scan.get('coverage_pct')}%（成功 {scan.get('successful_markets', 0)}/"
+            f"{scan.get('expected_markets', 0)}，失败 {scan.get('failed_markets', 0)}）。"
+        )
+    failures = [str(item) for item in (scan.get("failures") or []) if item]
+    if failures:
+        parts.append("最近失败：" + "；".join(failures[:2]))
+    return "".join(parts)
+
+
 def check(max_age_minutes=20, now=None, sendkey=""):
     health = load_json(HEALTH_PATH, {})
     age = health_age_seconds(health, now=now)
@@ -65,9 +86,7 @@ def check(max_age_minutes=20, now=None, sendkey=""):
     if notify:
         try:
             if current == "stale":
-                detail = "monitor_health.json 未在预期周期内更新，或最近扫描失败。"
-                if age is not None:
-                    detail += f" 最近更新距今约 {round(age / 60, 1)} 分钟。"
+                detail = health_alert_detail(health, age)
                 send_serverchan(sendkey, "CoinPulse 监控失联告警", detail)
             else:
                 send_serverchan(sendkey, "CoinPulse 监控恢复", "监控健康记录已恢复更新，扫描任务重新可用。")

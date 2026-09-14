@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-09-14T18:12:33Z",
+  "generated_at_utc": "2026-09-14T21:51:05Z",
   "market_type": "linear_perpetual",
   "research_only": true,
   "provider": "auto",
@@ -32,8 +32,8 @@
   "sample_progress_pct": 0.0,
   "sample_next_milestone": "minimum_goal",
   "sample_reliability": "insufficient_sample",
-  "run_count": 17,
-  "consecutive_unavailable_runs": 1,
+  "run_count": 18,
+  "consecutive_unavailable_runs": 2,
   "last_success_at_epoch_ms": 1789366084589,
   "data_status": "unavailable",
   "last_successful_symbols": [],
@@ -52,26 +52,26 @@
         {
           "provider": "binance",
           "status": "success",
-          "latency_ms": 7442.29
+          "latency_ms": 4534.63
         },
         {
           "provider": "binance",
           "status": "error",
-          "latency_ms": 7442.31,
+          "latency_ms": 4534.65,
           "error": "required perpetual data unavailable: contract_klines, mark_price_klines, index_price_klines, contract_specs",
-          "consecutive_failures": 9
+          "consecutive_failures": 10
         },
         {
           "provider": "okx",
           "status": "success",
-          "latency_ms": 7268.64
+          "latency_ms": 4834.83
         },
         {
           "provider": "okx",
           "status": "error",
-          "latency_ms": 7268.65,
+          "latency_ms": 4834.84,
           "error": "required perpetual data unavailable: contract_specs",
-          "consecutive_failures": 2
+          "consecutive_failures": 3
         }
       ],
       "provider_switch_reason": "okx failed; tried okx",
@@ -91,26 +91,26 @@
         {
           "provider": "binance",
           "status": "success",
-          "latency_ms": 6995.88
+          "latency_ms": 4269.29
         },
         {
           "provider": "binance",
           "status": "error",
-          "latency_ms": 6995.9,
+          "latency_ms": 4269.31,
           "error": "required perpetual data unavailable: contract_klines, mark_price_klines, index_price_klines, contract_specs",
-          "consecutive_failures": 9
+          "consecutive_failures": 10
         },
         {
           "provider": "okx",
           "status": "success",
-          "latency_ms": 7543.94
+          "latency_ms": 4975.34
         },
         {
           "provider": "okx",
           "status": "error",
-          "latency_ms": 7543.95,
+          "latency_ms": 4975.35,
           "error": "required perpetual data unavailable: contract_specs",
-          "consecutive_failures": 2
+          "consecutive_failures": 3
         }
       ],
       "provider_switch_reason": "okx failed; tried okx",
@@ -119,32 +119,32 @@
   },
   "provider_health": {
     "BTCUSDT|binance": {
-      "consecutive_failures": 9,
-      "last_failure_at_epoch_ms": 1789409531908,
-      "cooldown_until_epoch_ms": 1789410431908,
+      "consecutive_failures": 10,
+      "last_failure_at_epoch_ms": 1789422651430,
+      "cooldown_until_epoch_ms": 1789423551430,
       "last_success_at_epoch_ms": null,
-      "last_latency_ms": 7442.31
+      "last_latency_ms": 4534.65
     },
     "BTCUSDT|okx": {
-      "consecutive_failures": 2,
-      "last_failure_at_epoch_ms": 1789409539177,
-      "cooldown_until_epoch_ms": 1789410439177,
+      "consecutive_failures": 3,
+      "last_failure_at_epoch_ms": 1789422656265,
+      "cooldown_until_epoch_ms": 1789423556265,
       "last_success_at_epoch_ms": 1789366074053,
-      "last_latency_ms": 7268.65
+      "last_latency_ms": 4834.84
     },
     "ETHUSDT|binance": {
-      "consecutive_failures": 9,
-      "last_failure_at_epoch_ms": 1789409546184,
-      "cooldown_until_epoch_ms": 1789410446184,
+      "consecutive_failures": 10,
+      "last_failure_at_epoch_ms": 1789422660545,
+      "cooldown_until_epoch_ms": 1789423560545,
       "last_success_at_epoch_ms": null,
-      "last_latency_ms": 6995.9
+      "last_latency_ms": 4269.31
     },
     "ETHUSDT|okx": {
-      "consecutive_failures": 2,
-      "last_failure_at_epoch_ms": 1789409553728,
-      "cooldown_until_epoch_ms": 1789410453728,
+      "consecutive_failures": 3,
+      "last_failure_at_epoch_ms": 1789422665521,
+      "cooldown_until_epoch_ms": 1789423565521,
       "last_success_at_epoch_ms": 1789366084589,
-      "last_latency_ms": 7543.95
+      "last_latency_ms": 4975.35
     }
   },
   "market_time_by_symbol": {

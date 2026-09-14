@@ -58,7 +58,7 @@ def _candles(inst_id, bar, limit, endpoint, getter, after=None):
     return sorted(parsed, key=lambda item: item["time"])
 
 
-def _paged_candles(inst_id, bar, limit, endpoint, getter, interval):
+def _paged_candles(inst_id, bar, limit, endpoint, getter, interval, closed_only=True):
     target = max(1, int(limit))
     collected = {}
     cursor = None
@@ -76,7 +76,7 @@ def _paged_candles(inst_id, bar, limit, endpoint, getter, interval):
         if len(collected) >= target or len(page) < 100:
             break
     rows = sorted(collected.values(), key=lambda item: item["time"])[-target:]
-    return sw.filter_closed_klines(rows, interval)
+    return sw.filter_closed_klines(rows, interval) if closed_only else rows
 
 
 def _funding(inst_id, limit, getter):
@@ -170,10 +170,10 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
 
     bar = BAR_MAP[interval_value]
     fetched = int(time.time() * 1000)
-    contract = collect("contract_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-candles", getter, interval_value), [])
-    mark = collect("mark_price_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-mark-price-candles", getter, interval_value), [])
+    contract = collect("contract_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-candles", getter, interval_value, closed_only), [])
+    mark = collect("mark_price_klines", lambda: _paged_candles(inst_id, bar, limit, "/api/v5/market/history-mark-price-candles", getter, interval_value, closed_only), [])
     index_inst_id = inst_id.replace("-SWAP", "")
-    index = collect("index_price_klines", lambda: _paged_candles(index_inst_id, bar, limit, "/api/v5/market/history-index-candles", getter, interval_value), [])
+    index = collect("index_price_klines", lambda: _paged_candles(index_inst_id, bar, limit, "/api/v5/market/history-index-candles", getter, interval_value, closed_only), [])
     snapshot = {"schema_version": 1, "venue": "okx", "market_type": binance.MARKET_TYPE,
                 "symbol": symbol_value, "interval": interval_value, "fetched_at_epoch_ms": fetched,
                 "contract_klines": contract, "mark_price_klines": mark, "index_price_klines": index,

@@ -139,6 +139,20 @@ def save_dataset(cache_dir, symbol, interval, source, market_type, klines, inter
     if not quality["continuous"]:
         raise RuntimeError(f"{symbol} {interval} 历史数据质量不合格：{quality}")
     checksum = bars_checksum(rows)
+    # Some runtimes expose a coarse/frozen wall clock (and tests may deliberately
+    # return identical timestamps).  Keep the save ordering strictly increasing
+    # so ``load_dataset`` can deterministically select the newest content-addressed
+    # snapshot without overwriting prior versions.
+    saved_at_ns = time.time_ns()
+    for existing_path in glob(os.path.join(cache_dir, f"{symbol}-{interval}-*.json")):
+        try:
+            with open(existing_path, encoding="utf-8") as existing_file:
+                existing_metadata = (json.load(existing_file).get("metadata") or {})
+            previous = int(existing_metadata.get("saved_at_ns", 0) or 0)
+            if previous >= saved_at_ns:
+                saved_at_ns = previous + 1
+        except (OSError, ValueError, TypeError):
+            continue
     metadata = {
         "schema_version": SCHEMA_VERSION,
         "symbol": symbol,
@@ -146,7 +160,7 @@ def save_dataset(cache_dir, symbol, interval, source, market_type, klines, inter
         "source": source,
         "market_type": market_type,
         "downloaded_at_utc": datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z"),
-        "saved_at_ns": time.time_ns(),
+        "saved_at_ns": saved_at_ns,
         "sha256": checksum,
         "quality": quality,
     }

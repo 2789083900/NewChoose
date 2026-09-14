@@ -466,6 +466,25 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(snapshot["open_interest"][0]["open_interest_contracts"], 12.0)
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
 
+    def test_okx_closed_only_flag_controls_current_candle_filter(self):
+        interval_ms = sw.INTERVAL_MS["4h"]
+        current = int(time.time() * 1000)
+        rows = [[current - interval_ms // 2, "100", "102", "99", "101", "12"]]
+
+        def fake_get(_url):
+            return {"code": "0", "data": rows}
+
+        kept = okx_data._paged_candles(
+            "BTC-USDT-SWAP", "4H", 1, "/api/v5/market/history-candles",
+            fake_get, "4h", closed_only=False,
+        )
+        filtered = okx_data._paged_candles(
+            "BTC-USDT-SWAP", "4H", 1, "/api/v5/market/history-candles",
+            fake_get, "4h", closed_only=True,
+        )
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(filtered, [])
+
     def test_okx_funding_history_paginates_and_marks_oi_latest_only(self):
         calls = []
         def fake_get(url):

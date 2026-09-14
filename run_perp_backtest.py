@@ -14,7 +14,9 @@ import perp_backtest
 
 def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         account_value=10000.0, risk_fraction=0.005, leverage=2.0,
-        fee_rate=0.0004, slippage_rate=0.0005, system="system2"):
+        fee_rate=0.0004, slippage_rate=0.0005, system="system2",
+        slippage_model="volume_impact", slippage_impact_coefficient=0.001,
+        max_slippage_rate=0.01):
     loaded = derivatives_snapshots.find_latest(data_dir, symbol, interval)
     if not loaded:
         raise RuntimeError(f"没有找到有效永续快照：{symbol} {interval}")
@@ -22,12 +24,16 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
     scenarios = perp_backtest.run_cost_stress_tests(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
         leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
-        system=system,
+        system=system, slippage_model=slippage_model,
+        slippage_impact_coefficient=slippage_impact_coefficient,
+        max_slippage_rate=max_slippage_rate,
     )
     funding_stress = perp_backtest.run_funding_flip_stress(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
         leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
-        system=system,
+        system=system, slippage_model=slippage_model,
+        slippage_impact_coefficient=slippage_impact_coefficient,
+        max_slippage_rate=max_slippage_rate,
     )
     report = {
         "schema_version": 1,
@@ -47,12 +53,17 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "account_value": account_value, "risk_fraction": risk_fraction,
             "leverage": leverage, "fee_rate": fee_rate,
             "slippage_rate": slippage_rate, "system": system,
+            "slippage_model": slippage_model,
+            "slippage_impact_coefficient": slippage_impact_coefficient,
+            "max_slippage_rate": max_slippage_rate,
         },
         "contract_specs": snapshot.get("contract_specs"),
         "risk_model": {
             "contract_constraints_bound": bool(snapshot.get("contract_specs")),
             "liquidation_model": "exchange_agnostic_approximation",
             "maintenance_margin_source": "manual_parameter",
+            "slippage_model": slippage_model,
+            "liquidity_proxy": "contract_kline_base_volume",
         },
         "cost_stress": scenarios,
         "funding_flip_stress": funding_stress,
@@ -76,6 +87,9 @@ def main(argv=None):
     parser.add_argument("--leverage", type=float, default=2.0)
     parser.add_argument("--fee-rate", type=float, default=0.0004)
     parser.add_argument("--slippage-rate", type=float, default=0.0005)
+    parser.add_argument("--slippage-model", choices=("fixed", "volume_impact"), default="volume_impact")
+    parser.add_argument("--slippage-impact-coefficient", type=float, default=0.001)
+    parser.add_argument("--max-slippage-rate", type=float, default=0.01)
     parser.add_argument("--system", choices=("system1", "system2"), default="system2")
     args = parser.parse_args(argv)
     try:
@@ -83,6 +97,7 @@ def main(argv=None):
             args.symbol, args.interval, os.path.abspath(args.data_dir),
             args.output or None, args.account_value, args.risk_fraction,
             args.leverage, args.fee_rate, args.slippage_rate, args.system,
+            args.slippage_model, args.slippage_impact_coefficient, args.max_slippage_rate,
         )
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -447,16 +447,23 @@ class TurtleCoreTests(unittest.TestCase):
         rows = [[1700000000000, "100", "102", "99", "101", "12", "0", "0", "0"]]
         def fake_get(url):
             if "instruments" in url:
-                return {"code": "0", "data": [{"state": "live", "baseCcy": "BTC", "tickSz": "0.1", "lotSz": "0.001", "minSz": "0.001"}]}
+                return {"code": "0", "data": [{"state": "live", "baseCcy": "BTC", "tickSz": "0.1", "lotSz": "0.001", "minSz": "0.001", "ctVal": "0.01", "ctValCcy": "BTC"}]}
             if "funding-rate-history" in url:
                 return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
+            if "open-interest" in url:
+                return {"code": "0", "data": [{"ts": "1700000000000", "oi": "12", "oiUsd": "1212"}]}
             return {"code": "0", "data": rows}
         snapshot = okx_data.fetch_perpetual_snapshot("btcusdt", "4h", limit=1,
                                                       http_get=fake_get, closed_only=False,
                                                       include_contract_specs=True)
         self.assertEqual(snapshot["venue"], "okx")
         self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
+        self.assertEqual(snapshot["contract_klines"][0]["volume"], 0.12)
+        self.assertEqual(snapshot["contract_klines"][0]["volume_contracts"], 12.0)
         self.assertEqual(snapshot["contract_specs"]["quote_asset"], "USDT")
+        self.assertEqual(snapshot["contract_specs"]["quantity_step"], 0.00001)
+        self.assertEqual(snapshot["open_interest"][0]["open_interest"], 0.12)
+        self.assertEqual(snapshot["open_interest"][0]["open_interest_contracts"], 12.0)
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
 
     def test_okx_funding_history_paginates_and_marks_oi_latest_only(self):
@@ -1114,6 +1121,65 @@ class TurtleCoreTests(unittest.TestCase):
         )
         self.assertEqual(state["state"], "range")
         self.assertEqual(state["risk_multiplier"], 0.5)
+
+    def test_perpetual_volume_impact_slippage_is_capped_and_auditable(self):
+        low = derivatives_risk.execution_slippage(
+            0.0005, 1, 10000, "volume_impact", 0.001, 0.01
+        )
+        high = derivatives_risk.execution_slippage(
+            0.0005, 100, 100, "volume_impact", 0.1, 0.01
+        )
+        fallback = derivatives_risk.execution_slippage(
+            0.0005, 1, None, "volume_impact", 0.001, 0.01
+        )
+        self.assertGreater(low["rate"], low["base_rate"])
+        self.assertEqual(high["rate"], 0.01)
+        self.assertEqual(fallback["model"], "fixed_fallback")
+        self.assertIsNone(fallback["participation_rate"])
+        with self.assertRaises(ValueError):
+            derivatives_risk.execution_slippage(float("nan"), 1, 100)
+
+    def test_perpetual_backtest_records_volume_impact_slippage(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+                for index in range(334)]
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"], {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        with mock.patch.object(sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 10), \
+             mock.patch.object(sw, "turtle_levels", return_value={"exit_low": 50, "exit_high": 150}):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0.0005,
+                slippage_model="volume_impact", slippage_impact_coefficient=0.001,
+            )
+        self.assertEqual(result["slippage_model"], "volume_impact")
+        self.assertGreater(result["average_effective_slippage_pct"], 0.05)
+        self.assertEqual(result["trades"][0]["entry_slippage"]["model"], "volume_impact")
+        self.assertEqual(
+            result["trades"][0]["entry_slippage"]["liquidity_proxy_time"],
+            bars[330]["time"],
+        )
+
+    def test_perpetual_signal_applies_market_state_risk_multiplier(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+                for index in range(30)]
+        snapshot = {
+            "symbol": "BTCUSDT", "venue": "binance", "contract_klines": bars,
+            "contract_specs": {"quantity_step": 0.001},
+        }
+        settings = perp_shadow.shadow_settings({"derivatives": {"risk_fraction": 0.005}})
+        state = perp_shadow.empty_state()
+        market_state = {"state": "range", "risk_multiplier": 0.5, "flags": [], "metrics": {}}
+        with mock.patch.object(perp_shadow, "classify_market_state", return_value=market_state), \
+             mock.patch.object(sw, "build_turtle_signal", return_value=(
+                 "long", ["test"], {"entry": 100, "n": 2, "stop": 96, "exit_level": 90}
+             )):
+            trade = perp_shadow.create_signal(snapshot, settings, state)
+        self.assertEqual(trade["risk_fraction"], 0.0025)
+        self.assertEqual(trade["configured_risk_fraction"], 0.005)
+        self.assertEqual(trade["estimated_max_loss"], 25.0)
 
     def test_perpetual_kline_history_pages_and_deduplicates(self):
         interval = 4 * 60 * 60 * 1000

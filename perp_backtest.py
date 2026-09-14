@@ -25,11 +25,23 @@ def _stop_from_fill(entry, n, direction):
             else float(entry) + 2 * float(n))
 
 
+def _slippage(base_rate, quantity, bar, model, impact_coefficient, max_rate):
+    detail = derivatives_risk.execution_slippage(
+        base_rate, quantity, (bar or {}).get("volume"), model,
+        impact_coefficient, max_rate,
+    )
+    detail["liquidity_proxy_time"] = (bar or {}).get("time")
+    detail["liquidity_proxy_volume"] = (bar or {}).get("volume")
+    return detail
+
+
 def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                        leverage=2.0, fee_rate=0.0004, slippage_rate=0.0005,
                        maintenance_margin_rate=0.005,
                        liquidation_fee_rate=0.0, system="system2",
-                       filters=None):
+                       filters=None, slippage_model="fixed",
+                       slippage_impact_coefficient=0.001,
+                       max_slippage_rate=0.01):
     errors = derivatives_data.validate_perpetual_snapshot(
         snapshot, snapshot.get("interval", "4h"),
         max_staleness_intervals=10 ** 9,
@@ -77,15 +89,20 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
             # The signal is confirmed on the prior bar close.  This bar is
             # therefore the next-bar-open execution window.
             raw_entry = float(bar["open"])
-            entry = raw_entry * (1 + slippage_rate if pending["direction"] == "long" else 1 - slippage_rate)
-            if specs:
-                entry = derivatives_data.quantize_price(
-                    entry, specs, "buy" if pending["direction"] == "long" else "sell"
-                )
             n = pending["n"]
             quantity = sw.turtle_unit_quantity(equity, n, risk_fraction, 2.0)
             if specs:
                 quantity = derivatives_data.quantize_quantity(quantity, specs)
+            entry_slippage = _slippage(
+                slippage_rate, quantity, contract[index - 1] if index > 0 else None, slippage_model,
+                slippage_impact_coefficient, max_slippage_rate,
+            )
+            effective_slippage = entry_slippage["rate"]
+            entry = raw_entry * (1 + effective_slippage if pending["direction"] == "long" else 1 - effective_slippage)
+            if specs:
+                entry = derivatives_data.quantize_price(
+                    entry, specs, "buy" if pending["direction"] == "long" else "sell"
+                )
             notional = derivatives_risk.position_notional(entry, quantity)
             margin = derivatives_risk.margin_required(entry, quantity, leverage)
             executable = not specs or derivatives_data.quantity_is_executable(quantity, entry, specs)
@@ -97,7 +114,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                             "stop": _stop_from_fill(entry, n, pending["direction"]),
                             "exit_level": pending["exit_level"],
                             "funding_index": 0, "fees": entry_fee,
-                            "funding": 0.0, "units": 1}
+                            "funding": 0.0, "units": 1,
+                            "entry_slippage": entry_slippage}
                 entered_this_bar = True
             elif specs:
                 constraint_rejections += 1
@@ -154,7 +172,12 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                         exit_price, reason = exit_level, "channel_exit"
             if exit_price is not None:
                 raw_exit = float(exit_price)
-                fill = raw_exit * (1 - slippage_rate if direction == "long" else 1 + slippage_rate)
+                exit_slippage = _slippage(
+                    slippage_rate, position["quantity"], contract[index - 1] if index > 0 else None, slippage_model,
+                    slippage_impact_coefficient, max_slippage_rate,
+                )
+                effective_slippage = exit_slippage["rate"]
+                fill = raw_exit * (1 - effective_slippage if direction == "long" else 1 + effective_slippage)
                 if specs:
                     fill = derivatives_data.quantize_price(
                         fill, specs, "sell" if direction == "long" else "buy"
@@ -170,6 +193,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                                "exit": fill, "reason": reason,
                                "gross_pnl": gross, "fees": position["fees"],
                                "funding": position["funding"],
+                               "entry_slippage": position["entry_slippage"],
+                               "exit_slippage": exit_slippage,
                                "net_pnl": gross - position["fees"] + position["funding"],
                                "return_pct": (gross - position["fees"] + position["funding"]) / account_value * 100})
                 position = None
@@ -216,7 +241,12 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         final_marked = mark_equity(final_mark_price)
         peak = max(peak, final_marked)
         max_drawdown = max(max_drawdown, (peak - final_marked) / peak if peak else 0)
-        fill = float(last["close"]) * (1 - slippage_rate if position["direction"] == "long" else 1 + slippage_rate)
+        exit_slippage = _slippage(
+            slippage_rate, position["quantity"], last, slippage_model,
+            slippage_impact_coefficient, max_slippage_rate,
+        )
+        effective_slippage = exit_slippage["rate"]
+        fill = float(last["close"]) * (1 - effective_slippage if position["direction"] == "long" else 1 + effective_slippage)
         if specs:
             fill = derivatives_data.quantize_price(
                 fill, specs, "sell" if position["direction"] == "long" else "buy"
@@ -228,6 +258,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                        "exit_time": int(marks[-1]["time"]), "entry": position["entry"],
                        "exit": fill, "reason": "end_of_test", "gross_pnl": gross,
                        "fees": position["fees"] + exit_fee, "funding": position["funding"],
+                       "entry_slippage": position["entry_slippage"],
+                       "exit_slippage": exit_slippage,
                        "net_pnl": gross - position["fees"] - exit_fee + position["funding"],
                        "return_pct": (gross - position["fees"] - exit_fee + position["funding"]) / account_value * 100})
     return {
@@ -241,6 +273,15 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         "constraint_rejections": constraint_rejections,
         "contract_constraints_bound": bool(specs),
         "fee_rate": fee_rate, "slippage_rate": slippage_rate, "leverage": leverage,
+        "slippage_model": slippage_model,
+        "average_effective_slippage_pct": round(
+            sum(float(trade[side]["rate"]) for trade in trades for side in ("entry_slippage", "exit_slippage"))
+            / (len(trades) * 2) * 100, 6
+        ) if trades else 0.0,
+        "max_effective_slippage_pct": round(max(
+            (float(trade[side]["rate"]) for trade in trades for side in ("entry_slippage", "exit_slippage")),
+            default=0.0,
+        ) * 100, 6),
     }
 
 
@@ -248,7 +289,9 @@ def run_cost_stress_tests(snapshot, account_value=10000.0, risk_fraction=0.005,
                           leverage=2.0, fee_rate=0.0004, slippage_rate=0.0005,
                           maintenance_margin_rate=0.005,
                           liquidation_fee_rate=0.0, system="system2",
-                          filters=None):
+                          filters=None, slippage_model="fixed",
+                          slippage_impact_coefficient=0.001,
+                          max_slippage_rate=0.01):
     """Run baseline, 2x and 4x execution-cost scenarios.
 
     Funding observations are kept unchanged; only explicit trading costs are
@@ -263,7 +306,9 @@ def run_cost_stress_tests(snapshot, account_value=10000.0, risk_fraction=0.005,
             slippage_rate=slippage_rate * multiplier,
             maintenance_margin_rate=maintenance_margin_rate,
             liquidation_fee_rate=liquidation_fee_rate, system=system,
-            filters=filters,
+            filters=filters, slippage_model=slippage_model,
+            slippage_impact_coefficient=slippage_impact_coefficient * multiplier,
+            max_slippage_rate=max_slippage_rate,
         )
         scenarios[label] = result
     baseline = scenarios["baseline"]

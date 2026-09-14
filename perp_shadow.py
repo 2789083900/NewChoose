@@ -202,6 +202,9 @@ def shadow_settings(config):
     liquidation_fee = _number(raw, "liquidation_fee_rate", 0.0)
     risk_fraction = _number(raw, "risk_fraction", 0.005)
     max_open_risk = _number(raw, "max_total_open_risk", 0.03)
+    slippage_model = str(raw.get("slippage_model", "volume_impact")).strip().lower()
+    if slippage_model not in {"fixed", "volume_impact"}:
+        raise ValueError("derivatives.slippage_model must be fixed or volume_impact")
     if leverage > 20 or maintenance >= 1 or liquidation_fee >= 1:
         raise ValueError("derivatives risk parameters are outside supported bounds")
     if risk_fraction > 1 or max_open_risk > 1:
@@ -232,6 +235,9 @@ def shadow_settings(config):
         "liquidation_fee_rate": liquidation_fee,
         "fee_rate": _number(raw, "fee_rate", 0.0004),
         "slippage_rate": _number(raw, "slippage_rate", 0.0005),
+        "slippage_model": slippage_model,
+        "slippage_impact_coefficient": _number(raw, "slippage_impact_coefficient", 0.001, 0.0),
+        "max_slippage_rate": _number(raw, "max_slippage_rate", 0.01, 0.0),
         "max_total_open_risk": max_open_risk,
         "market_state_enabled": bool(raw.get("market_state_enabled", True)),
         "extreme_basis_pct": _number(raw, "extreme_basis_pct", 1.0, 0.0),
@@ -325,7 +331,8 @@ def parameter_snapshot(settings):
         key: settings[key] for key in (
             "account_value", "risk_fraction", "leverage",
             "maintenance_margin_rate", "liquidation_fee_rate",
-            "fee_rate", "slippage_rate", "max_total_open_risk",
+            "fee_rate", "slippage_rate", "slippage_model", "slippage_impact_coefficient",
+            "max_slippage_rate", "max_total_open_risk",
             "interval", "system", "market_state_enabled", "extreme_basis_pct",
             "extreme_funding_rate", "extreme_oi_change_pct", "expansion_atr_ratio",
             "trend_efficiency_min", "trend_move_min_pct", "range_risk_multiplier",
@@ -566,10 +573,24 @@ def _adverse_fill(raw_price, direction, action, slippage, specs, opening=None):
     return derivatives_data.quantize_price(price, specs, "buy" if is_buy else "sell")
 
 
+def _execution_slippage(settings, quantity, bar=None):
+    detail = derivatives_risk.execution_slippage(
+        settings["slippage_rate"], quantity,
+        (bar or {}).get("volume"),
+        settings.get("slippage_model", "fixed"),
+        settings.get("slippage_impact_coefficient", 0.001),
+        settings.get("max_slippage_rate", 0.01),
+    )
+    detail["liquidity_proxy_time"] = (bar or {}).get("time")
+    detail["liquidity_proxy_volume"] = (bar or {}).get("volume")
+    return detail
+
+
 def _close_trade(trade, raw_exit, reason, exit_time, mark_open, settings, specs, state,
-                 market_context=None):
+                 market_context=None, execution_bar=None):
+    slippage = _execution_slippage(settings, trade["quantity"], execution_bar)
     fill = _adverse_fill(
-        raw_exit, trade["direction"], "exit", settings["slippage_rate"], specs,
+        raw_exit, trade["direction"], "exit", slippage["rate"], specs,
         opening=mark_open,
     )
     gross = ((fill - trade["avg_entry"]) if trade["direction"] == "long"
@@ -586,6 +607,7 @@ def _close_trade(trade, raw_exit, reason, exit_time, mark_open, settings, specs,
         "net_pnl": gross - trade["fees"] + trade["funding_cashflow"],
         "holding_hours": round((int(exit_time) - int(trade["entry_time"])) / 3600000, 4),
         "exit_market_context": market_context or {},
+        "exit_slippage": slippage,
     })
     trade["return_pct"] = trade["net_pnl"] / settings["account_value"] * 100
     trade["funding_to_gross_pnl_pct"] = (
@@ -594,14 +616,15 @@ def _close_trade(trade, raw_exit, reason, exit_time, mark_open, settings, specs,
     )
 
 
-def _fill_pending(trade, bar, settings, specs, state, snapshot=None):
-    entry = _adverse_fill(
-        bar["open"], trade["direction"], "entry", settings["slippage_rate"], specs
-    )
+def _fill_pending(trade, bar, settings, specs, state, snapshot=None, liquidity_bar=None):
     quantity = sw.turtle_unit_quantity(
-        state["equity"], trade["n"], settings["risk_fraction"], 2.0
+        state["equity"], trade["n"], float(trade.get("risk_fraction") or settings["risk_fraction"]), 2.0
     )
     quantity = derivatives_data.quantize_quantity(quantity, specs)
+    slippage = _execution_slippage(settings, quantity, liquidity_bar)
+    entry = _adverse_fill(
+        bar["open"], trade["direction"], "entry", slippage["rate"], specs
+    )
     margin = derivatives_risk.margin_required(entry, quantity, settings["leverage"])
     available_margin = max(0.0, state["equity"] - _used_margin(state, exclude_id=trade["id"]))
     if (quantity <= 0 or not derivatives_data.quantity_is_executable(quantity, entry, specs)
@@ -616,12 +639,14 @@ def _fill_pending(trade, bar, settings, specs, state, snapshot=None):
         "status": "open", "entry": entry, "avg_entry": entry,
         "initial_entry": entry,
         "entry_time": int(bar["time"]), "quantity": quantity,
-        "units": [{"price": entry, "quantity": quantity, "n": trade["n"]}],
+        "units": [{"price": entry, "quantity": quantity, "n": trade["n"],
+                   "slippage": slippage}],
         "latest_entry": entry, "stop": stop, "fees": fee,
         "funding_cashflow": 0.0, "last_funding_time": 0,
         "mfe_pct": 0.0, "mae_pct": 0.0,
         "last_mark_price": None,
         "entry_market_context": _market_context(snapshot or {}, bar["time"]),
+        "entry_slippage": slippage,
         "account_equity_snapshot": float(state["equity"] + fee),
         "estimated_margin": round(margin, 8),
         "estimated_max_loss": round(float(state["equity"] + fee) * float(trade.get("risk_fraction") or settings["risk_fraction"]), 8),
@@ -648,7 +673,12 @@ def update_trade(trade, snapshot, settings, state):
                 state["rejected_signals"].append(trade)
                 return "rejected"
             return "pending"
-        if not _fill_pending(trade, fill_bar, settings, specs, state, snapshot=snapshot):
+        fill_index = contract.index(fill_bar)
+        liquidity_bar = contract[fill_index - 1] if fill_index > 0 else None
+        if not _fill_pending(
+            trade, fill_bar, settings, specs, state, snapshot=snapshot,
+            liquidity_bar=liquidity_bar,
+        ):
             return "rejected"
 
     start = int(trade.get("last_processed_bar") or 0)
@@ -694,6 +724,7 @@ def update_trade(trade, snapshot, settings, state):
             _close_trade(
                 trade, raw_exit, reason, bar_time, mark["open"], settings, specs, state,
                 market_context=_market_context(snapshot, bar_time),
+                execution_bar=contract[index - 1] if index > 0 else None,
             )
             return "closed"
 
@@ -707,14 +738,18 @@ def update_trade(trade, snapshot, settings, state):
             reached = high >= next_add if direction == "long" else low <= next_add
             if not reached:
                 break
+            quantity = derivatives_data.quantize_quantity(
+                sw.turtle_unit_quantity(state["equity"], trade["n"], float(trade.get("risk_fraction") or settings["risk_fraction"]), 2.0), specs
+            )
+            slippage = _execution_slippage(
+                settings, quantity, contract[index - 1] if index > 0 else None
+            )
             fill = _adverse_fill(
-                next_add, direction, "entry", settings["slippage_rate"], specs,
+                next_add, direction, "entry", slippage["rate"], specs,
                 opening=mark["open"],
             )
-            quantity = derivatives_data.quantize_quantity(
-                sw.turtle_unit_quantity(state["equity"], trade["n"], settings["risk_fraction"], 2.0), specs
-            )
-            added_risk = _open_risk(state, exclude_id=trade["id"]) + settings["risk_fraction"] * (len(trade["units"]) + 1)
+            unit_risk = float(trade.get("risk_fraction") or settings["risk_fraction"])
+            added_risk = _open_risk(state, exclude_id=trade["id"]) + unit_risk * (len(trade["units"]) + 1)
             added_margin = derivatives_risk.margin_required(fill, quantity, settings["leverage"])
             available_margin = max(0.0, state["equity"] - _used_margin(state, exclude_id=trade["id"])
                                    - derivatives_risk.margin_required(
@@ -732,7 +767,8 @@ def update_trade(trade, snapshot, settings, state):
             trade["latest_entry"] = fill
             trade["stop"] = fill - 2 * trade["n"] if direction == "long" else fill + 2 * trade["n"]
             trade["fees"] += fee
-            trade["units"].append({"price": fill, "quantity": quantity, "n": trade["n"]})
+            trade["units"].append({"price": fill, "quantity": quantity, "n": trade["n"],
+                                   "slippage": slippage})
         trade["last_mark_price"] = float(mark["close"])
         trade["last_processed_bar"] = bar_time
     return "open"
@@ -873,11 +909,13 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
         lines.append(f"预估保证金：{margin if margin is not None else '--'} · 预估最大亏损：{max_loss:.8f}")
         lines.append(f"风险占用：{float(trade.get('risk_fraction') or 0) * 100:.2f}% · 组合剩余容量：{remaining * 100:.2f}%" if remaining is not None else "组合剩余容量：--")
     elif event_type == "entry_filled":
+        entry_slippage = trade.get("entry_slippage") or {}
         lines.extend([
             f"成交时间：{_notification_time(trade.get('entry_time'))}",
             f"成交价：{trade.get('entry', '--')} · 数量：{trade.get('quantity', '--')}",
             f"止损：{trade.get('stop', '--')} · 杠杆：{trade.get('leverage', '--')}",
             f"手续费：{float(trade.get('fees') or 0):.8f}",
+            f"滑点：{float(entry_slippage.get('rate') or 0) * 100:.4f}% · 模型：{entry_slippage.get('model', '--')}",
         ])
         margin, max_loss, remaining = _estimated_risk_fields(trade)
         lines.append(f"保证金：{margin if margin is not None else '--'} · 预估最大亏损：{max_loss:.8f}")
@@ -887,11 +925,13 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
             f"单位数：{len(trade.get('units') or [])} · 新止损：{trade.get('stop', '--')}",
         ])
     elif event_type == "closed":
+        exit_slippage = trade.get("exit_slippage") or {}
         lines.extend([
             f"出场时间：{_notification_time(trade.get('exit_time'))}",
             f"入场：{trade.get('entry', '--')} · 出场：{trade.get('exit', '--')}",
             f"原因：{trade.get('exit_reason', '--')} · 净盈亏：{float(trade.get('net_pnl') or 0):+.8f}",
             f"资金费：{float(trade.get('funding_cashflow') or 0):+.8f}",
+            f"出场滑点：{float(exit_slippage.get('rate') or 0) * 100:.4f}% · 模型：{exit_slippage.get('model', '--')}",
         ])
     elif event_type == "rejected":
         lines.append(f"拒绝原因：{trade.get('rejection_reason', '--')}")
@@ -1068,6 +1108,15 @@ def build_stats(state, settings=None):
     for trade in closed:
         provider = str(trade.get("provider") or "unknown")
         provider_sample_counts[provider] = provider_sample_counts.get(provider, 0) + 1
+    slippage_samples = []
+    for trade in closed + state["open_trades"]:
+        for detail in [trade.get("entry_slippage"), trade.get("exit_slippage")]:
+            if isinstance(detail, dict) and detail.get("rate") is not None:
+                slippage_samples.append(detail)
+        for unit in (trade.get("units") or [])[1:]:
+            detail = unit.get("slippage") if isinstance(unit, dict) else None
+            if isinstance(detail, dict) and detail.get("rate") is not None:
+                slippage_samples.append(detail)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1090,6 +1139,15 @@ def build_stats(state, settings=None):
         "max_direction_exposure": round(max_directional_exposure, 8),
         "max_open_risk_fraction": round(max_open_risk, 8),
         "max_consecutive_losses": max_loss_streak,
+        "execution_slippage": {
+            "model": settings.get("slippage_model", "fixed"),
+            "sample_count": len(slippage_samples),
+            "average_rate_pct": round(
+                sum(float(item["rate"]) for item in slippage_samples) / len(slippage_samples) * 100, 6
+            ) if slippage_samples else 0.0,
+            "max_rate_pct": round(max((float(item["rate"]) for item in slippage_samples), default=0.0) * 100, 6),
+            "fixed_fallback_count": sum(item.get("model") == "fixed_fallback" for item in slippage_samples),
+        },
         "sample_goal_min_trades": minimum_goal,
         "sample_goal_preferred_trades": preferred_goal,
         "sample_progress_pct": round(min(100.0, closed_count / progress_target * 100), 2),

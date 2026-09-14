@@ -114,11 +114,23 @@ def _specs(inst_id, getter):
     if not rows:
         raise RuntimeError(f"OKX instrument not found: {inst_id}")
     row = rows[0]
+    contract_value = float(row.get("ctVal") or 0)
+    if contract_value <= 0:
+        raise RuntimeError(f"OKX instrument is missing a valid contract value: {inst_id}")
+    contract_currency = row.get("ctValCcy") or row.get("baseCcy")
+    if contract_currency != row.get("baseCcy"):
+        raise RuntimeError(f"OKX contract value is not denominated in the base asset: {inst_id}")
+    native_step = float(row["lotSz"])
+    native_minimum = float(row["minSz"])
     return {"symbol": inst_id.replace("-USDT-SWAP", "USDT"), "status": row.get("state"),
             "contract_type": "PERPETUAL", "base_asset": row.get("baseCcy"),
             "quote_asset": "USDT", "price_tick": float(row["tickSz"]),
-            "quantity_step": float(row["lotSz"]), "min_quantity": float(row["minSz"]),
-            "min_notional": 0.0}
+            "quantity_step": native_step * contract_value,
+            "min_quantity": native_minimum * contract_value,
+            "min_notional": 0.0, "contract_value": contract_value,
+            "contract_value_currency": contract_currency,
+            "native_quantity_step_contracts": native_step,
+            "native_min_quantity_contracts": native_minimum}
 
 
 def _open_interest(inst_id, getter):
@@ -173,6 +185,21 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                 "open_interest_limit": 1, "open_interest_coverage": "latest_only"}}
     if include_contract_specs:
         snapshot["contract_specs"] = collect("contract_specs", lambda: _specs(inst_id, getter), None)
+    specs = snapshot.get("contract_specs") or {}
+    contract_value = float(specs.get("contract_value") or 0)
+    if contract_value > 0:
+        for candle in snapshot["contract_klines"]:
+            candle["volume_contracts"] = float(candle.get("volume") or 0)
+            candle["volume"] = candle["volume_contracts"] * contract_value
+        for observation in snapshot["open_interest"]:
+            observation["open_interest_contracts"] = float(observation.get("open_interest") or 0)
+            observation["open_interest"] = observation["open_interest_contracts"] * contract_value
+        snapshot["collection"]["contract_volume_unit"] = "base_asset"
+        snapshot["collection"]["open_interest_unit"] = "base_asset"
+        snapshot["collection"]["native_derivatives_unit"] = "contracts"
+    else:
+        snapshot["collection"]["contract_volume_unit"] = "contracts"
+        snapshot["collection"]["open_interest_unit"] = "contracts"
     latest = {}
     latest_bar_open_times = {}
     interval_ms = sw.INTERVAL_MS[interval_value]

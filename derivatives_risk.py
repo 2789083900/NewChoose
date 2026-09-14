@@ -7,6 +7,7 @@ It provides deterministic calculations for backtests and shadow simulations.
 """
 
 from dataclasses import dataclass
+import math
 
 
 SUPPORTED_MARKET_TYPES = {"spot", "linear_perpetual", "delivery"}
@@ -32,6 +33,46 @@ def margin_required(entry_price, quantity, leverage):
     if lev <= 0:
         raise ValueError("leverage must be > 0")
     return position_notional(entry_price, quantity) / lev
+
+
+def execution_slippage(base_rate, quantity, bar_volume=None, model="fixed",
+                       impact_coefficient=0.001, max_rate=0.01):
+    """Estimate one-way adverse slippage with an auditable volume-impact model.
+
+    Kline volume is only a coarse liquidity proxy, not an order book. The
+    square-root impact term is therefore capped, and missing/invalid volume
+    falls back to the configured fixed rate.
+    """
+    base = float(base_rate)
+    cap_value = float(max_rate)
+    qty = float(quantity)
+    coefficient = float(impact_coefficient)
+    if not all(math.isfinite(value) for value in (base, cap_value, qty, coefficient)):
+        raise ValueError("slippage inputs must be finite")
+    if min(base, cap_value, qty, coefficient) < 0:
+        raise ValueError("slippage inputs must be non-negative")
+    cap = max(base, cap_value)
+    name = str(model or "fixed").strip().lower()
+    if name not in {"fixed", "volume_impact"}:
+        raise ValueError("slippage model must be fixed or volume_impact")
+    try:
+        volume = float(bar_volume)
+    except (TypeError, ValueError):
+        volume = 0.0
+    if not math.isfinite(volume) or name == "fixed" or qty <= 0 or volume <= 0:
+        return {
+            "model": "fixed" if name == "fixed" else "fixed_fallback",
+            "rate": min(base, cap), "base_rate": base,
+            "impact_rate": 0.0, "participation_rate": None,
+        }
+    participation = qty / volume
+    impact = coefficient * math.sqrt(participation)
+    effective = min(cap, base + impact)
+    return {
+        "model": "volume_impact", "rate": effective, "base_rate": base,
+        "impact_rate": max(0.0, effective - base),
+        "participation_rate": participation,
+    }
 
 
 def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=0.005,

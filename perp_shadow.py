@@ -541,6 +541,10 @@ def _fill_pending(trade, bar, settings, specs, state, snapshot=None):
         "mfe_pct": 0.0, "mae_pct": 0.0,
         "last_mark_price": None,
         "entry_market_context": _market_context(snapshot or {}, bar["time"]),
+        "account_equity_snapshot": float(state["equity"] + fee),
+        "estimated_margin": round(margin, 8),
+        "estimated_max_loss": round(float(state["equity"] + fee) * float(trade.get("risk_fraction") or settings["risk_fraction"]), 8),
+        "remaining_risk_capacity": max(0.0, float(settings["max_total_open_risk"]) - _open_risk(state)),
         # OHLC cannot reveal whether this bar's high/low happened before or
         # after the open fill, so risk management begins on the next bar.
         "last_processed_bar": int(bar["time"]),
@@ -675,6 +679,19 @@ def create_signal(snapshot, settings, state):
         })
         return None
     parameters = parameter_snapshot(settings)
+    account_equity = float(state["equity"])
+    try:
+        estimated_quantity = derivatives_data.quantize_quantity(
+            sw.turtle_unit_quantity(account_equity, plan["n"], settings["risk_fraction"], 2.0),
+            snapshot["contract_specs"],
+        )
+    except (KeyError, TypeError, ValueError):
+        # A malformed/legacy direct caller may not include exchange filters;
+        # snapshot validation still rejects it before normal processing.
+        estimated_quantity = 0.0
+    estimated_margin = derivatives_risk.margin_required(
+        float(plan["entry"]), estimated_quantity, settings["leverage"]
+    ) if estimated_quantity > 0 else 0.0
     trade = {
         "id": signal_id, "market_type": derivatives_data.MARKET_TYPE,
         "research_only": True, "symbol": snapshot["symbol"],
@@ -683,9 +700,15 @@ def create_signal(snapshot, settings, state):
         "direction": direction, "status": "pending_entry",
         "signal_bar_time": signal_time,
         "fill_time": signal_time + sw.INTERVAL_MS[settings["interval"]],
+        "signal_expires_at": signal_time + sw.INTERVAL_MS[settings["interval"]],
         "entry_model": "next_contract_bar_open", "mark_price_risk": True,
         "risk_fraction": settings["risk_fraction"], "leverage": settings["leverage"],
         "entry_trigger": plan["entry"], "n": plan["n"],
+        "account_equity_snapshot": account_equity,
+        "estimated_quantity": estimated_quantity,
+        "estimated_margin": round(estimated_margin, 8),
+        "estimated_max_loss": round(account_equity * settings["risk_fraction"], 8),
+        "remaining_risk_capacity": max(0.0, settings["max_total_open_risk"] - _open_risk(state) - settings["risk_fraction"]),
         "signal_reasons": reasons, "contract_specs": snapshot["contract_specs"],
         "parameter_snapshot": parameters,
         "parameter_sha256": parameter_checksum(parameters),
@@ -700,6 +723,24 @@ def _notification_event_id(event_type, trade):
         trade.get("exit_time") or trade.get("entry_time") or trade.get("fill_time") or
         len(trade.get("units") or []),
     )
+
+
+def _notification_time(value):
+    """Format a millisecond epoch for humans while keeping missing values clear."""
+    try:
+        return sw.format_time_pair(int(value)) if value not in (None, "", 0) else "--"
+    except (TypeError, ValueError, OverflowError, OSError):
+        return "--"
+
+
+def _estimated_risk_fields(trade):
+    """Return stable, display-ready risk figures stored on a shadow trade."""
+    equity = float(trade.get("account_equity_snapshot") or 0)
+    risk_fraction = float(trade.get("risk_fraction") or 0)
+    margin = trade.get("estimated_margin")
+    max_loss = trade.get("estimated_max_loss")
+    remaining = trade.get("remaining_risk_capacity")
+    return margin, max_loss if max_loss is not None else equity * risk_fraction, remaining
 
 
 def _perpetual_notification_content(event_type, trade, snapshot=None):
@@ -720,17 +761,24 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
                 else float(trigger) + 2 * float(n)) if trigger not in (None, "") and n not in (None, "") else None
         lines.extend([
             f"触发价：{trigger if trigger is not None else '--'}",
-            f"预定成交时间：{trade.get('fill_time', '--')}",
+            f"预定成交时间：{_notification_time(trade.get('fill_time'))}",
+            f"信号有效期至：{_notification_time(trade.get('signal_expires_at') or trade.get('fill_time'))}",
             f"初始止损参考：{round(stop, 8) if stop is not None else '--'}",
             f"杠杆：{trade.get('leverage', '--')} · 风险占比：{float(trade.get('risk_fraction') or 0) * 100:.2f}%",
             "状态：等待下一根合约 K 线开盘影子成交",
         ])
+        margin, max_loss, remaining = _estimated_risk_fields(trade)
+        lines.append(f"预估保证金：{margin if margin is not None else '--'} · 预估最大亏损：{max_loss:.8f}")
+        lines.append(f"风险占用：{float(trade.get('risk_fraction') or 0) * 100:.2f}% · 组合剩余容量：{remaining * 100:.2f}%" if remaining is not None else "组合剩余容量：--")
     elif event_type == "entry_filled":
         lines.extend([
+            f"成交时间：{_notification_time(trade.get('entry_time'))}",
             f"成交价：{trade.get('entry', '--')} · 数量：{trade.get('quantity', '--')}",
             f"止损：{trade.get('stop', '--')} · 杠杆：{trade.get('leverage', '--')}",
             f"手续费：{float(trade.get('fees') or 0):.8f}",
         ])
+        margin, max_loss, remaining = _estimated_risk_fields(trade)
+        lines.append(f"保证金：{margin if margin is not None else '--'} · 预估最大亏损：{max_loss:.8f}")
     elif event_type == "scale_in":
         lines.extend([
             f"最新成交价：{trade.get('latest_entry', '--')} · 总数量：{trade.get('quantity', '--')}",
@@ -738,6 +786,7 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
         ])
     elif event_type == "closed":
         lines.extend([
+            f"出场时间：{_notification_time(trade.get('exit_time'))}",
             f"入场：{trade.get('entry', '--')} · 出场：{trade.get('exit', '--')}",
             f"原因：{trade.get('exit_reason', '--')} · 净盈亏：{float(trade.get('net_pnl') or 0):+.8f}",
             f"资金费：{float(trade.get('funding_cashflow') or 0):+.8f}",
@@ -800,6 +849,33 @@ def dispatch_perpetual_notifications(events, state, config):
             sent_ids.add(event_id)
     state["notification_history"] = history[-500:]
     return deliveries
+
+
+def send_perpetual_test_notification(config):
+    """Send a deterministic perpetual notification without market data or state writes."""
+    now = int(time.time() * 1000)
+    trade = {
+        "id": "perp-test-notification",
+        "market_type": derivatives_data.MARKET_TYPE,
+        "research_only": True,
+        "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+        "provider": "test", "status": "pending_entry",
+        "signal_bar_time": now - sw.INTERVAL_MS["4h"],
+        "fill_time": now + sw.INTERVAL_MS["4h"],
+        "signal_expires_at": now + sw.INTERVAL_MS["4h"],
+        "entry_trigger": 100000.0, "n": 1000.0,
+        "leverage": 2.0, "risk_fraction": 0.005,
+        "account_equity_snapshot": 10000.0,
+        "estimated_margin": 25.0, "estimated_max_loss": 50.0,
+        "remaining_risk_capacity": 0.025,
+    }
+    if not sw.has_channel(config):
+        return []
+    return sw.send_notification(
+        "CoinPulse 永续测试通知",
+        _perpetual_notification_content("signal_created", trade),
+        config,
+    )
 
 
 def process_snapshot(snapshot, settings, state):
@@ -1189,8 +1265,22 @@ def main(argv=None):
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--state", default=DEFAULT_STATE_PATH)
     parser.add_argument("--stats", default=DEFAULT_STATS_PATH)
+    parser.add_argument(
+        "--test-notification", action="store_true",
+        help="发送永续专用测试推送，不读取行情且不写入运行状态",
+    )
     args = parser.parse_args(argv)
     config = load_json(os.path.abspath(args.config), {})
+    if args.test_notification:
+        results = send_perpetual_test_notification(config)
+        if not results:
+            print("未配置推送渠道，永续测试通知未发送。", file=sys.stderr)
+            return 1
+        print("永续测试通知完成：成功 {}，失败 {}".format(
+            sum(1 for item in results if item.get("ok")),
+            sum(1 for item in results if not item.get("ok")),
+        ))
+        return 0 if any(item.get("ok") for item in results) else 1
     try:
         result = run(config, os.path.abspath(args.state), os.path.abspath(args.stats))
     except (OSError, ValueError, RuntimeError) as exc:

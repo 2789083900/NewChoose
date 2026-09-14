@@ -1556,6 +1556,25 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(opener.call_count, 2)
         sleeper.assert_called_once()
 
+    def test_single_scan_failure_publishes_failed_health_and_exit_code(self):
+        original_argv = list(__import__("sys").argv)
+        try:
+            __import__("sys").argv = ["signal_watch.py", "--once"]
+            with mock.patch.object(sw, "load_config", return_value={}), \
+                 mock.patch.object(sw, "load_state", return_value={"open_trades": []}), \
+                 mock.patch.object(sw, "scan_once", side_effect=RuntimeError("feed unavailable")), \
+                 mock.patch.object(sw, "write_monitor_health") as health_writer, \
+                 mock.patch.object(sw, "save_state"), \
+                 mock.patch.object(sw, "portfolio_risk_snapshot", return_value={}), \
+                 mock.patch.object(sw.logging, "basicConfig"), \
+                 mock.patch.object(sw.logging, "exception"):
+                result = sw.main()
+            self.assertEqual(result, 1)
+            health_writer.assert_called_once()
+            self.assertEqual(health_writer.call_args.kwargs["status"], "failed")
+        finally:
+            __import__("sys").argv = original_argv
+
     def test_scan_coverage_gate_rejects_partial_market_scan(self):
         ok, coverage, minimum = sw.scan_coverage_ok(
             {"minimum_scan_coverage_pct": 80},

@@ -120,5 +120,10 @@
     "generic": {
       "webhook": ""
     }
+  },
+  "delivery": {
+    "mode": "broadcast",
+    "primary": "serverchan",
+    "fallback": ["pushplus"]
   }
 }

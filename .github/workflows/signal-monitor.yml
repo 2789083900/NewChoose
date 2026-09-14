@@ -10,6 +10,11 @@ on:
         required: false
         default: false
         type: boolean
+      test_perp_push:
+        description: "Send a perpetual shadow test push"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -68,17 +73,17 @@ jobs:
 
       - name: Scan and push
         run: python signal_watch.py --once
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Track shadow signals
         run: python track_signals.py
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Track perpetual shadow trades
         id: perpetual_shadow
         continue-on-error: true
         run: python perp_shadow.py --config signal_watch.config.json
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Report perpetual shadow sample progress
         shell: bash
@@ -100,33 +105,34 @@ jobs:
               if stats.get("errors"):
                   print("perpetual shadow data errors:", stats["errors"])
           PY
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Send test push
         run: python signal_watch.py --test
         if: github.event.inputs.test_push == 'true'
 
+      - name: Send perpetual test push
+        run: python perp_shadow.py --config signal_watch.config.json --test-notification
+        if: github.event.inputs.test_perp_push == 'true'
+
       - name: Validate runtime state
         run: python validate_runtime_state.py
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Validate perpetual shadow state
         run: python validate_perp_shadow.py
-        if: github.event.inputs.test_push != 'true'
+        if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Fail when perpetual shadow execution failed
-        if: always() && github.event.inputs.test_push != 'true' && steps.perpetual_shadow.outcome == 'failure'
+        if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.perpetual_shadow.outcome == 'failure'
         run: |
           echo "perpetual shadow execution failed; refusing to publish stale shadow state" >&2
           exit 1
 
       - name: Save signal state
         shell: bash
+        if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
         run: |
-          if [ ! -f signal_watch.state.json ]; then
-            echo "no state file yet, skip"
-            exit 0
-          fi
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json perp_shadow_state.json perp_shadow_stats.json; do

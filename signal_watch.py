@@ -1380,39 +1380,33 @@ def has_channel(config):
 
 def send_notification(title, content, config):
     channels = config.get("channels", {})
-    results = []
+    dispatchers = []
 
     dingtalk = channels.get("dingtalk") or {}
     if dingtalk.get("webhook"):
-        results.append(try_channel(
-            "钉钉",
-            lambda: post_json(dingtalk["webhook"], {"msgtype": "text", "text": {"content": content}})
-        ))
+        dispatchers.append(("dingtalk", lambda: post_json(
+            dingtalk["webhook"], {"msgtype": "text", "text": {"content": content}}
+        )))
 
     wecom = channels.get("wecom") or {}
     if wecom.get("webhook"):
-        results.append(try_channel(
-            "企业微信",
-            lambda: post_json(wecom["webhook"], {"msgtype": "text", "text": {"content": content}})
-        ))
+        dispatchers.append(("wecom", lambda: post_json(
+            wecom["webhook"], {"msgtype": "text", "text": {"content": content}}
+        )))
 
     serverchan = channels.get("serverchan") or {}
     if serverchan.get("sendkey"):
         url = f"https://sctapi.ftqq.com/{serverchan['sendkey']}.send"
-        results.append(try_channel(
-            "Server酱",
-            lambda: post_form(url, {"title": title, "desp": content, "channel": "9"})
-        ))
+        dispatchers.append(("serverchan", lambda: post_form(
+            url, {"title": title, "desp": content, "channel": "9"}
+        )))
 
     pushplus = channels.get("pushplus") or {}
     if pushplus.get("token"):
-        results.append(try_channel(
-            "PushPlus",
-            lambda: post_json(
-                "https://www.pushplus.plus/send",
-                {"token": pushplus["token"], "title": title, "content": content, "template": "txt"}
-            )
-        ))
+        dispatchers.append(("pushplus", lambda: post_json(
+            "https://www.pushplus.plus/send",
+            {"token": pushplus["token"], "title": title, "content": content, "template": "txt"}
+        )))
 
     bark = channels.get("bark") or {}
     if bark.get("key"):
@@ -1421,14 +1415,46 @@ def send_notification(title, content, config):
             f"{server}/{urllib.parse.quote(bark['key'])}/"
             f"{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
         )
-        results.append(try_channel("Bark", lambda: http_get(url)))
+        dispatchers.append(("bark", lambda: http_get(url)))
 
     generic = channels.get("generic") or {}
     if generic.get("webhook"):
-        results.append(try_channel(
-            "通用Webhook",
-            lambda: post_json(generic["webhook"], {"title": title, "content": content})
-        ))
+        dispatchers.append(("generic", lambda: post_json(
+            generic["webhook"], {"title": title, "content": content}
+        )))
+
+    labels = {
+        "dingtalk": "钉钉", "wecom": "企业微信", "serverchan": "Server酱",
+        "pushplus": "PushPlus", "bark": "Bark", "generic": "通用Webhook",
+    }
+    delivery = config.get("delivery") or {}
+    mode = str(delivery.get("mode", "broadcast")).strip().lower()
+    if mode != "primary_fallback":
+        return [try_channel(labels[name], callback) for name, callback in dispatchers]
+
+    by_name = dict(dispatchers)
+    requested = []
+    primary = str(delivery.get("primary") or "").strip().lower()
+    if primary:
+        requested.append(primary)
+    fallbacks = delivery.get("fallback") or []
+    if isinstance(fallbacks, str):
+        fallbacks = [fallbacks]
+    requested.extend(str(name).strip().lower() for name in fallbacks)
+    # With an explicit primary/fallback list, do not silently broadcast to
+    # additional configured channels. If no list is supplied, retain the
+    # configured channel order as a sensible fallback.
+    if not requested:
+        requested.extend(name for name, _ in dispatchers)
+    results = []
+    for name in requested:
+        callback = by_name.get(name)
+        if callback is None:
+            continue
+        result = try_channel(labels[name], callback)
+        results.append(result)
+        if result.get("ok"):
+            break
     return results
 
 
@@ -2360,30 +2386,53 @@ def main():
         run_id = uuid.uuid4().hex[:12]
         diagnostics = {}
         state_before_scan = copy.deepcopy(state)
-        events = scan_once(config, state, run_id=run_id, diagnostics=diagnostics)
-        coverage_ok, coverage_pct, minimum_coverage = scan_coverage_ok(config, diagnostics)
-        if not coverage_ok:
-            state.clear()
-            state.update(state_before_scan)
+        try:
+            events = scan_once(config, state, run_id=run_id, diagnostics=diagnostics)
+            coverage_ok, coverage_pct, minimum_coverage = scan_coverage_ok(config, diagnostics)
+            if not coverage_ok:
+                state.clear()
+                state.update(state_before_scan)
+                save_state(state)
+                write_monitor_health(
+                    scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
+                    portfolio=portfolio_risk_snapshot(state, config),
+                    status="degraded",
+                )
+                logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
+                return 0
             save_state(state)
+            deliveries = process_events(events, config)
+            state = load_state()
+            settle_trades(state, config)
             write_monitor_health(
-                scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
+                scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
+                notifications=deliveries,
                 portfolio=portfolio_risk_snapshot(state, config),
-                status="degraded",
+                status="ok",
             )
-            logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
-            return
-        save_state(state)
-        deliveries = process_events(events, config)
-        state = load_state()
-        settle_trades(state, config)
-        write_monitor_health(
-            scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
-            notifications=deliveries,
-            portfolio=portfolio_risk_snapshot(state, config),
-            status="ok",
-        )
-        return
+            return 0
+        except Exception as exc:
+            logging.exception("单次扫描失败: %s", exc)
+            # Preserve the last known trading state, but always publish a
+            # fresh, secret-free heartbeat so the health workflow can report
+            # the actual failure instead of treating it as a silent outage.
+            try:
+                state.clear()
+                state.update(state_before_scan)
+                write_monitor_health(
+                    scan=scan_health_payload(
+                        run_id,
+                        diagnostics,
+                        0.0,
+                        float(config.get("minimum_scan_coverage_pct", 80)),
+                        0,
+                    ),
+                    portfolio=portfolio_risk_snapshot(state, config),
+                    status="failed",
+                )
+            except Exception:
+                logging.exception("写入失败健康状态也失败")
+            return 1
 
     if "--test" in sys.argv:
         send_test_message(config)
@@ -2429,4 +2478,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

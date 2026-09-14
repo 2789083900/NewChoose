@@ -1085,6 +1085,36 @@ class TurtleCoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             derivatives_data.fetch_funding_rates("BTCUSDT", limit=1001, http_get=lambda _url: [])
 
+    def test_perpetual_market_state_flags_extreme_derivatives_conditions(self):
+        bars = [{"time": 1_700_000_000_000 + i * 4 * 60 * 60 * 1000,
+                 "open": 100 + i * 0.2, "high": 101 + i * 0.2,
+                 "low": 99 + i * 0.2, "close": 100 + i * 0.2}
+                for i in range(30)]
+        snapshot = {
+            "contract_klines": bars,
+            "mark_price_klines": [{**row, "close": row["close"] * 1.02} for row in bars],
+            "index_price_klines": bars,
+            "funding_rates": [{"time": bars[-1]["time"], "funding_rate": 0.002}],
+            "open_interest": [{"time": bars[-2]["time"], "open_interest": 100},
+                              {"time": bars[-1]["time"], "open_interest": 130}],
+        }
+        state = perp_shadow.classify_market_state(snapshot, perp_shadow.shadow_settings({"derivatives": {}}))
+        self.assertEqual(state["state"], "extreme_risk")
+        self.assertEqual(state["risk_multiplier"], 0.0)
+        self.assertIn("basis_extreme", state["flags"])
+        self.assertIn("funding_extreme", state["flags"])
+        self.assertIn("oi_shock", state["flags"])
+
+    def test_perpetual_market_state_identifies_range_and_reduces_risk(self):
+        bars = [{"time": 1_700_000_000_000 + i * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100}
+                for i in range(30)]
+        state = perp_shadow.classify_market_state(
+            {"contract_klines": bars}, perp_shadow.shadow_settings({"derivatives": {}})
+        )
+        self.assertEqual(state["state"], "range")
+        self.assertEqual(state["risk_multiplier"], 0.5)
+
     def test_perpetual_kline_history_pages_and_deduplicates(self):
         interval = 4 * 60 * 60 * 1000
         pages = {

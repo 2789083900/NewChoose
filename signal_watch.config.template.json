@@ -48,7 +48,16 @@
     "liquidation_fee_rate": 0,
     "fee_rate": 0.0004,
     "slippage_rate": 0.0005,
-    "max_total_open_risk": 0.03
+    "max_total_open_risk": 0.03,
+    "market_state_enabled": true,
+    "extreme_basis_pct": 1.0,
+    "extreme_funding_rate": 0.001,
+    "extreme_oi_change_pct": 0.2,
+    "expansion_atr_ratio": 1.8,
+    "trend_efficiency_min": 0.45,
+    "trend_move_min_pct": 2.0,
+    "range_risk_multiplier": 0.5,
+    "expansion_risk_multiplier": 0.5
   },
   "intervals": [
     "4h"

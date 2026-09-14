@@ -30,6 +30,7 @@ DEFAULT_STATE_PATH = os.path.join(BASE_DIR, "perp_shadow_state.json")
 DEFAULT_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
 SCHEMA_VERSION = 1
 FUNDING_SETTLEMENT_INTERVAL_MS = 8 * 60 * 60 * 1000
+MARKET_STATE_LABELS = {"trend", "range", "volatility_expansion", "extreme_risk", "unknown"}
 
 
 def empty_state(account_value=10000.0):
@@ -51,6 +52,7 @@ def empty_state(account_value=10000.0):
         "provider_health": {},
         "market_time_by_symbol": {},
         "notification_history": [],
+        "market_state_by_symbol": {},
     }
 
 
@@ -108,6 +110,8 @@ def load_state(path, account_value=10000.0):
         state["provider_health"] = {}
     if not isinstance(state.get("market_time_by_symbol"), dict):
         state["market_time_by_symbol"] = {}
+    if not isinstance(state.get("market_state_by_symbol"), dict):
+        state["market_state_by_symbol"] = {}
     for trade in state["open_trades"] + state["closed_trades"]:
         if not isinstance(trade, dict):
             raise ValueError("perpetual shadow state contains a non-object trade")
@@ -229,11 +233,85 @@ def shadow_settings(config):
         "fee_rate": _number(raw, "fee_rate", 0.0004),
         "slippage_rate": _number(raw, "slippage_rate", 0.0005),
         "max_total_open_risk": max_open_risk,
+        "market_state_enabled": bool(raw.get("market_state_enabled", True)),
+        "extreme_basis_pct": _number(raw, "extreme_basis_pct", 1.0, 0.0),
+        "extreme_funding_rate": _number(raw, "extreme_funding_rate", 0.001, 0.0),
+        "extreme_oi_change_pct": _number(raw, "extreme_oi_change_pct", 0.20, 0.0),
+        "expansion_atr_ratio": _number(raw, "expansion_atr_ratio", 1.8, 1.0),
+        "trend_efficiency_min": _number(raw, "trend_efficiency_min", 0.45, 0.0),
+        "trend_move_min_pct": _number(raw, "trend_move_min_pct", 2.0, 0.0),
+        "range_risk_multiplier": min(1.0, _number(raw, "range_risk_multiplier", 0.5, 0.0)),
+        "expansion_risk_multiplier": min(1.0, _number(raw, "expansion_risk_multiplier", 0.5, 0.0)),
         "filters": raw.get("filters") or {
             "higher_timeframe": False,
             "volume_confirmation": False,
             "volatility_filter": False,
             "anomaly_filter": True,
+        },
+    }
+
+
+def classify_market_state(snapshot, settings=None):
+    """Classify a perpetual market using only fields already in a snapshot.
+
+    This is a conservative research filter: extreme basis/funding/OI shocks
+    pause new entries, while range and volatility-expansion states reduce
+    their risk budget. Missing optional series never creates a risk flag.
+    """
+    settings = settings or {}
+    bars = [row for row in (snapshot.get("contract_klines") or []) if isinstance(row, dict)]
+    closes = [float(row["close"]) for row in bars if row.get("close") not in (None, "")]
+    if len(closes) < 25:
+        return {"state": "unknown", "risk_multiplier": 1.0, "flags": [], "metrics": {}}
+    window = closes[-20:]
+    first = window[0]
+    last = window[-1]
+    move_pct = abs(last - first) / first * 100 if first else 0.0
+    path = sum(abs(window[i] - window[i - 1]) for i in range(1, len(window)))
+    efficiency = abs(last - first) / path if path else 0.0
+    ranges = [abs(float(row["high"]) - float(row["low"])) / float(row["close"])
+              for row in bars if row.get("high") not in (None, "") and row.get("low") not in (None, "") and float(row.get("close") or 0) > 0]
+    current_atr = sum(ranges[-5:]) / min(5, len(ranges)) if ranges else 0.0
+    prior = ranges[-25:-5] if len(ranges) >= 10 else ranges[:-5]
+    prior_atr = sorted(prior)[len(prior) // 2] if prior else current_atr
+    atr_ratio = current_atr / prior_atr if prior_atr > 0 else 1.0
+    flags = []
+    mark = _latest_observation(snapshot.get("mark_price_klines"), bars[-1].get("time", 0))
+    index = _latest_observation(snapshot.get("index_price_klines"), bars[-1].get("time", 0))
+    basis_pct = ((float(mark["close"]) - float(index["close"])) / float(index["close"]) * 100
+                 if mark and index and float(index.get("close") or 0) else None)
+    if basis_pct is not None and abs(basis_pct) >= float(settings.get("extreme_basis_pct", 1.0)):
+        flags.append("basis_extreme")
+    funding = sorted(snapshot.get("funding_rates") or [], key=lambda row: int(row.get("time", 0)))
+    funding_rate = float(funding[-1]["funding_rate"]) if funding and funding[-1].get("funding_rate") not in (None, "") else None
+    if funding_rate is not None and abs(funding_rate) >= float(settings.get("extreme_funding_rate", 0.001)):
+        flags.append("funding_extreme")
+    oi = sorted(snapshot.get("open_interest") or [], key=lambda row: int(row.get("time", 0)))
+    oi_change_pct = None
+    if len(oi) >= 2 and float(oi[-2].get("open_interest") or 0) > 0:
+        oi_change_pct = (float(oi[-1].get("open_interest")) / float(oi[-2].get("open_interest")) - 1) * 100
+        if abs(oi_change_pct) >= float(settings.get("extreme_oi_change_pct", 0.20)) * 100:
+            flags.append("oi_shock")
+    if flags:
+        state = "extreme_risk"
+        multiplier = 0.0
+    elif atr_ratio >= float(settings.get("expansion_atr_ratio", 1.8)):
+        state = "volatility_expansion"
+        multiplier = float(settings.get("expansion_risk_multiplier", 0.5))
+    elif efficiency >= float(settings.get("trend_efficiency_min", 0.45)) and move_pct >= float(settings.get("trend_move_min_pct", 0.02)):
+        state = "trend"
+        multiplier = 1.0
+    else:
+        state = "range"
+        multiplier = float(settings.get("range_risk_multiplier", 0.5))
+    return {
+        "state": state,
+        "risk_multiplier": round(max(0.0, min(1.0, multiplier)), 4),
+        "flags": flags,
+        "metrics": {
+            "move_pct": round(move_pct, 4), "trend_efficiency": round(efficiency, 4),
+            "atr_ratio": round(atr_ratio, 4), "basis_pct": round(basis_pct, 6) if basis_pct is not None else None,
+            "funding_rate": funding_rate, "oi_change_pct": round(oi_change_pct, 4) if oi_change_pct is not None else None,
         },
     }
 
@@ -248,7 +326,10 @@ def parameter_snapshot(settings):
             "account_value", "risk_fraction", "leverage",
             "maintenance_margin_rate", "liquidation_fee_rate",
             "fee_rate", "slippage_rate", "max_total_open_risk",
-            "interval", "system",
+            "interval", "system", "market_state_enabled", "extreme_basis_pct",
+            "extreme_funding_rate", "extreme_oi_change_pct", "expansion_atr_ratio",
+            "trend_efficiency_min", "trend_move_min_pct", "range_risk_multiplier",
+            "expansion_risk_multiplier",
         )
     } | {
         "max_units": sw.TURTLE_MAX_UNITS,
@@ -659,6 +740,9 @@ def update_trade(trade, snapshot, settings, state):
 
 def create_signal(snapshot, settings, state):
     bars = snapshot["contract_klines"]
+    market_state = classify_market_state(snapshot, settings) if settings.get("market_state_enabled", True) else {
+        "state": "disabled", "risk_multiplier": 1.0, "flags": [], "metrics": {},
+    }
     direction, reasons, plan = sw.build_turtle_signal(
         bars, settings["system"], state["equity"], settings["risk_fraction"],
         settings["interval"], filter_options=settings["filters"],
@@ -670,9 +754,20 @@ def create_signal(snapshot, settings, state):
     if signal_id in state["seen_signal_ids"]:
         return None
     state["seen_signal_ids"].append(signal_id)
-    if _open_risk(state) + settings["risk_fraction"] > settings["max_total_open_risk"]:
+    if market_state["state"] == "extreme_risk":
+        state["rejected_signals"].append({
+            "id": signal_id, "status": "rejected", "rejection_reason": "market_state_extreme_risk",
+            "market_state": market_state, "market_type": derivatives_data.MARKET_TYPE,
+            "symbol": snapshot["symbol"], "provider": snapshot.get("venue", "unknown"),
+            "research_only": True, "signal_bar_time": signal_time,
+        })
+        return None
+    risk_multiplier = float(market_state.get("risk_multiplier", 1.0))
+    effective_risk_fraction = settings["risk_fraction"] * risk_multiplier
+    if effective_risk_fraction <= 0 or _open_risk(state) + effective_risk_fraction > settings["max_total_open_risk"]:
         state["rejected_signals"].append({
             "id": signal_id, "status": "rejected", "rejection_reason": "portfolio_risk_limit",
+            "market_state": market_state,
             "market_type": derivatives_data.MARKET_TYPE, "symbol": snapshot["symbol"],
             "provider": snapshot.get("venue", "unknown"),
             "research_only": True, "signal_bar_time": signal_time,
@@ -682,7 +777,7 @@ def create_signal(snapshot, settings, state):
     account_equity = float(state["equity"])
     try:
         estimated_quantity = derivatives_data.quantize_quantity(
-            sw.turtle_unit_quantity(account_equity, plan["n"], settings["risk_fraction"], 2.0),
+            sw.turtle_unit_quantity(account_equity, plan["n"], effective_risk_fraction, 2.0),
             snapshot["contract_specs"],
         )
     except (KeyError, TypeError, ValueError):
@@ -702,13 +797,14 @@ def create_signal(snapshot, settings, state):
         "fill_time": signal_time + sw.INTERVAL_MS[settings["interval"]],
         "signal_expires_at": signal_time + sw.INTERVAL_MS[settings["interval"]],
         "entry_model": "next_contract_bar_open", "mark_price_risk": True,
-        "risk_fraction": settings["risk_fraction"], "leverage": settings["leverage"],
+        "risk_fraction": effective_risk_fraction, "configured_risk_fraction": settings["risk_fraction"],
+        "market_state": market_state, "leverage": settings["leverage"],
         "entry_trigger": plan["entry"], "n": plan["n"],
         "account_equity_snapshot": account_equity,
         "estimated_quantity": estimated_quantity,
         "estimated_margin": round(estimated_margin, 8),
-        "estimated_max_loss": round(account_equity * settings["risk_fraction"], 8),
-        "remaining_risk_capacity": max(0.0, settings["max_total_open_risk"] - _open_risk(state) - settings["risk_fraction"]),
+        "estimated_max_loss": round(account_equity * effective_risk_fraction, 8),
+        "remaining_risk_capacity": max(0.0, settings["max_total_open_risk"] - _open_risk(state) - effective_risk_fraction),
         "signal_reasons": reasons, "contract_specs": snapshot["contract_specs"],
         "parameter_snapshot": parameters,
         "parameter_sha256": parameter_checksum(parameters),
@@ -754,6 +850,12 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
         f"Provider：{provider}",
         f"交易ID：{trade.get('id', '--')}",
     ]
+    market_state = trade.get("market_state") or {}
+    if market_state:
+        lines.append(
+            f"市场状态：{market_state.get('state', '--')} · 风险系数：{float(market_state.get('risk_multiplier', 1)) * 100:.0f}%"
+            + (f" · 风险标记：{','.join(market_state.get('flags') or [])}" if market_state.get("flags") else "")
+        )
     if event_type == "signal_created":
         trigger = trade.get("entry_trigger")
         n = trade.get("n")
@@ -900,6 +1002,10 @@ def process_snapshot(snapshot, settings, state):
         # A direct caller may provide a fallback snapshot. Preserve the
         # existing contract: skip it without advancing time or mutating trades.
         return None
+    market_state = classify_market_state(snapshot, settings) if settings.get("market_state_enabled", True) else {
+        "state": "disabled", "risk_multiplier": 1.0, "flags": [], "metrics": {},
+    }
+    state.setdefault("market_state_by_symbol", {})[symbol] = market_state
     if snapshot.get("contract_klines"):
         market_time = int(snapshot["contract_klines"][-1]["time"]) + sw.INTERVAL_MS[settings["interval"]]
         market_times = state.setdefault("market_time_by_symbol", {})
@@ -1005,6 +1111,7 @@ def build_stats(state, settings=None):
         "symbol_health": dict(state.get("symbol_health") or {}),
         "provider_health": dict(state.get("provider_health") or {}),
         "market_time_by_symbol": dict(state.get("market_time_by_symbol") or {}),
+        "market_state_by_symbol": dict(state.get("market_state_by_symbol") or {}),
         "healthy_symbols": sorted(
             symbol for symbol, health in (state.get("symbol_health") or {}).items()
             if health.get("status") == "healthy"
@@ -1047,6 +1154,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("symbol_health", {})
     state.setdefault("provider_health", {})
     state.setdefault("market_time_by_symbol", {})
+    state.setdefault("market_state_by_symbol", {})
     fetchers = {"binance": derivatives_data.fetch_perpetual_snapshot,
                 "okx": okx_data.fetch_perpetual_snapshot}
     errors = {}
@@ -1157,6 +1265,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "data_lag_minutes": round(lag, 2),
                 "latest_market_time": successful_market_times.get(symbol),
                 "signal_status": "signal_created" if signal else "no_signal",
+                "market_state": state.get("market_state_by_symbol", {}).get(symbol),
                 "provider": snapshot.get("venue", provider),
                 "provider_attempts": provider_attempts,
                 "provider_switch_reason": switch_reason,

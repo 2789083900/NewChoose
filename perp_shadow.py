@@ -31,6 +31,16 @@ DEFAULT_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
 SCHEMA_VERSION = 1
 FUNDING_SETTLEMENT_INTERVAL_MS = 8 * 60 * 60 * 1000
 MARKET_STATE_LABELS = {"trend", "range", "volatility_expansion", "extreme_risk", "unknown"}
+MARKET_STATE_DEFAULTS = {
+    "extreme_basis_pct": 1.0,
+    "extreme_funding_rate": 0.001,
+    "extreme_oi_change_pct": 0.20,
+    "expansion_atr_ratio": 1.8,
+    "trend_efficiency_min": 0.45,
+    "trend_move_min_pct": 2.0,
+    "range_risk_multiplier": 0.5,
+    "expansion_risk_multiplier": 0.5,
+}
 
 
 def empty_state(account_value=10000.0):
@@ -197,8 +207,26 @@ def shadow_settings(config):
     data_mode = str(raw.get("research_data_mode", "price_only_research")).strip().lower()
     if data_mode not in {"price_only_research", "full_perpetual_research"}:
         raise ValueError("derivatives.research_data_mode must be price_only_research or full_perpetual_research")
+    if data_mode == "full_perpetual_research" and interval not in derivatives_data.OPEN_INTEREST_PERIODS:
+        supported = ", ".join(sorted(derivatives_data.OPEN_INTEREST_PERIODS))
+        raise ValueError(
+            f"full_perpetual_research interval {interval!r} has no Binance OI support; "
+            f"use one of: {supported}"
+        )
     leverage = _number(raw, "max_leverage", 2.0, 0.01)
     maintenance = _number(raw, "maintenance_margin_rate", 0.005)
+    margin_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+        raw.get("maintenance_margin_tiers") or []
+    )
+    raw_provider_tiers = raw.get("maintenance_margin_tiers_by_provider") or {}
+    if not isinstance(raw_provider_tiers, dict):
+        raise ValueError("derivatives.maintenance_margin_tiers_by_provider must be an object")
+    provider_tiers = {}
+    for name, tiers in raw_provider_tiers.items():
+        provider_name = str(name).strip().lower()
+        if provider_name not in {"binance", "okx"}:
+            raise ValueError("maintenance margin tier provider must be binance or okx")
+        provider_tiers[provider_name] = derivatives_risk.normalize_maintenance_margin_tiers(tiers)
     liquidation_fee = _number(raw, "liquidation_fee_rate", 0.0)
     risk_fraction = _number(raw, "risk_fraction", 0.005)
     max_open_risk = _number(raw, "max_total_open_risk", 0.03)
@@ -227,11 +255,14 @@ def shadow_settings(config):
         "cache_dir": str(raw.get("cache_dir") or ""),
         "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
         "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
+        "sample_group_goal_min_trades": int(_number(raw, "sample_group_goal_min_trades", 10, 1)),
         "system": raw.get("system", "system2"),
         "account_value": _number(raw, "account_value", 10000.0, 1.0),
         "risk_fraction": risk_fraction,
         "leverage": leverage,
         "maintenance_margin_rate": maintenance,
+        "maintenance_margin_tiers": margin_tiers,
+        "maintenance_margin_tiers_by_provider": provider_tiers,
         "liquidation_fee_rate": liquidation_fee,
         "fee_rate": _number(raw, "fee_rate", 0.0004),
         "slippage_rate": _number(raw, "slippage_rate", 0.0005),
@@ -264,7 +295,7 @@ def classify_market_state(snapshot, settings=None):
     pause new entries, while range and volatility-expansion states reduce
     their risk budget. Missing optional series never creates a risk flag.
     """
-    settings = settings or {}
+    settings = {**MARKET_STATE_DEFAULTS, **(settings or {})}
     bars = [row for row in (snapshot.get("contract_klines") or []) if isinstance(row, dict)]
     closes = [float(row["close"]) for row in bars if row.get("close") not in (None, "")]
     if len(closes) < 25:
@@ -275,10 +306,33 @@ def classify_market_state(snapshot, settings=None):
     move_pct = abs(last - first) / first * 100 if first else 0.0
     path = sum(abs(window[i] - window[i - 1]) for i in range(1, len(window)))
     efficiency = abs(last - first) / path if path else 0.0
-    ranges = [abs(float(row["high"]) - float(row["low"])) / float(row["close"])
-              for row in bars if row.get("high") not in (None, "") and row.get("low") not in (None, "") and float(row.get("close") or 0) > 0]
-    current_atr = sum(ranges[-5:]) / min(5, len(ranges)) if ranges else 0.0
-    prior = ranges[-25:-5] if len(ranges) >= 10 else ranges[:-5]
+    true_ranges = []
+    previous_close = None
+    for row in bars:
+        try:
+            high, low, close = float(row["high"]), float(row["low"]), float(row["close"])
+        except (KeyError, TypeError, ValueError):
+            previous_close = None
+            continue
+        if close <= 0 or high < low:
+            previous_close = close
+            continue
+        tr = max(high - low,
+                 abs(high - previous_close) if previous_close is not None else high - low,
+                 abs(low - previous_close) if previous_close is not None else high - low)
+        true_ranges.append(tr / close)
+        previous_close = close
+    # Wilder ATR: seed with the first period mean, then recursively smooth.
+    period = 14
+    atr_series = []
+    if len(true_ranges) >= period:
+        atr = sum(true_ranges[:period]) / period
+        atr_series.append(atr)
+        for value in true_ranges[period:]:
+            atr = ((period - 1) * atr + value) / period
+            atr_series.append(atr)
+    current_atr = sum(atr_series[-5:]) / min(5, len(atr_series)) if atr_series else 0.0
+    prior = atr_series[-25:-5] if len(atr_series) >= 10 else atr_series[:-5]
     prior_atr = sorted(prior)[len(prior) // 2] if prior else current_atr
     atr_ratio = current_atr / prior_atr if prior_atr > 0 else 1.0
     flags = []
@@ -286,36 +340,38 @@ def classify_market_state(snapshot, settings=None):
     index = _latest_observation(snapshot.get("index_price_klines"), bars[-1].get("time", 0))
     basis_pct = ((float(mark["close"]) - float(index["close"])) / float(index["close"]) * 100
                  if mark and index and float(index.get("close") or 0) else None)
-    if basis_pct is not None and abs(basis_pct) >= float(settings.get("extreme_basis_pct", 1.0)):
+    if basis_pct is not None and abs(basis_pct) >= float(settings["extreme_basis_pct"]):
         flags.append("basis_extreme")
     funding = sorted(snapshot.get("funding_rates") or [], key=lambda row: int(row.get("time", 0)))
     funding_rate = float(funding[-1]["funding_rate"]) if funding and funding[-1].get("funding_rate") not in (None, "") else None
-    if funding_rate is not None and abs(funding_rate) >= float(settings.get("extreme_funding_rate", 0.001)):
+    if funding_rate is not None and abs(funding_rate) >= float(settings["extreme_funding_rate"]):
         flags.append("funding_extreme")
     oi = sorted(snapshot.get("open_interest") or [], key=lambda row: int(row.get("time", 0)))
     oi_change_pct = None
     if len(oi) >= 2 and float(oi[-2].get("open_interest") or 0) > 0:
         oi_change_pct = (float(oi[-1].get("open_interest")) / float(oi[-2].get("open_interest")) - 1) * 100
-        if abs(oi_change_pct) >= float(settings.get("extreme_oi_change_pct", 0.20)) * 100:
+        if abs(oi_change_pct) >= float(settings["extreme_oi_change_pct"]) * 100:
             flags.append("oi_shock")
     if flags:
         state = "extreme_risk"
         multiplier = 0.0
-    elif atr_ratio >= float(settings.get("expansion_atr_ratio", 1.8)):
+    elif atr_ratio >= float(settings["expansion_atr_ratio"]):
         state = "volatility_expansion"
-        multiplier = float(settings.get("expansion_risk_multiplier", 0.5))
-    elif efficiency >= float(settings.get("trend_efficiency_min", 0.45)) and move_pct >= float(settings.get("trend_move_min_pct", 0.02)):
+        multiplier = float(settings["expansion_risk_multiplier"])
+    elif efficiency >= float(settings["trend_efficiency_min"]) and move_pct >= float(settings["trend_move_min_pct"]):
         state = "trend"
         multiplier = 1.0
     else:
         state = "range"
-        multiplier = float(settings.get("range_risk_multiplier", 0.5))
+        multiplier = float(settings["range_risk_multiplier"])
     return {
         "state": state,
         "risk_multiplier": round(max(0.0, min(1.0, multiplier)), 4),
         "flags": flags,
         "metrics": {
             "move_pct": round(move_pct, 4), "trend_efficiency": round(efficiency, 4),
+            "atr_method": "wilder_true_range",
+            "atr_current": round(current_atr, 8), "atr_prior": round(prior_atr, 8),
             "atr_ratio": round(atr_ratio, 4), "basis_pct": round(basis_pct, 6) if basis_pct is not None else None,
             "funding_rate": funding_rate, "oi_change_pct": round(oi_change_pct, 4) if oi_change_pct is not None else None,
         },
@@ -331,6 +387,7 @@ def parameter_snapshot(settings):
         key: settings[key] for key in (
             "account_value", "risk_fraction", "leverage",
             "maintenance_margin_rate", "liquidation_fee_rate",
+            "maintenance_margin_tiers",
             "fee_rate", "slippage_rate", "slippage_model", "slippage_impact_coefficient",
             "max_slippage_rate", "max_total_open_risk",
             "interval", "system", "market_state_enabled", "extreme_basis_pct",
@@ -347,8 +404,20 @@ def parameter_snapshot(settings):
         "execution_model": "signal_close_next_contract_bar_open",
         "risk_price": "mark_price",
         "margin_mode": "isolated_approximation",
+        "risk_parameter_provider": settings.get("risk_parameter_provider", "unknown"),
         "sample_collection_phase": "phase_1_btc_eth_shadow_only",
     }
+
+
+def _provider_settings(settings, provider):
+    """Bind risk tiers to the venue that owns the trade's market-data path."""
+    bound = dict(settings)
+    venue = str(provider or "unknown").strip().lower()
+    provider_tiers = settings.get("maintenance_margin_tiers_by_provider") or {}
+    if venue in provider_tiers:
+        bound["maintenance_margin_tiers"] = copy.deepcopy(provider_tiers[venue])
+    bound["risk_parameter_provider"] = venue
+    return bound
 
 
 def parameter_checksum(parameters):
@@ -422,16 +491,18 @@ def _used_margin(state, exclude_id=None):
     return total
 
 
-def _funding_until(trade, funding, timestamp, state, fallback_mark=None):
+def _funding_until(trade, funding, timestamp, state, fallback_mark=None,
+                   mark_rows=None, interval_ms=None):
     last_time = int(trade.get("last_funding_time") or 0)
     for event in funding:
         event_time = int(event["time"])
         if event_time <= last_time or event_time <= int(trade["entry_time"]) or event_time > timestamp:
             continue
-        mark = event.get("mark_price")
-        if mark in (None, ""):
-            mark = fallback_mark
-        if mark in (None, ""):
+        mark, estimated, source = derivatives_risk.funding_mark_at_settlement(
+            event, mark_rows, interval_ms, fallback_mark
+        )
+        if mark is None:
+            trade["funding_mark_unavailable_count"] = int(trade.get("funding_mark_unavailable_count") or 0) + 1
             trade["last_funding_time"] = event_time
             continue
         cashflow = derivatives_risk.funding_payment(
@@ -439,6 +510,11 @@ def _funding_until(trade, funding, timestamp, state, fallback_mark=None):
             event["funding_rate"], trade["direction"],
         )
         trade["funding_cashflow"] += cashflow
+        trade["funding_settlement_count"] = int(trade.get("funding_settlement_count") or 0) + 1
+        if estimated:
+            trade["funding_mark_estimated_count"] = int(trade.get("funding_mark_estimated_count") or 0) + 1
+        sources = trade.setdefault("funding_mark_sources", {})
+        sources[source] = int(sources.get(source, 0)) + 1
         state["equity"] += cashflow
         trade["last_funding_time"] = event_time
 
@@ -643,6 +719,8 @@ def _fill_pending(trade, bar, settings, specs, state, snapshot=None, liquidity_b
                    "slippage": slippage}],
         "latest_entry": entry, "stop": stop, "fees": fee,
         "funding_cashflow": 0.0, "last_funding_time": 0,
+        "funding_settlement_count": 0, "funding_mark_estimated_count": 0,
+        "funding_mark_unavailable_count": 0, "funding_mark_sources": {},
         "mfe_pct": 0.0, "mae_pct": 0.0,
         "last_mark_price": None,
         "entry_market_context": _market_context(snapshot or {}, bar["time"]),
@@ -694,11 +772,17 @@ def update_trade(trade, snapshot, settings, state):
         if bar_time < int(trade["entry_time"]) or bar_time <= start:
             continue
         mark = mark_map[bar_time]
-        _funding_until(trade, funding, bar_time, state, fallback_mark=mark["close"])
+        _funding_until(
+            trade, funding, bar_time, state,
+            fallback_mark=mark["close"], mark_rows=snapshot.get("mark_price_klines"),
+            interval_ms=sw.INTERVAL_MS[trade["interval"]],
+        )
         direction = trade["direction"]
         liq = derivatives_risk.liquidation_price(
             trade["avg_entry"], direction, settings["leverage"],
             settings["maintenance_margin_rate"], settings["liquidation_fee_rate"],
+            quantity=trade["quantity"],
+            maintenance_margin_tiers=settings.get("maintenance_margin_tiers"),
         )
         levels = sw.turtle_levels(contract, index, trade["system"], settings["interval"])
         exit_level = (levels["exit_low"] if direction == "long" else levels["exit_high"]) if levels else None
@@ -1021,6 +1105,7 @@ def send_perpetual_test_notification(config):
 
 
 def process_snapshot(snapshot, settings, state):
+    settings = _provider_settings(settings, snapshot.get("venue"))
     errors = derivatives_data.validate_perpetual_snapshot(snapshot, settings["interval"])
     if errors:
         raise RuntimeError("invalid perpetual shadow snapshot: " + "; ".join(errors))
@@ -1070,11 +1155,78 @@ def process_snapshot(snapshot, settings, state):
     return None
 
 
+def _funding_quality(trade):
+    settled = int(trade.get("funding_settlement_count") or 0)
+    estimated = int(trade.get("funding_mark_estimated_count") or 0)
+    unavailable = int(trade.get("funding_mark_unavailable_count") or 0)
+    if unavailable:
+        return "has_unavailable_mark"
+    if settled <= 0:
+        return "no_settlement"
+    if estimated <= 0:
+        return "exact_settlement_mark"
+    if estimated >= settled:
+        return "estimated_mark_only"
+    return "mixed_exact_and_estimated"
+
+
+def _market_state_label(trade):
+    value = trade.get("market_state")
+    if isinstance(value, dict):
+        return str(value.get("state") or "unknown")
+    return str(value or "unknown")
+
+
+def _sample_breakdown(closed, group_goal):
+    dimensions = {
+        "provider": lambda trade: str(trade.get("provider") or "unknown"),
+        "symbol": lambda trade: str(trade.get("symbol") or "unknown"),
+        "market_state": _market_state_label,
+        "funding_mark_quality": _funding_quality,
+    }
+    result = {}
+    for dimension, key_fn in dimensions.items():
+        buckets = {}
+        for trade in closed:
+            buckets.setdefault(key_fn(trade), []).append(trade)
+        result[dimension] = {}
+        for name, trades in sorted(buckets.items()):
+            wins = sum(float(trade.get("net_pnl") or 0) > 0 for trade in trades)
+            count = len(trades)
+            result[dimension][name] = {
+                "count": count,
+                "wins": wins,
+                "losses": count - wins,
+                "win_rate": round(wins / count * 100, 2),
+                "net_pnl": round(sum(float(trade.get("net_pnl") or 0) for trade in trades), 8),
+                "average_return_pct": round(
+                    sum(float(trade.get("return_pct") or 0) for trade in trades) / count, 4
+                ),
+                "minimum_goal": int(group_goal),
+                "remaining_to_minimum": max(0, int(group_goal) - count),
+                "reliability": "observation_sample" if count >= int(group_goal) else "insufficient_sample",
+            }
+    return result
+
+
+def _configured_sample_coverage(closed, settings, group_goal):
+    coverage = {}
+    for symbol in settings.get("symbols") or []:
+        count = sum(str(trade.get("symbol")) == str(symbol) for trade in closed)
+        coverage[str(symbol)] = {
+            "count": count,
+            "minimum_goal": int(group_goal),
+            "remaining_to_minimum": max(0, int(group_goal) - count),
+        }
+    return coverage
+
+
 def build_stats(state, settings=None):
     closed = state["closed_trades"]
     settings = settings or {}
     minimum_goal = int(settings.get("sample_goal_min_trades", 30))
     preferred_goal = max(minimum_goal, int(settings.get("sample_goal_preferred_trades", 50)))
+    group_goal = int(settings.get("sample_group_goal_min_trades", 10))
     progress_target = preferred_goal
     closed_count = len(closed)
     wins = [item for item in closed if float(item.get("net_pnl") or 0) > 0]
@@ -1090,6 +1242,16 @@ def build_stats(state, settings=None):
             max_drawdown = max(max_drawdown, (peak - value) / peak)
     gross_total = sum(abs(float(item.get("gross_pnl") or 0)) for item in closed)
     absolute_funding = sum(abs(float(item.get("funding_cashflow") or 0)) for item in closed)
+    funding_settlements = sum(int(item.get("funding_settlement_count") or 0)
+                              for item in closed + state["open_trades"])
+    funding_estimated = sum(int(item.get("funding_mark_estimated_count") or 0)
+                            for item in closed + state["open_trades"])
+    funding_unavailable = sum(int(item.get("funding_mark_unavailable_count") or 0)
+                              for item in closed + state["open_trades"])
+    funding_mark_sources = {}
+    for trade in closed + state["open_trades"]:
+        for source, count in (trade.get("funding_mark_sources") or {}).items():
+            funding_mark_sources[source] = funding_mark_sources.get(source, 0) + int(count)
     exposure_points = state.get("equity_curve") or []
     max_margin_used = max((float(item.get("open_margin") or 0) for item in exposure_points), default=0.0)
     max_notional = max((float(item.get("open_notional") or 0) for item in exposure_points), default=0.0)
@@ -1134,6 +1296,11 @@ def build_stats(state, settings=None):
         "pending_entry_count": sum(item.get("status") == "pending_entry" for item in state["open_trades"]),
         "closed_count": closed_count,
         "closed_count_by_provider": provider_sample_counts,
+        "sample_group_goal_min_trades": group_goal,
+        "sample_breakdown": _sample_breakdown(closed, group_goal),
+        "configured_symbol_sample_coverage": _configured_sample_coverage(
+            closed, settings, group_goal
+        ),
         "max_margin_used": round(max_margin_used, 8),
         "max_open_notional": round(max_notional, 8),
         "max_direction_exposure": round(max_directional_exposure, 8),
@@ -1148,9 +1315,27 @@ def build_stats(state, settings=None):
             "max_rate_pct": round(max((float(item["rate"]) for item in slippage_samples), default=0.0) * 100, 6),
             "fixed_fallback_count": sum(item.get("model") == "fixed_fallback" for item in slippage_samples),
         },
+        "liquidation_model": {
+            "model_version": derivatives_risk.liquidation_model_version(
+                settings.get("maintenance_margin_tiers")
+            ),
+            "maintenance_margin_rate": float(settings.get("maintenance_margin_rate", 0.005)),
+            "maintenance_margin_tiers": list(settings.get("maintenance_margin_tiers") or []),
+            "maintenance_margin_tiers_by_provider": copy.deepcopy(
+                settings.get("maintenance_margin_tiers_by_provider") or {}
+            ),
+            "liquidation_fee_rate": float(settings.get("liquidation_fee_rate", 0.0)),
+            "limitations": [
+                "isolated_margin_approximation",
+                "no_wallet_balance_or_partial_liquidation_model",
+                "manual_venue_tiers",
+            ],
+        },
         "sample_goal_min_trades": minimum_goal,
         "sample_goal_preferred_trades": preferred_goal,
         "sample_progress_pct": round(min(100.0, closed_count / progress_target * 100), 2),
+        "sample_remaining_to_minimum": max(0, minimum_goal - closed_count),
+        "sample_remaining_to_preferred": max(0, preferred_goal - closed_count),
         "sample_next_milestone": (
             "minimum_goal" if closed_count < minimum_goal
             else "preferred_goal" if closed_count < preferred_goal
@@ -1168,6 +1353,11 @@ def build_stats(state, settings=None):
         "last_successful_symbols": list(state.get("last_successful_symbols") or []),
         "symbol_health": dict(state.get("symbol_health") or {}),
         "provider_health": dict(state.get("provider_health") or {}),
+        "data_recovery_events": list(state.get("data_recovery_events") or [])[-100:],
+        "data_unavailable_hold_symbols": sorted(
+            symbol for symbol, health in (state.get("symbol_health") or {}).items()
+            if health.get("position_status") == "data_unavailable_hold"
+        ),
         "market_time_by_symbol": dict(state.get("market_time_by_symbol") or {}),
         "market_state_by_symbol": dict(state.get("market_state_by_symbol") or {}),
         "healthy_symbols": sorted(
@@ -1192,6 +1382,13 @@ def build_stats(state, settings=None):
         "win_rate": round(len(wins) / len(closed) * 100, 2) if closed else 0,
         "net_pnl": round(sum(float(item.get("net_pnl") or 0) for item in closed), 8),
         "funding_cashflow": round(funding, 8),
+        "funding_settlement_count": funding_settlements,
+        "funding_mark_estimated_count": funding_estimated,
+        "funding_mark_unavailable_count": funding_unavailable,
+        "funding_mark_sources": funding_mark_sources,
+        "funding_mark_estimated_pct": round(
+            funding_estimated / funding_settlements * 100, 4
+        ) if funding_settlements else 0.0,
         "funding_to_gross_pnl_pct": round(absolute_funding / gross_total * 100, 4) if gross_total else 0,
         "avg_mfe_pct": round(sum(float(item.get("mfe_pct") or 0) for item in closed) / len(closed), 4) if closed else 0,
         "avg_mae_pct": round(sum(float(item.get("mae_pct") or 0) for item in closed) / len(closed), 4) if closed else 0,
@@ -1213,6 +1410,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("provider_health", {})
     state.setdefault("market_time_by_symbol", {})
     state.setdefault("market_state_by_symbol", {})
+    state.setdefault("data_recovery_events", [])
     fetchers = {"binance": derivatives_data.fetch_perpetual_snapshot,
                 "okx": okx_data.fetch_perpetual_snapshot}
     errors = {}
@@ -1241,6 +1439,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             })
             continue
           started = time.perf_counter()
+          attempt_component_errors = {}
           try:
             fetch_kwargs = {
                 "limit": settings["history_limit"], "closed_only": True,
@@ -1254,11 +1453,9 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 fetch_kwargs["request_backoff_seconds"] = settings["request_backoff_seconds"]
             snapshot = fetch(symbol, settings["interval"], **fetch_kwargs)
             latency_ms = round((time.perf_counter() - started) * 1000, 2)
-            provider_attempts.append({
-                "provider": provider, "status": "success", "latency_ms": latency_ms,
-            })
             health = snapshot.get("data_health") or {}
             component_errors = dict(health.get("component_errors") or {})
+            attempt_component_errors = component_errors
             required = ("contract_klines", "mark_price_klines", "index_price_klines", "contract_specs")
             missing_required = [name for name in required if not snapshot.get(name)]
             bound_providers = {
@@ -1297,44 +1494,75 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 ):
                     missing_required.append("open_interest_gaps")
             if missing_required:
-                raise RuntimeError("required perpetual data unavailable: " + ", ".join(missing_required))
+                detail = "; ".join(
+                    f"{name}={message}" for name, message in sorted(component_errors.items())
+                )
+                message = "required perpetual data unavailable: " + ", ".join(missing_required)
+                raise RuntimeError(message + (f"; component_errors: {detail}" if detail else ""))
             state_before_symbol = copy.deepcopy(state)
-            signal = process_snapshot(snapshot, settings, state)
-            notification_events.extend(
-                _collect_notification_events(state_before_symbol, state, signal, snapshot)
+            had_data_hold = (
+                (state.get("symbol_health", {}).get(symbol) or {}).get("status") in
+                {"stale_cache", "stale", "unavailable"}
+                and any(item.get("symbol") == symbol and item.get("status") == "open"
+                        for item in state.get("open_trades", []))
             )
+            candidate_state = copy.deepcopy(state)
+            signal = process_snapshot(snapshot, settings, candidate_state)
             _save_snapshot_cache(settings["cache_dir"], snapshot)
-            provider_health.update({
+            pending_notifications = _collect_notification_events(
+                state_before_symbol, candidate_state, signal, snapshot
+            )
+            if had_data_hold:
+                candidate_state.setdefault("data_recovery_events", []).append({
+                    "symbol": symbol, "at_epoch_ms": int(time.time() * 1000),
+                    "provider": snapshot.get("venue", provider),
+                    "status": "data_recovered_reconcile",
+                })
+            candidate_provider_health = candidate_state["provider_health"].setdefault(provider_key, {})
+            candidate_provider_health.update({
                 "consecutive_failures": 0,
                 "last_success_at_epoch_ms": int(time.time() * 1000),
                 "last_latency_ms": latency_ms,
                 "cooldown_until_epoch_ms": 0,
             })
+            latest_market_time = None
             if snapshot.get("contract_klines"):
                 observed_time = int(snapshot["contract_klines"][-1]["time"]) + sw.INTERVAL_MS[settings["interval"]]
-                successful_market_times[symbol] = max(
-                    int(state["market_time_by_symbol"].get(symbol) or 0), observed_time
+                latest_market_time = max(
+                    int(candidate_state["market_time_by_symbol"].get(symbol) or 0), observed_time
                 )
             lag = max((float(value) for value in (health.get("data_lag_minutes") or {}).values()), default=0.0)
             lag_limit = sw.INTERVAL_MS[settings["interval"]] * 3 / 60000
             status = "stale" if lag > lag_limit else ("partial" if component_errors else "healthy")
-            symbol_health[symbol] = {
+            next_symbol_health = {
                 "status": status, "component_errors": component_errors,
                 "data_lag_minutes": round(lag, 2),
-                "latest_market_time": successful_market_times.get(symbol),
+                "latest_market_time": latest_market_time,
                 "signal_status": "signal_created" if signal else "no_signal",
-                "market_state": state.get("market_state_by_symbol", {}).get(symbol),
+                "market_state": candidate_state.get("market_state_by_symbol", {}).get(symbol),
                 "provider": snapshot.get("venue", provider),
                 "provider_attempts": provider_attempts,
                 "provider_switch_reason": switch_reason,
                 "provider_latency_ms": latency_ms,
+                "position_status": "data_recovered_reconcile" if had_data_hold else "normal",
             }
             if any(item.get("status") == "error" for item in provider_attempts):
-                symbol_health[symbol]["provider_switch_reason"] = (
+                next_symbol_health["provider_switch_reason"] = (
                     f"fallback_after_{sum(item.get('status') == 'error' for item in provider_attempts)}_failure(s)"
                 )
             elif any(item.get("status") == "skipped_cooldown" for item in provider_attempts):
-                symbol_health[symbol]["provider_switch_reason"] = "fallback_after_provider_cooldown"
+                next_symbol_health["provider_switch_reason"] = "fallback_after_provider_cooldown"
+            provider_attempts.append({
+                "provider": provider, "status": "success", "latency_ms": latency_ms,
+            })
+            # Commit this symbol atomically only after all processing and
+            # derived health calculations succeed.
+            state.clear()
+            state.update(candidate_state)
+            notification_events.extend(pending_notifications)
+            if latest_market_time is not None:
+                successful_market_times[symbol] = latest_market_time
+            symbol_health[symbol] = next_symbol_health
             selected = provider
             break
           except Exception as exc:
@@ -1351,6 +1579,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             provider_attempts.append({
                 "provider": provider, "status": "error", "latency_ms": latency_ms,
                 "error": str(exc), "consecutive_failures": failures,
+                "component_errors": attempt_component_errors,
             })
             if selected is None and len(provider_attempts) > 1:
                 switch_reason = f"{provider_attempts[-2].get('provider')} failed; tried {provider}"
@@ -1371,6 +1600,12 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "provider_attempts": provider_attempts,
                 "provider_switch_reason": switch_reason,
                 "provider_latency_ms": None,
+                "position_status": (
+                    "data_unavailable_hold"
+                    if any(item.get("symbol") == symbol and item.get("status") == "open"
+                           for item in state.get("open_trades", []))
+                    else "no_open_position"
+                ),
             }
             continue
         symbol_health[symbol] = {
@@ -1381,6 +1616,12 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             "provider_attempts": provider_attempts,
             "provider_switch_reason": switch_reason,
             "provider_latency_ms": None,
+            "position_status": (
+                "data_unavailable_hold"
+                if any(item.get("symbol") == symbol and item.get("status") == "open"
+                       for item in state.get("open_trades", []))
+                else "no_open_position"
+            ),
         }
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors

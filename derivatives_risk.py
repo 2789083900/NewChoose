@@ -11,6 +11,12 @@ import math
 
 
 SUPPORTED_MARKET_TYPES = {"spot", "linear_perpetual", "delivery"}
+LIQUIDATION_MODEL_VERSION_FLAT = "isolated_linear_v1"
+LIQUIDATION_MODEL_VERSION_TIERED = "isolated_linear_tiered_v1"
+
+
+def liquidation_model_version(tiers=None):
+    return LIQUIDATION_MODEL_VERSION_TIERED if tiers else LIQUIDATION_MODEL_VERSION_FLAT
 
 
 def validate_market_type(market_type):
@@ -75,8 +81,56 @@ def execution_slippage(base_rate, quantity, bar_volume=None, model="fixed",
     }
 
 
+def normalize_maintenance_margin_tiers(tiers):
+    """Validate and canonicalize notional-based maintenance margin tiers."""
+    if tiers in (None, []):
+        return []
+    if not isinstance(tiers, list):
+        raise ValueError("maintenance margin tiers must be a list")
+    normalized = []
+    for tier in tiers:
+        if not isinstance(tier, dict):
+            raise ValueError("maintenance margin tiers must be objects")
+        cap = tier.get("max_notional", tier.get("notional_cap"))
+        rate = tier.get("maintenance_margin_rate", tier.get("rate"))
+        try:
+            cap_value, rate_value = float(cap), float(rate)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("maintenance margin tiers require numeric max_notional and rate") from exc
+        if (not math.isfinite(cap_value) or not math.isfinite(rate_value)
+                or cap_value <= 0 or not 0 <= rate_value < 1):
+            raise ValueError("maintenance margin tier values are outside supported bounds")
+        normalized.append((cap_value, rate_value))
+    normalized.sort()
+    caps = [cap for cap, _rate in normalized]
+    if len(caps) != len(set(caps)):
+        raise ValueError("maintenance margin tier max_notional values must be unique")
+    rates = [rate for _cap, rate in normalized]
+    if any(rates[index] < rates[index - 1] for index in range(1, len(rates))):
+        raise ValueError("maintenance margin tier rates must not decrease")
+    return [
+        {"max_notional": cap, "maintenance_margin_rate": rate}
+        for cap, rate in normalized
+    ]
+
+
+def _tier_maintenance_rate(notional, tiers, default_rate):
+    """Select the first maintenance rate whose cap contains ``notional``."""
+    normalized = normalize_maintenance_margin_tiers(tiers)
+    if not normalized:
+        return float(default_rate), "flat"
+    value = float(notional)
+    for item in normalized:
+        cap, rate = item["max_notional"], item["maintenance_margin_rate"]
+        if value <= cap:
+            return rate, f"tier_{cap:g}"
+    last = normalized[-1]
+    return last["maintenance_margin_rate"], f"tier_{last['max_notional']:g}_plus"
+
+
 def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=0.005,
-                      liquidation_fee_rate=0.0):
+                      liquidation_fee_rate=0.0, quantity=None,
+                      maintenance_margin_tiers=None):
     """Approximate isolated-margin liquidation price for a linear contract.
 
     The formula is intentionally conservative and exchange-agnostic. Exact
@@ -95,12 +149,49 @@ def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=
     side = str(direction).strip().lower()
     if side not in {"long", "short"}:
         raise ValueError("direction must be 'long' or 'short'")
+    tier_label = "flat"
+    if maintenance_margin_tiers:
+        if quantity is None:
+            raise ValueError("quantity is required when maintenance margin tiers are configured")
+        notional = position_notional(entry, quantity)
+        mmr, tier_label = _tier_maintenance_rate(notional, maintenance_margin_tiers, mmr)
     # Isolated linear approximation: equity is exhausted at 1/leverage loss
     # after reserving maintenance margin and liquidation fee allowance.
     loss_allowance = (1.0 / lev) - mmr - liq_fee
     if side == "long":
-        return entry * (1.0 - loss_allowance)
-    return entry * (1.0 + loss_allowance)
+        value = entry * (1.0 - loss_allowance)
+    else:
+        value = entry * (1.0 + loss_allowance)
+    return value
+
+
+def liquidation_model_metadata(entry_price, quantity, direction, leverage,
+                                maintenance_margin_rate=0.005,
+                                liquidation_fee_rate=0.0,
+                                maintenance_margin_tiers=None):
+    """Return auditable parameters used by the research liquidation model."""
+    normalized = normalize_maintenance_margin_tiers(maintenance_margin_tiers)
+    notional = position_notional(entry_price, quantity)
+    mmr, tier = _tier_maintenance_rate(
+        notional, normalized,
+        maintenance_margin_rate,
+    )
+    price = liquidation_price(
+        entry_price, direction, leverage, maintenance_margin_rate,
+        liquidation_fee_rate, quantity=quantity,
+        maintenance_margin_tiers=normalized,
+    )
+    return {
+        "model_version": liquidation_model_version(normalized),
+        "direction": str(direction).strip().lower(),
+        "leverage": float(leverage),
+        "liquidation_price": price,
+        "maintenance_margin_rate": mmr,
+        "liquidation_fee_rate": float(liquidation_fee_rate),
+        "notional": notional,
+        "maintenance_tier": tier,
+        "tier_count": len(normalized),
+    }
 
 
 def funding_payment(notional, funding_rate, direction):
@@ -118,6 +209,42 @@ def funding_payment(notional, funding_rate, direction):
         raise ValueError("direction must be 'long' or 'short'")
     signed = -value * rate if side == "long" else value * rate
     return signed
+
+
+def funding_mark_at_settlement(event, mark_rows, interval_ms, fallback_mark=None):
+    """Resolve a funding mark without using a candle that closes after settlement."""
+    raw = event.get("mark_price")
+    if raw not in (None, ""):
+        try:
+            value = float(raw)
+            if math.isfinite(value) and value > 0:
+                return value, False, "settlement_mark"
+        except (TypeError, ValueError):
+            pass
+    event_time = int(event.get("time") or 0)
+    duration = int(interval_ms or 0)
+    if duration <= 0:
+        raise ValueError("interval_ms must be > 0 when estimating a funding mark")
+    eligible = [
+        row for row in (mark_rows or [])
+        if int(row.get("time", 0)) + duration <= event_time
+    ]
+    if eligible:
+        observed = max(eligible, key=lambda row: int(row["time"]))
+        try:
+            value = float(observed["close"])
+            if math.isfinite(value) and value > 0:
+                return value, True, "prior_closed_mark_candle"
+        except (KeyError, TypeError, ValueError):
+            pass
+    if fallback_mark not in (None, ""):
+        try:
+            value = float(fallback_mark)
+            if math.isfinite(value) and value > 0:
+                return value, True, "current_bar_fallback"
+        except (TypeError, ValueError):
+            pass
+    return None, True, "unavailable"
 
 
 def adverse_price(entry_price, direction, price_change_pct):
@@ -149,7 +276,7 @@ class PerpetualRiskSnapshot:
 
 def build_risk_snapshot(entry_price, quantity, direction, leverage,
                         funding_rate=0.0, maintenance_margin_rate=0.005,
-                        liquidation_fee_rate=0.0):
+                        liquidation_fee_rate=0.0, maintenance_margin_tiers=None):
     market_type = validate_market_type("linear_perpetual")
     side = str(direction).strip().lower()
     notional = position_notional(entry_price, quantity)
@@ -162,7 +289,8 @@ def build_risk_snapshot(entry_price, quantity, direction, leverage,
         notional=notional,
         initial_margin=margin_required(entry_price, quantity, leverage),
         liquidation_price=liquidation_price(
-            entry_price, side, leverage, maintenance_margin_rate, liquidation_fee_rate
+            entry_price, side, leverage, maintenance_margin_rate, liquidation_fee_rate,
+            quantity=quantity, maintenance_margin_tiers=maintenance_margin_tiers,
         ),
         funding_cashflow=funding_payment(notional, funding_rate, side),
     )

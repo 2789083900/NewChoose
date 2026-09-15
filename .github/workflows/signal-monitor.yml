@@ -97,6 +97,9 @@ jobs:
               with open("perp_shadow_stats.json", encoding="utf-8") as f:
                   stats = json.load(f)
               print("perpetual shadow sample: closed={closed_count}, open={open_count}, progress={sample_progress_pct}%, reliability={sample_reliability}, next={sample_next_milestone}".format(**stats))
+              print("perpetual shadow remaining: minimum={}, preferred={}".format(stats.get("sample_remaining_to_minimum"), stats.get("sample_remaining_to_preferred")))
+              print("perpetual shadow configured-symbol coverage:", stats.get("configured_symbol_sample_coverage", {}))
+              print("perpetual shadow sample groups:", stats.get("sample_breakdown", {}))
               print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
               print("perpetual shadow providers:", {symbol: health.get("provider") for symbol, health in (stats.get("symbol_health") or {}).items()})
               print("perpetual shadow provider attempts:", {symbol: health.get("provider_attempts") for symbol, health in (stats.get("symbol_health") or {}).items()})
@@ -120,22 +123,19 @@ jobs:
         if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Validate perpetual shadow state
-        run: python validate_perp_shadow.py
+        id: validate_perpetual_shadow
+        continue-on-error: true
+        run: python validate_perp_shadow.py --max-age-minutes 30
         if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
-      - name: Fail when perpetual shadow execution failed
-        if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.perpetual_shadow.outcome == 'failure'
-        run: |
-          echo "perpetual shadow execution failed; refusing to publish stale shadow state" >&2
-          exit 1
-
-      - name: Save signal state
+      - name: Save ordinary signal state
         shell: bash
         if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
         run: |
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json perp_shadow_state.json perp_shadow_stats.json; do
+          git config rebase.autoStash true
+          for file in signal_watch.state.json signal_records.json signal_tracking_stats.json signal_quality_report.json trade_stats.json monitor_health.json; do
             if [ -f "$file" ]; then
               git add -f "$file"
             fi
@@ -146,7 +146,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "state unchanged"
           else
-            git commit -m "chore: update signal state"
+            git commit -m "chore: update ordinary signal state"
             for attempt in 1 2 3; do
               if ! git fetch origin "${GITHUB_REF_NAME}"; then
                 echo "fetch conflict; retry ${attempt}/3"
@@ -166,3 +166,45 @@ jobs:
             echo "unable to publish signal state after retries" >&2
             exit 1
           fi
+
+      - name: Save perpetual shadow state
+        shell: bash
+        if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.perpetual_shadow.outcome == 'success' && steps.validate_perpetual_shadow.outcome == 'success'
+        run: |
+          git config user.name "coinpulse-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config rebase.autoStash true
+          for file in perp_shadow_state.json perp_shadow_stats.json; do
+            if [ -f "$file" ]; then
+              git add -f "$file"
+            fi
+          done
+          if git diff --cached --quiet; then
+            echo "perpetual shadow state unchanged"
+          else
+            git commit -m "chore: update perpetual shadow state"
+            for attempt in 1 2 3; do
+              if ! git fetch origin "${GITHUB_REF_NAME}"; then
+                echo "fetch conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+                git rebase --abort || true
+                echo "rebase conflict; retry ${attempt}/3"
+                sleep $((attempt * 2))
+                continue
+              fi
+              if git push origin HEAD:${GITHUB_REF_NAME}; then exit 0; fi
+              echo "push conflict; retry ${attempt}/3"
+              sleep $((attempt * 2))
+            done
+            echo "unable to publish perpetual shadow state after retries" >&2
+            exit 1
+          fi
+
+      - name: Fail when perpetual shadow processing failed
+        if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && (steps.perpetual_shadow.outcome == 'failure' || steps.validate_perpetual_shadow.outcome == 'failure')
+        run: |
+          echo "perpetual shadow execution or validation failed; stale shadow state was not published" >&2
+          exit 1

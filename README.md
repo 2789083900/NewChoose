@@ -64,7 +64,7 @@ python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\
 
 永续影子交易使用独立的 `perp_shadow_state.json` 和 `perp_shadow_stats.json`，不会读写现货的 `signal_watch.state.json`、`signal_records.json` 或 `trade_stats.json`。它只访问 Binance/OKX 公开接口，不使用 API 密钥，也不提交订单。
 
-当前第一阶段研究配置已启用永续影子交易，但范围严格限制为 BTCUSDT、ETHUSDT 的 4h 合约数据；`research_only` 保持为 `true`，没有真实账户、API 密钥或自动下单。统计文件会记录 `closed_count`、当前开放样本、数据错误和样本可靠性：完成交易少于 30 笔只能视为不足样本，30～49 笔为观察样本，达到 50 笔才达到本阶段的优选样本门槛。
+当前第一阶段研究配置已启用永续影子交易，但范围严格限制为 BTCUSDT、ETHUSDT 的 4h 合约数据；`research_only` 保持为 `true`，没有真实账户、API 密钥或自动下单。统计文件会记录 `closed_count`、当前开放样本、数据错误和样本可靠性：完成交易少于 30 笔只能视为不足样本，30～49 笔为观察样本，达到 50 笔才达到本阶段的优选样本门槛。已平仓样本还会按 provider、币种、入场市场状态和资金费标记价质量分别统计数量、胜率、净收益与平均收益；每个已观察分组默认至少需要 10 笔，避免总体样本数掩盖局部分组不足。
 
 永续数据源暂时不可用时，云端工作流会保留错误到 `perp_shadow_stats.json`，但不会阻断现货信号扫描、健康文件更新和现货状态提交；这保证永续研究链路的问题不会被误报成整套监控失联。
 
@@ -75,6 +75,8 @@ python perp_shadow.py --config signal_watch.config.json
 ```
 
 每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。`provider=auto` 会按币种执行 Binance -> OKX 故障转移，并对连续失败的数据源应用 `provider_cooldown_seconds` 冷却；`perp_shadow_stats.json` 会记录每次尝试、切换原因、请求延迟和按 provider 分组的已完成样本。缓存按 provider 分文件保存，旧版无后缀缓存仍可读取。`research_data_mode` 默认是 `price_only_research`，允许 funding/OI 暂缺但会保留覆盖诊断；设置为 `full_perpetual_research` 后，缺少 funding、历史 OI、funding/OI 未覆盖合约 K 线窗口，或内部观测存在过大缺口的快照不会创建新样本（资金费按约 8 小时结算周期容差判断，内部最大缺口不超过预期周期的 3 倍，OI 至少需要两个不同时间点）。快照会记录采集 provider、是否仅使用已闭合 K 线和 interval 元数据，回测报告会回显这些信息；非 TRADING/live 合约会被拒绝。多币种权益曲线使用请求币种共同拥有的最新收盘时间，避免不同步数据混入同一组合时间点。模板当前 `enabled: true`，但始终强制 `research_only: true`，不会自动推送或自动下单；若需仅手动运行，可在本地配置中设为 `enabled: false`。
+
+风险档位可以用 `maintenance_margin_tiers_by_provider.binance` 和 `maintenance_margin_tiers_by_provider.okx` 分别配置。自动故障转移创建样本时只冻结实际 provider 对应的档位，不能跨交易所复用；空数组表示仍使用全局固定维持保证金率近似。
 
 每笔已成交记录还会保存 MFE/MAE（以首笔入场价为基准，避免加仓改写历史路径）、持仓小时数，以及入场/退出时的合约价、标记价、指数价、基差和 OI 快照。状态中的 `equity` 是已实现权益，`marked_equity` 会按最近标记价加入未实现盈亏；统计文件会给出最大回撤、平均 MFE/MAE、平均持仓时间和资金费率占毛收益比例。权益曲线按每轮处理到的最新已收盘合约 K 线时间采样，同一市场时间会覆盖旧点，不代表逐笔成交或逐根 K 线的完整组合净值。
 每轮权益曲线还会记录开放名义价值、保证金、做多/做空方向暴露和开放风险比例；统计文件会汇总这些字段的峰值以及最大连续亏损，用于后续组合风险评估。
@@ -245,6 +247,8 @@ python signal_watch.py --test
 永续模块现在会根据最近 20 根合约 K 线及可用的资金费、基差、OI 变化标注市场状态：`trend` 正常风险，`range` 和 `volatility_expansion` 默认将新信号风险降至 50%，`extreme_risk`（基差/资金费/OI 触发阈值）暂停新开仓。状态、指标和触发标记会写入永续状态与推送；已有仓位仍按原止损、标记价和强平近似模型管理。
 
 永续影子交易默认使用 `volume_impact` 滑点模型：基础滑点叠加委托数量/前一根已收盘 K 线成交量参与率的平方根冲击，并受 `max_slippage_rate` 限制；使用前一根成交量可避免开盘或盘中成交引用未来数据，成交量缺失时自动回退到固定滑点。每次入场、加仓和出场都会保存模型、流动性代理时间、参与率和实际滑点，统计文件汇总平均/最大滑点及回退次数。可复现回测支持同一模型，旧的直接 API 调用仍默认 `fixed` 以保持历史结果可复现。
+
+永续回测报告还会运行成交量降至基准 50% 和 20% 的流动性压力场景。该结果仅衡量 K 线成交量代理下的参数敏感性，不包含盘口价差、深度、部分成交或跨价位成交，不应解释为真实盘口成交仿真。
 
 OKX 适配器会使用公开合约规格中的 `ctVal`，把 K 线成交量、OI、最小下单量和数量步长从“张”统一换算为基础币数量，同时保留原始张数。这样 Binance 与 OKX 的仓位和流动性冲击计算使用同一单位。
 

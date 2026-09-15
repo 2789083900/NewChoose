@@ -117,13 +117,17 @@ def _specs(inst_id, getter):
     contract_value = float(row.get("ctVal") or 0)
     if contract_value <= 0:
         raise RuntimeError(f"OKX instrument is missing a valid contract value: {inst_id}")
-    contract_currency = row.get("ctValCcy") or row.get("baseCcy")
-    if contract_currency != row.get("baseCcy"):
+    if row.get("ctType") not in (None, "", "linear") or row.get("settleCcy") not in (None, "", "USDT"):
+        raise RuntimeError(f"OKX contract is not linear USDT-settled: {inst_id}")
+    inferred_base = inst_id.split("-", 1)[0]
+    base_asset = row.get("baseCcy") or row.get("ctValCcy") or inferred_base
+    contract_currency = row.get("ctValCcy") or base_asset
+    if base_asset != inferred_base or contract_currency != base_asset:
         raise RuntimeError(f"OKX contract value is not denominated in the base asset: {inst_id}")
     native_step = float(row["lotSz"])
     native_minimum = float(row["minSz"])
     return {"symbol": inst_id.replace("-USDT-SWAP", "USDT"), "status": row.get("state"),
-            "contract_type": "PERPETUAL", "base_asset": row.get("baseCcy"),
+            "contract_type": "PERPETUAL", "base_asset": base_asset,
             "quote_asset": "USDT", "price_tick": float(row["tickSz"]),
             "quantity_step": native_step * contract_value,
             "min_quantity": native_minimum * contract_value,

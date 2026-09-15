@@ -9,14 +9,20 @@ import sys
 from datetime import datetime, timezone
 
 import derivatives_snapshots
+import derivatives_risk
 import perp_backtest
+import signal_watch as sw
 
 
 def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         account_value=10000.0, risk_fraction=0.005, leverage=2.0,
         fee_rate=0.0004, slippage_rate=0.0005, system="system2",
         slippage_model="volume_impact", slippage_impact_coefficient=0.001,
-        max_slippage_rate=0.01):
+        max_slippage_rate=0.01, maintenance_margin_rate=0.005,
+        liquidation_fee_rate=0.0, maintenance_margin_tiers=None):
+    maintenance_margin_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+        maintenance_margin_tiers
+    )
     loaded = derivatives_snapshots.find_latest(data_dir, symbol, interval)
     if not loaded:
         raise RuntimeError(f"没有找到有效永续快照：{symbol} {interval}")
@@ -27,6 +33,9 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         system=system, slippage_model=slippage_model,
         slippage_impact_coefficient=slippage_impact_coefficient,
         max_slippage_rate=max_slippage_rate,
+        maintenance_margin_rate=maintenance_margin_rate,
+        liquidation_fee_rate=liquidation_fee_rate,
+        maintenance_margin_tiers=maintenance_margin_tiers,
     )
     funding_stress = perp_backtest.run_funding_flip_stress(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
@@ -34,10 +43,33 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         system=system, slippage_model=slippage_model,
         slippage_impact_coefficient=slippage_impact_coefficient,
         max_slippage_rate=max_slippage_rate,
+        maintenance_margin_rate=maintenance_margin_rate,
+        liquidation_fee_rate=liquidation_fee_rate,
+        maintenance_margin_tiers=maintenance_margin_tiers,
+    )
+    liquidity_stress = perp_backtest.run_liquidity_stress_tests(
+        snapshot, account_value=account_value, risk_fraction=risk_fraction,
+        leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
+        system=system, slippage_model=slippage_model,
+        slippage_impact_coefficient=slippage_impact_coefficient,
+        max_slippage_rate=max_slippage_rate,
+        maintenance_margin_rate=maintenance_margin_rate,
+        liquidation_fee_rate=liquidation_fee_rate,
+        maintenance_margin_tiers=maintenance_margin_tiers,
+    )
+    generated_at = datetime.now(timezone.utc)
+    contract_rows = snapshot.get("contract_klines") or []
+    last_close_ms = (
+        int(contract_rows[-1]["time"]) + sw.INTERVAL_MS[snapshot["interval"]]
+        if contract_rows else None
+    )
+    data_age_hours = (
+        (generated_at.timestamp() * 1000 - last_close_ms) / (60 * 60 * 1000)
+        if last_close_ms is not None else None
     )
     report = {
         "schema_version": 1,
-        "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generated_at_utc": generated_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "market_type": "linear_perpetual",
         "venue": loaded["metadata"].get("venue"),
         "symbol": loaded["metadata"].get("symbol"),
@@ -48,6 +80,13 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "saved_at_utc": loaded["metadata"].get("saved_at_utc"),
             "collection": snapshot.get("collection") or {},
             "data_health": snapshot.get("data_health") or {},
+            "research_mode": "historical_snapshot_backtest",
+            "last_contract_close_epoch_ms": last_close_ms,
+            "last_contract_close_utc": (
+                datetime.fromtimestamp(last_close_ms / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                if last_close_ms is not None else None
+            ),
+            "data_age_hours": round(data_age_hours, 4) if data_age_hours is not None else None,
         },
         "parameters": {
             "account_value": account_value, "risk_fraction": risk_fraction,
@@ -56,17 +95,23 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "slippage_model": slippage_model,
             "slippage_impact_coefficient": slippage_impact_coefficient,
             "max_slippage_rate": max_slippage_rate,
+            "maintenance_margin_rate": maintenance_margin_rate,
+            "liquidation_fee_rate": liquidation_fee_rate,
+            "maintenance_margin_tiers": maintenance_margin_tiers or [],
         },
         "contract_specs": snapshot.get("contract_specs"),
         "risk_model": {
             "contract_constraints_bound": bool(snapshot.get("contract_specs")),
-            "liquidation_model": "exchange_agnostic_approximation",
-            "maintenance_margin_source": "manual_parameter",
+            "liquidation_model": scenarios["baseline"]["liquidation_model"]["model_version"],
+            "maintenance_margin_source": (
+                "manual_notional_tiers" if maintenance_margin_tiers else "manual_flat_rate"
+            ),
             "slippage_model": slippage_model,
             "liquidity_proxy": "contract_kline_base_volume",
         },
         "cost_stress": scenarios,
         "funding_flip_stress": funding_stress,
+        "liquidity_stress": liquidity_stress,
     }
     if output:
         os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
@@ -90,20 +135,32 @@ def main(argv=None):
     parser.add_argument("--slippage-model", choices=("fixed", "volume_impact"), default="volume_impact")
     parser.add_argument("--slippage-impact-coefficient", type=float, default=0.001)
     parser.add_argument("--max-slippage-rate", type=float, default=0.01)
+    parser.add_argument("--maintenance-margin-rate", type=float, default=0.005)
+    parser.add_argument("--liquidation-fee-rate", type=float, default=0.0)
+    parser.add_argument(
+        "--maintenance-margin-tiers-json", default="",
+        help='JSON array such as [{"max_notional":50000,"rate":0.005}]',
+    )
     parser.add_argument("--system", choices=("system1", "system2"), default="system2")
     args = parser.parse_args(argv)
     try:
+        maintenance_tiers = json.loads(args.maintenance_margin_tiers_json) if args.maintenance_margin_tiers_json else None
+        if maintenance_tiers is not None and not isinstance(maintenance_tiers, list):
+            raise ValueError("--maintenance-margin-tiers-json must be a JSON array")
         report = run(
             args.symbol, args.interval, os.path.abspath(args.data_dir),
             args.output or None, args.account_value, args.risk_fraction,
             args.leverage, args.fee_rate, args.slippage_rate, args.system,
             args.slippage_model, args.slippage_impact_coefficient, args.max_slippage_rate,
+            args.maintenance_margin_rate, args.liquidation_fee_rate, maintenance_tiers,
         )
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     print(f"回测完成：{report['symbol']} {report['interval']}")
     print(f"输入快照 SHA-256：{report['input_snapshot']['sha256']}")
+    print(f"最后收盘时间：{report['input_snapshot']['last_contract_close_utc']}")
+    print(f"数据年龄：{report['input_snapshot']['data_age_hours']:.2f} 小时（历史快照回测）")
     print(f"基准收益：{report['cost_stress']['baseline']['return_pct']:.4f}%")
     print(f"2倍成本收益：{report['cost_stress']['double_cost']['return_pct']:.4f}%")
     print(f"4倍成本收益：{report['cost_stress']['quadruple_cost']['return_pct']:.4f}%")

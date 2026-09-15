@@ -42,6 +42,23 @@ def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
 
 
 class TurtleCoreTests(unittest.TestCase):
+    def test_workflow_publishes_perpetual_state_only_after_successful_validation(self):
+        workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        ordinary = text.split("- name: Save ordinary signal state", 1)[1].split(
+            "- name: Save perpetual shadow state", 1
+        )[0]
+        perpetual = text.split("- name: Save perpetual shadow state", 1)[1].split(
+            "- name: Fail when perpetual shadow processing failed", 1
+        )[0]
+        self.assertNotIn("perp_shadow_state.json", ordinary)
+        self.assertIn("perp_shadow_state.json", perpetual)
+        self.assertIn("steps.perpetual_shadow.outcome == 'success'", perpetual)
+        self.assertIn("steps.validate_perpetual_shadow.outcome == 'success'", perpetual)
+        self.assertIn("git config rebase.autoStash true", ordinary)
+        self.assertIn("validate_perp_shadow.py --max-age-minutes 30", text)
+
     CONFIRMATION_OFF = {
         "adx_enabled": False,
         "volume_confirmation": False,
@@ -389,6 +406,28 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertAlmostEqual(snapshot.liquidation_price, 50.5)
         self.assertEqual(snapshot.funding_cashflow, -1.0)
 
+    def test_liquidation_price_uses_notional_maintenance_tier(self):
+        flat = derivatives_risk.liquidation_price(100, "long", 2, 0.005)
+        tiered = derivatives_risk.liquidation_price(
+            100, "long", 2, 0.005, quantity=200,
+            maintenance_margin_tiers=[{"max_notional": 10000, "rate": 0.005},
+                                       {"max_notional": 50000, "rate": 0.01}],
+        )
+        self.assertGreater(tiered, flat)
+        with self.assertRaises(ValueError):
+            derivatives_risk.liquidation_price(
+                100, "long", 2, maintenance_margin_tiers=[{"max_notional": 10000, "rate": 0.01}]
+            )
+        with self.assertRaisesRegex(ValueError, "must not decrease"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 50000, "rate": 0.005},
+                {"max_notional": 100000, "rate": 0.004},
+            ])
+        with self.assertRaisesRegex(ValueError, "outside supported bounds"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": float("nan"), "rate": 0.005},
+            ])
+
     def test_perpetual_risk_rejects_invalid_market_inputs(self):
         with self.assertRaises(ValueError):
             derivatives_risk.validate_market_type("spot_perpetual")
@@ -501,6 +540,20 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(len([url for url in calls if "funding-rate-history" in url]), 2)
         oi = okx_data._open_interest("BTC-USDT-SWAP", fake_get)
         self.assertIsNone(oi[0]["open_interest_value"])
+
+    def test_okx_specs_infers_base_asset_when_api_leaves_base_currency_blank(self):
+        def fake_get(_url):
+            return {"code": "0", "data": [{
+                "instId": "BTC-USDT-SWAP", "ctType": "linear",
+                "settleCcy": "USDT", "baseCcy": "", "ctValCcy": "BTC",
+                "ctVal": "0.01", "lotSz": "0.01", "minSz": "0.01",
+                "tickSz": "0.1", "state": "live",
+            }]}
+
+        specs = okx_data._specs("BTC-USDT-SWAP", fake_get)
+        self.assertEqual(specs["base_asset"], "BTC")
+        self.assertEqual(specs["contract_value_currency"], "BTC")
+        self.assertAlmostEqual(specs["quantity_step"], 0.0001)
 
     def test_okx_open_interest_requires_exchange_timestamp(self):
         with self.assertRaises(RuntimeError):
@@ -686,6 +739,8 @@ class TurtleCoreTests(unittest.TestCase):
         settings = {"sample_goal_min_trades": 5, "sample_goal_preferred_trades": 10}
         stats = perp_shadow.build_stats(state, settings)
         self.assertEqual(stats["sample_progress_pct"], 30.0)
+        self.assertEqual(stats["sample_remaining_to_minimum"], 2)
+        self.assertEqual(stats["sample_remaining_to_preferred"], 7)
         self.assertEqual(stats["sample_next_milestone"], "minimum_goal")
         with tempfile.TemporaryDirectory() as directory:
             state_path = os.path.join(directory, "state.json")
@@ -699,6 +754,32 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(result["stats"]["successful_symbols"], [])
             self.assertEqual(result["stats"]["requested_symbols"], ["BTCUSDT"])
             self.assertEqual(result["stats"]["sample_next_milestone"], "minimum_goal")
+
+    def test_perpetual_shadow_stats_break_down_research_samples(self):
+        state = perp_shadow.empty_state(10000)
+        state["closed_trades"] = [
+            {"provider": "binance", "symbol": "BTCUSDT", "net_pnl": 10,
+             "return_pct": 1.0, "market_state": {"state": "trend"},
+             "funding_settlement_count": 1, "funding_mark_estimated_count": 0},
+            {"provider": "okx", "symbol": "ETHUSDT", "net_pnl": -5,
+             "return_pct": -0.5, "market_state": {"state": "range"},
+             "funding_settlement_count": 2, "funding_mark_estimated_count": 2},
+        ]
+        stats = perp_shadow.build_stats(state, {
+            "sample_group_goal_min_trades": 3,
+            "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+        })
+        breakdown = stats["sample_breakdown"]
+        self.assertEqual(breakdown["provider"]["binance"]["wins"], 1)
+        self.assertEqual(breakdown["symbol"]["ETHUSDT"]["net_pnl"], -5.0)
+        self.assertEqual(breakdown["market_state"]["trend"]["average_return_pct"], 1.0)
+        self.assertEqual(
+            breakdown["funding_mark_quality"]["estimated_mark_only"]["count"], 1
+        )
+        self.assertEqual(breakdown["provider"]["okx"]["remaining_to_minimum"], 2)
+        self.assertEqual(
+            stats["configured_symbol_sample_coverage"]["SOLUSDT"]["remaining_to_minimum"], 3
+        )
 
     def test_perpetual_notification_contains_execution_parameters(self):
         trade = {
@@ -740,6 +821,21 @@ class TurtleCoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             perp_shadow.shadow_settings({"derivatives": {"risk_fraction": 1.1}})
 
+    def test_perpetual_risk_tiers_are_bound_to_snapshot_provider(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "maintenance_margin_tiers": [{"max_notional": 10000, "rate": 0.005}],
+            "maintenance_margin_tiers_by_provider": {
+                "binance": [{"max_notional": 50000, "rate": 0.01}],
+                "okx": [{"max_notional": 50000, "rate": 0.02}],
+            },
+        }})
+        binance = perp_shadow._provider_settings(settings, "binance")
+        okx = perp_shadow._provider_settings(settings, "okx")
+        self.assertEqual(binance["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.01)
+        self.assertEqual(okx["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.02)
+        self.assertEqual(perp_shadow.parameter_snapshot(okx)["risk_parameter_provider"], "okx")
+        self.assertEqual(settings["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.005)
+
     def test_perpetual_shadow_tracks_data_availability_across_runs(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = os.path.join(directory, "state.json")
@@ -751,6 +847,27 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(first["stats"]["data_status"], "unavailable")
             self.assertEqual(second["stats"]["consecutive_unavailable_runs"], 2)
             self.assertEqual(second["stats"]["run_count"], 2)
+
+    def test_perpetual_provider_failure_preserves_component_root_causes(self):
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": [], "mark_price_klines": [],
+            "index_price_klines": [], "contract_specs": None,
+            "data_health": {"component_errors": {
+                "contract_klines": "HTTP 451", "contract_specs": "timeout",
+            }},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            result = perp_shadow.run({"derivatives": {
+                "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+                "interval": "4h",
+            }}, os.path.join(directory, "state.json"),
+                os.path.join(directory, "stats.json"),
+                fetcher=lambda *_args, **_kwargs: snapshot)
+        attempt = result["stats"]["symbol_health"]["BTCUSDT"]["provider_attempts"][0]
+        self.assertEqual(attempt["component_errors"]["contract_klines"], "HTTP 451")
+        self.assertIn("component_errors", attempt["error"])
 
     def test_perpetual_full_research_mode_rejects_missing_history_components(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -896,6 +1013,35 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["status"], "stale_cache")
             self.assertEqual(result["stats"]["symbol_health"]["BTCUSDT"]["signal_status"], "not_evaluated")
             self.assertEqual(result["stats"]["cached_symbols"], ["BTCUSDT"])
+
+    def test_perpetual_symbol_processing_rolls_back_partial_state_on_error(self):
+        specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
+                 "price_tick": 0.1, "quantity_step": 0.001}
+        row = {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}
+        snapshot = {"market_type": "linear_perpetual", "venue": "binance",
+                    "symbol": "BTCUSDT", "interval": "4h",
+                    "contract_klines": [row], "mark_price_klines": [row],
+                    "index_price_klines": [row], "contract_specs": specs,
+                    "funding_rates": [], "open_interest": [],
+                    "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+
+        def fail_after_mutation(_snapshot, _settings, candidate):
+            candidate["equity"] = 1
+            candidate["closed_trades"].append({"partial": True})
+            raise RuntimeError("processing failed")
+
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(perp_shadow, "process_snapshot", side_effect=fail_after_mutation):
+            state_path = os.path.join(directory, "state.json")
+            result = perp_shadow.run({"derivatives": {
+                "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+                "interval": "4h", "cache_dir": os.path.join(directory, "cache"),
+            }}, state_path, os.path.join(directory, "stats.json"),
+                fetcher=lambda *_args, **_kwargs: snapshot)
+            state = perp_shadow.load_json(state_path, {})
+        self.assertEqual(state["equity"], 10000)
+        self.assertEqual(state["closed_trades"], [])
+        self.assertEqual(result["stats"]["data_status"], "unavailable")
 
     def test_perpetual_auto_provider_fails_over_without_mixing_sources(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
@@ -1056,9 +1202,24 @@ class TurtleCoreTests(unittest.TestCase):
                 fetcher=lambda *_args, **_kwargs: snapshot,
             )
             errors = validate_perp_shadow.validate(state_path, stats_path)
+            stale_errors = validate_perp_shadow.validate(
+                state_path, stats_path, max_age_minutes=30,
+                now_ms=int(time.time() * 1000) + 31 * 60 * 1000,
+            )
+            with open(stats_path, encoding="utf-8") as file:
+                tampered_stats = json.load(file)
+            tampered_stats["sample_breakdown"]["provider"]["binance"] = {
+                "count": 1, "wins": 1, "losses": 0,
+            }
+            with open(stats_path, "w", encoding="utf-8") as file:
+                json.dump(tampered_stats, file)
+            tampered_errors = validate_perp_shadow.validate(state_path, stats_path)
         self.assertTrue(result["enabled"])
         self.assertEqual(result["processed_symbols"], 1)
         self.assertEqual(errors, [])
+        self.assertIn("stats generated_at_utc is stale or invalid", stale_errors)
+        self.assertTrue(any("provider does not cover closed trades" in error
+                            for error in tampered_errors))
 
     def test_perpetual_shadow_trade_uses_frozen_parameters_after_config_changes(self):
         old = {"account_value": 10000.0, "risk_fraction": 0.005, "leverage": 2.0,
@@ -1141,6 +1302,21 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(state["state"], "range")
         self.assertEqual(state["risk_multiplier"], 0.5)
 
+    def test_market_state_direct_call_uses_same_move_threshold_as_settings(self):
+        bars = [{"time": 1_700_000_000_000 + i * 4 * 60 * 60 * 1000,
+                 "open": 100 + i, "high": 101 + i, "low": 99 + i,
+                 "close": 100 + i} for i in range(30)]
+        state = perp_shadow.classify_market_state({"contract_klines": bars})
+        self.assertEqual(state["state"], "trend")
+
+    def test_full_research_rejects_interval_without_oi_support(self):
+        with mock.patch.object(derivatives_data, "OPEN_INTEREST_PERIODS", {"4h"}), \
+             self.assertRaisesRegex(ValueError, "no Binance OI support"):
+            perp_shadow.shadow_settings({"derivatives": {
+                "enabled": True, "research_data_mode": "full_perpetual_research",
+                "interval": "1d",
+            }})
+
     def test_perpetual_volume_impact_slippage_is_capped_and_auditable(self):
         low = derivatives_risk.execution_slippage(
             0.0005, 1, 10000, "volume_impact", 0.001, 0.01
@@ -1179,6 +1355,11 @@ class TurtleCoreTests(unittest.TestCase):
             result["trades"][0]["entry_slippage"]["liquidity_proxy_time"],
             bars[330]["time"],
         )
+        with self.assertRaisesRegex(ValueError, "finite and > 0"):
+            perp_backtest._slippage(
+                0.0005, 1, bars[0], "volume_impact", 0.001, 0.01,
+                float("nan"),
+            )
 
     def test_perpetual_signal_applies_market_state_risk_multiplier(self):
         bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
@@ -1288,11 +1469,27 @@ class TurtleCoreTests(unittest.TestCase):
         stress = perp_backtest.run_cost_stress_tests(
             snapshot, account_value=10000, risk_fraction=0.005, leverage=2,
             fee_rate=0.0004, slippage_rate=0.0005,
+            maintenance_margin_tiers=[{"max_notional": 50000, "rate": 0.01}],
         )
         self.assertIn("baseline", stress)
         self.assertIn("double_cost", stress)
         self.assertIn("quadruple_cost", stress)
         self.assertIn("summary", stress)
+        self.assertEqual(
+            stress["baseline"]["liquidation_model"]["model_version"],
+            "isolated_linear_tiered_v1",
+        )
+        liquidity = perp_backtest.run_liquidity_stress_tests(
+            snapshot, account_value=10000, risk_fraction=0.005, leverage=2,
+            fee_rate=0.0004, slippage_rate=0.0005,
+            slippage_model="volume_impact",
+        )
+        self.assertTrue(liquidity["summary"]["proxy_only"])
+        self.assertEqual(liquidity["volume_20pct"]["liquidity_volume_multiplier"], 0.2)
+        self.assertGreaterEqual(
+            liquidity["volume_20pct"]["average_effective_slippage_pct"],
+            liquidity["baseline"]["average_effective_slippage_pct"],
+        )
 
     def test_perpetual_entry_fills_on_the_next_bar_open(self):
         bars = []
@@ -1383,6 +1580,33 @@ class TurtleCoreTests(unittest.TestCase):
             )
         self.assertEqual(result["trade_count"], 1)
         self.assertLess(result["funding_cashflow"], 0)
+        self.assertEqual(result["funding_mark_sources"]["prior_closed_mark_candle"], 1)
+
+    def test_funding_mark_fallback_never_uses_future_candle(self):
+        marks = [
+            {"time": 1000, "close": 100},
+            {"time": 2000, "close": 200},
+        ]
+        event = {"time": 2000, "funding_rate": 0.001, "mark_price": None}
+        value, estimated, source = derivatives_risk.funding_mark_at_settlement(
+            event, marks, 1000, 999
+        )
+        self.assertEqual(value, 100)
+        self.assertTrue(estimated)
+        self.assertEqual(source, "prior_closed_mark_candle")
+
+    def test_shadow_funding_records_estimated_mark_source(self):
+        trade = {"entry_time": 1000, "direction": "long", "quantity": 1,
+                 "last_funding_time": 0, "funding_cashflow": 0}
+        state = {"equity": 1000}
+        funding = [{"time": 2000, "funding_rate": 0.001, "mark_price": None}]
+        marks = [{"time": 1000, "close": 100}, {"time": 2000, "close": 200}]
+        perp_shadow._funding_until(trade, funding, 2000, state, fallback_mark=200,
+                                   mark_rows=marks, interval_ms=1000)
+        self.assertEqual(trade["funding_settlement_count"], 1)
+        self.assertEqual(trade["funding_mark_estimated_count"], 1)
+        self.assertEqual(trade["funding_mark_sources"]["prior_closed_mark_candle"], 1)
+        self.assertAlmostEqual(trade["funding_cashflow"], -0.1)
 
     def test_perpetual_backtest_excludes_funding_at_exact_entry_time(self):
         bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
@@ -1477,7 +1701,17 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(report["market_type"], "linear_perpetual")
             self.assertEqual(len(report["input_snapshot"]["sha256"]), 64)
             self.assertFalse(report["risk_model"]["contract_constraints_bound"])
-            self.assertEqual(report["risk_model"]["liquidation_model"], "exchange_agnostic_approximation")
+            self.assertEqual(report["risk_model"]["liquidation_model"], "isolated_linear_v1")
+            self.assertEqual(report["input_snapshot"]["research_mode"], "historical_snapshot_backtest")
+            self.assertEqual(
+                report["input_snapshot"]["last_contract_close_epoch_ms"],
+                bars[-1]["time"] + 4 * 60 * 60 * 1000,
+            )
+            self.assertGreater(report["input_snapshot"]["data_age_hours"], 0)
+            self.assertEqual(
+                report["liquidity_stress"]["summary"]["model"],
+                "contract_kline_volume_sensitivity_v1",
+            )
             self.assertTrue(os.path.isfile(output))
 
     def test_shadow_tracking_calculates_long_mfe_mae_and_return(self):

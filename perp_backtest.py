@@ -25,13 +25,24 @@ def _stop_from_fill(entry, n, direction):
             else float(entry) + 2 * float(n))
 
 
-def _slippage(base_rate, quantity, bar, model, impact_coefficient, max_rate):
+def _slippage(base_rate, quantity, bar, model, impact_coefficient, max_rate,
+              liquidity_volume_multiplier=1.0):
+    multiplier = float(liquidity_volume_multiplier)
+    if not math.isfinite(multiplier) or multiplier <= 0:
+        raise ValueError("liquidity_volume_multiplier must be finite and > 0")
+    observed_volume = (bar or {}).get("volume")
+    try:
+        stressed_volume = float(observed_volume) * multiplier
+    except (TypeError, ValueError):
+        stressed_volume = observed_volume
     detail = derivatives_risk.execution_slippage(
-        base_rate, quantity, (bar or {}).get("volume"), model,
+        base_rate, quantity, stressed_volume, model,
         impact_coefficient, max_rate,
     )
     detail["liquidity_proxy_time"] = (bar or {}).get("time")
-    detail["liquidity_proxy_volume"] = (bar or {}).get("volume")
+    detail["liquidity_proxy_volume"] = observed_volume
+    detail["stressed_liquidity_proxy_volume"] = stressed_volume
+    detail["liquidity_volume_multiplier"] = multiplier
     return detail
 
 
@@ -41,7 +52,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                        liquidation_fee_rate=0.0, system="system2",
                        filters=None, slippage_model="fixed",
                        slippage_impact_coefficient=0.001,
-                       max_slippage_rate=0.01):
+                       max_slippage_rate=0.01, maintenance_margin_tiers=None,
+                       liquidity_volume_multiplier=1.0):
     errors = derivatives_data.validate_perpetual_snapshot(
         snapshot, snapshot.get("interval", "4h"),
         max_staleness_intervals=10 ** 9,
@@ -50,9 +62,13 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         raise ValueError("invalid perpetual snapshot: " + "; ".join(errors))
     if leverage <= 0 or leverage > 20:
         raise ValueError("leverage must be between 0 and 20")
+    maintenance_margin_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+        maintenance_margin_tiers
+    )
     contract = snapshot["contract_klines"]
     marks = snapshot["mark_price_klines"]
     interval = snapshot["interval"]
+    interval_ms = sw.INTERVAL_MS[interval]
     specs = snapshot.get("contract_specs")
     params = sw.turtle_params(system, interval)
     if len(contract) < params["entry_bars"] + 2:
@@ -66,6 +82,9 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
     pending = None
     trades = []
     funding_total = 0.0
+    funding_settlement_count = 0
+    funding_mark_estimated_count = 0
+    funding_mark_unavailable_count = 0
     liquidation_count = 0
     constraint_rejections = 0
 
@@ -96,6 +115,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
             entry_slippage = _slippage(
                 slippage_rate, quantity, contract[index - 1] if index > 0 else None, slippage_model,
                 slippage_impact_coefficient, max_slippage_rate,
+                liquidity_volume_multiplier,
             )
             effective_slippage = entry_slippage["rate"]
             entry = raw_entry * (1 + effective_slippage if pending["direction"] == "long" else 1 - effective_slippage)
@@ -114,7 +134,10 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                             "stop": _stop_from_fill(entry, n, pending["direction"]),
                             "exit_level": pending["exit_level"],
                             "funding_index": 0, "fees": entry_fee,
-                            "funding": 0.0, "units": 1,
+                            "funding": 0.0, "funding_settlement_count": 0,
+                            "funding_mark_estimated_count": 0,
+                            "funding_mark_unavailable_count": 0,
+                            "funding_mark_sources": {}, "units": 1,
                             "entry_slippage": entry_slippage}
                 entered_this_bar = True
             elif specs:
@@ -131,11 +154,14 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                 # Match shadow trading: a funding event at the exact entry
                 # timestamp belongs to the pre-entry settlement window.
                 if int(event["time"]) > position["entry_time"]:
-                    funding_mark = event.get("mark_price")
-                    try:
-                        funding_mark = float(funding_mark) if funding_mark not in (None, "") else mark_price
-                    except (TypeError, ValueError):
-                        funding_mark = mark_price
+                    funding_mark, estimated, source = derivatives_risk.funding_mark_at_settlement(
+                        event, marks, interval_ms, mark_price
+                    )
+                    if funding_mark is None:
+                        position["funding_mark_unavailable_count"] += 1
+                        funding_mark_unavailable_count += 1
+                        position["funding_index"] += 1
+                        continue
                     cashflow = derivatives_risk.funding_payment(
                         derivatives_risk.position_notional(funding_mark, position["quantity"]),
                         event["funding_rate"], direction,
@@ -143,11 +169,20 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                     equity += cashflow
                     funding_total += cashflow
                     position["funding"] += cashflow
+                    position["funding_settlement_count"] += 1
+                    funding_settlement_count += 1
+                    if estimated:
+                        position["funding_mark_estimated_count"] += 1
+                        funding_mark_estimated_count += 1
+                    sources = position["funding_mark_sources"]
+                    sources[source] = int(sources.get(source, 0)) + 1
                 position["funding_index"] += 1
             if not entered_this_bar:
                 liq = derivatives_risk.liquidation_price(
                     position["entry"], direction, leverage,
                     maintenance_margin_rate, liquidation_fee_rate,
+                    quantity=position["quantity"],
+                    maintenance_margin_tiers=maintenance_margin_tiers,
                 )
                 levels = sw.turtle_levels(contract, index, system, interval)
                 exit_level = (
@@ -175,6 +210,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                 exit_slippage = _slippage(
                     slippage_rate, position["quantity"], contract[index - 1] if index > 0 else None, slippage_model,
                     slippage_impact_coefficient, max_slippage_rate,
+                    liquidity_volume_multiplier,
                 )
                 effective_slippage = exit_slippage["rate"]
                 fill = raw_exit * (1 - effective_slippage if direction == "long" else 1 + effective_slippage)
@@ -193,6 +229,10 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                                "exit": fill, "reason": reason,
                                "gross_pnl": gross, "fees": position["fees"],
                                "funding": position["funding"],
+                               "funding_settlement_count": position.get("funding_settlement_count", 0),
+                               "funding_mark_estimated_count": position.get("funding_mark_estimated_count", 0),
+                               "funding_mark_unavailable_count": position.get("funding_mark_unavailable_count", 0),
+                               "funding_mark_sources": position.get("funding_mark_sources", {}),
                                "entry_slippage": position["entry_slippage"],
                                "exit_slippage": exit_slippage,
                                "net_pnl": gross - position["fees"] + position["funding"],
@@ -225,11 +265,14 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
             event = funding[position["funding_index"]]
             # Match the intrabar settlement rule above and shadow trading.
             if int(event["time"]) > position["entry_time"]:
-                funding_mark = event.get("mark_price")
-                try:
-                    funding_mark = float(funding_mark) if funding_mark not in (None, "") else final_mark_price
-                except (TypeError, ValueError):
-                    funding_mark = final_mark_price
+                funding_mark, estimated, source = derivatives_risk.funding_mark_at_settlement(
+                    event, marks, interval_ms, final_mark_price
+                )
+                if funding_mark is None:
+                    position["funding_mark_unavailable_count"] += 1
+                    funding_mark_unavailable_count += 1
+                    position["funding_index"] += 1
+                    continue
                 cashflow = derivatives_risk.funding_payment(
                     derivatives_risk.position_notional(funding_mark, position["quantity"]),
                     event["funding_rate"], position["direction"],
@@ -237,6 +280,13 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                 equity += cashflow
                 funding_total += cashflow
                 position["funding"] += cashflow
+                position["funding_settlement_count"] += 1
+                funding_settlement_count += 1
+                if estimated:
+                    position["funding_mark_estimated_count"] += 1
+                    funding_mark_estimated_count += 1
+                sources = position["funding_mark_sources"]
+                sources[source] = int(sources.get(source, 0)) + 1
             position["funding_index"] += 1
         final_marked = mark_equity(final_mark_price)
         peak = max(peak, final_marked)
@@ -244,6 +294,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         exit_slippage = _slippage(
             slippage_rate, position["quantity"], last, slippage_model,
             slippage_impact_coefficient, max_slippage_rate,
+            liquidity_volume_multiplier,
         )
         effective_slippage = exit_slippage["rate"]
         fill = float(last["close"]) * (1 - effective_slippage if position["direction"] == "long" else 1 + effective_slippage)
@@ -258,10 +309,18 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                        "exit_time": int(marks[-1]["time"]), "entry": position["entry"],
                        "exit": fill, "reason": "end_of_test", "gross_pnl": gross,
                        "fees": position["fees"] + exit_fee, "funding": position["funding"],
+                       "funding_settlement_count": position.get("funding_settlement_count", 0),
+                       "funding_mark_estimated_count": position.get("funding_mark_estimated_count", 0),
+                       "funding_mark_unavailable_count": position.get("funding_mark_unavailable_count", 0),
+                       "funding_mark_sources": position.get("funding_mark_sources", {}),
                        "entry_slippage": position["entry_slippage"],
                        "exit_slippage": exit_slippage,
                        "net_pnl": gross - position["fees"] - exit_fee + position["funding"],
                        "return_pct": (gross - position["fees"] - exit_fee + position["funding"]) / account_value * 100})
+    funding_mark_sources = {}
+    for trade in trades:
+        for source, count in (trade.get("funding_mark_sources") or {}).items():
+            funding_mark_sources[source] = funding_mark_sources.get(source, 0) + int(count)
     return {
         "market_type": "linear_perpetual", "strategy": "perp_trend_turtle",
         "initial_equity": float(account_value), "ending_equity": round(equity, 8),
@@ -269,11 +328,25 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         "max_drawdown_pct": round(max_drawdown * 100, 4),
         "trades": trades, "trade_count": len(trades),
         "funding_cashflow": round(funding_total, 8),
+        "funding_settlement_count": funding_settlement_count,
+        "funding_mark_estimated_count": funding_mark_estimated_count,
+        "funding_mark_unavailable_count": funding_mark_unavailable_count,
+        "funding_mark_sources": funding_mark_sources,
+        "funding_mark_estimated_pct": round(
+            funding_mark_estimated_count / funding_settlement_count * 100, 4
+        ) if funding_settlement_count else 0.0,
+        "liquidation_model": {
+            "model_version": derivatives_risk.liquidation_model_version(maintenance_margin_tiers),
+            "maintenance_margin_rate": float(maintenance_margin_rate),
+            "maintenance_margin_tiers": maintenance_margin_tiers or [],
+            "liquidation_fee_rate": float(liquidation_fee_rate),
+        },
         "liquidation_count": liquidation_count,
         "constraint_rejections": constraint_rejections,
         "contract_constraints_bound": bool(specs),
         "fee_rate": fee_rate, "slippage_rate": slippage_rate, "leverage": leverage,
         "slippage_model": slippage_model,
+        "liquidity_volume_multiplier": float(liquidity_volume_multiplier),
         "average_effective_slippage_pct": round(
             sum(float(trade[side]["rate"]) for trade in trades for side in ("entry_slippage", "exit_slippage"))
             / (len(trades) * 2) * 100, 6
@@ -291,7 +364,8 @@ def run_cost_stress_tests(snapshot, account_value=10000.0, risk_fraction=0.005,
                           liquidation_fee_rate=0.0, system="system2",
                           filters=None, slippage_model="fixed",
                           slippage_impact_coefficient=0.001,
-                          max_slippage_rate=0.01):
+                          max_slippage_rate=0.01,
+                          maintenance_margin_tiers=None):
     """Run baseline, 2x and 4x execution-cost scenarios.
 
     Funding observations are kept unchanged; only explicit trading costs are
@@ -309,6 +383,7 @@ def run_cost_stress_tests(snapshot, account_value=10000.0, risk_fraction=0.005,
             filters=filters, slippage_model=slippage_model,
             slippage_impact_coefficient=slippage_impact_coefficient * multiplier,
             max_slippage_rate=max_slippage_rate,
+            maintenance_margin_tiers=maintenance_margin_tiers,
         )
         scenarios[label] = result
     baseline = scenarios["baseline"]
@@ -348,3 +423,27 @@ def run_funding_flip_stress(snapshot, **kwargs):
         "return_delta_pct": round(flipped["return_pct"] - normal["return_pct"], 4),
         "funding_delta": round(flipped["funding_cashflow"] - normal["funding_cashflow"], 8),
     }
+
+
+def run_liquidity_stress_tests(snapshot, **kwargs):
+    """Measure sensitivity to lower K-line volume in the impact proxy."""
+    scenarios = {}
+    for label, multiplier in (("baseline", 1.0), ("volume_50pct", 0.5), ("volume_20pct", 0.2)):
+        scenarios[label] = backtest_perpetual(
+            snapshot, liquidity_volume_multiplier=multiplier, **kwargs
+        )
+    baseline = scenarios["baseline"]
+    scenarios["summary"] = {
+        "model": "contract_kline_volume_sensitivity_v1",
+        "proxy_only": True,
+        "baseline_return_pct": baseline["return_pct"],
+        "volume_50pct_return_pct": scenarios["volume_50pct"]["return_pct"],
+        "volume_20pct_return_pct": scenarios["volume_20pct"]["return_pct"],
+        "volume_50pct_return_delta_pct": round(
+            scenarios["volume_50pct"]["return_pct"] - baseline["return_pct"], 4
+        ),
+        "volume_20pct_return_delta_pct": round(
+            scenarios["volume_20pct"]["return_pct"] - baseline["return_pct"], 4
+        ),
+    }
+    return scenarios

@@ -39,12 +39,18 @@
     "cache_dir": "perp_runtime_cache",
     "sample_goal_min_trades": 30,
     "sample_goal_preferred_trades": 50,
+    "sample_group_goal_min_trades": 10,
     "strategy": "perp_trend_turtle",
     "system": "system2",
     "account_value": 10000,
     "risk_fraction": 0.005,
     "max_leverage": 2,
     "maintenance_margin_rate": 0.005,
+    "maintenance_margin_tiers": [],
+    "maintenance_margin_tiers_by_provider": {
+      "binance": [],
+      "okx": []
+    },
     "liquidation_fee_rate": 0,
     "fee_rate": 0.0004,
     "slippage_rate": 0.0005,

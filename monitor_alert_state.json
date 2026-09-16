@@ -1,11 +1,10 @@
 {
   "status": "stale",
-  "checked_at_epoch": 1789558807,
-  "health_age_seconds": 4245,
-  "perpetual_age_seconds": 4100,
+  "checked_at_epoch": 1789572846,
+  "health_age_seconds": 1777,
+  "perpetual_age_seconds": 1620,
   "failed_components": [
-    "ordinary_monitor",
-    "perpetual_shadow"
+    "ordinary_monitor"
   ],
   "last_health_status": "ok"
 }

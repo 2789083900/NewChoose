@@ -11,6 +11,7 @@ import sys
 import time
 from datetime import datetime
 
+import console_output
 import derivatives_data
 
 
@@ -75,6 +76,8 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
         "closed_trades": (state.get("closed_trades"), {"closed"}),
         "rejected_signals": (state.get("rejected_signals"), {"rejected"}),
     }
+    raw_cohort_registry = state.get("strategy_cohorts", {})
+    cohort_registry = raw_cohort_registry if isinstance(raw_cohort_registry, dict) else {}
     ids = []
     for group_name, (trades, statuses) in groups.items():
         if not isinstance(trades, list):
@@ -136,6 +139,26 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                     errors.append(f"{trade_id} has no frozen parameter snapshot")
                 elif digest != _parameter_checksum(parameters):
                     errors.append(f"{trade_id} parameter snapshot checksum mismatch")
+                elif isinstance(parameters.get("maintenance_margin_tier_metadata"), dict):
+                    metadata = parameters["maintenance_margin_tier_metadata"]
+                    if metadata.get("scope") == "provider_symbol":
+                        tiers = parameters.get("maintenance_margin_tiers") or []
+                        if metadata.get("tier_checksum") != _parameter_checksum(tiers):
+                            errors.append(f"{trade_id} maintenance margin tier checksum mismatch")
+                        if metadata.get("provider") != trade.get("provider"):
+                            errors.append(f"{trade_id} maintenance margin tier provider mismatch")
+                        if metadata.get("symbol") != trade.get("symbol"):
+                            errors.append(f"{trade_id} maintenance margin tier symbol mismatch")
+                        if not all(metadata.get(field) for field in (
+                                "source", "effective_at", "tier_version")):
+                            errors.append(f"{trade_id} maintenance margin tier provenance is incomplete")
+                if trade.get("cohort_id"):
+                    cohort = cohort_registry.get(trade["cohort_id"])
+                    if not isinstance(cohort, dict):
+                        errors.append(f"{trade_id} references an unknown strategy cohort")
+                    elif (trade.get("strategy_version") != cohort.get("strategy_version")
+                          or trade.get("cohort_parameter_sha256") != cohort.get("parameter_sha256")):
+                        errors.append(f"{trade_id} strategy cohort fingerprint mismatch")
     if len(ids) != len(set(ids)):
         errors.append("perpetual shadow trade ids are not unique")
 
@@ -146,6 +169,17 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
         errors.append("seen_signal_ids does not cover all trades")
     if not _finite(state.get("equity")) or float(state.get("equity", 0)) < 0:
         errors.append("state equity must be finite and non-negative")
+    if not isinstance(raw_cohort_registry, dict):
+        errors.append("strategy_cohorts must be an object")
+    else:
+        for cohort_id, cohort in cohort_registry.items():
+            if not isinstance(cohort, dict) or cohort.get("cohort_id") != cohort_id:
+                errors.append(f"strategy cohort {cohort_id} is invalid")
+                continue
+            parameters = cohort.get("parameter_snapshot")
+            checksum = str(cohort.get("parameter_sha256") or "")
+            if not isinstance(parameters, dict) or checksum != _parameter_checksum(parameters):
+                errors.append(f"strategy cohort {cohort_id} checksum mismatch")
 
     expected = {
         "open_count": len(state.get("open_trades") or []),
@@ -155,6 +189,17 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
     for field, value in expected.items():
         if stats.get(field) != value:
             errors.append(f"stats {field} does not match state")
+    if "active_cohort_closed_count" in stats:
+        active_id = stats.get("cohort_id")
+        expected_active = sum(
+            trade.get("cohort_id") == active_id for trade in (state.get("closed_trades") or [])
+        ) if active_id else 0
+        if stats.get("active_cohort_closed_count") != expected_active:
+            errors.append("stats active_cohort_closed_count does not match state")
+        if stats.get("cohort_status") not in {"active", "parameter_mismatch", "unknown"}:
+            errors.append("stats cohort_status is invalid")
+        if not isinstance(stats.get("new_entries_enabled"), bool):
+            errors.append("stats new_entries_enabled is invalid")
     if not isinstance(stats.get("sample_reliability"), str):
         errors.append("stats sample_reliability is missing")
     if not _finite(stats.get("sample_progress_pct")) or not 0 <= float(stats.get("sample_progress_pct")) <= 100:
@@ -201,6 +246,16 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
             lag = health.get("data_lag_minutes")
             if lag is not None and (not _finite(lag) or float(lag) < 0):
                 errors.append(f"stats symbol_health for {symbol} has invalid lag")
+            market_lag = health.get("market_data_lag_minutes")
+            if market_lag is not None and (not _finite(market_lag) or float(market_lag) < 0):
+                errors.append(f"stats symbol_health for {symbol} has invalid market data lag")
+            market_lag_limit = health.get("market_data_max_lag_minutes")
+            if market_lag_limit is not None and (
+                    not _finite(market_lag_limit) or float(market_lag_limit) <= 0):
+                errors.append(f"stats symbol_health for {symbol} has invalid market data lag limit")
+            freshness = health.get("market_data_freshness")
+            if freshness is not None and freshness not in {"fresh", "stale", "stale_cache", "unknown"}:
+                errors.append(f"stats symbol_health for {symbol} has invalid market data freshness")
             attempts = health.get("provider_attempts")
             if attempts is not None:
                 if not isinstance(attempts, list):
@@ -224,6 +279,22 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
             errors.append("stats cached_symbols does not match symbol_health")
     if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
         errors.append("stats max_data_lag_minutes is invalid")
+    if stats.get("max_market_data_lag_minutes") is not None and (
+            not _finite(stats.get("max_market_data_lag_minutes"))
+            or float(stats.get("max_market_data_lag_minutes")) < 0):
+        errors.append("stats max_market_data_lag_minutes is invalid")
+    recovery_events = stats.get("data_recovery_events")
+    uncertain_count = stats.get("reconciliation_uncertain_count")
+    if recovery_events is not None and uncertain_count is not None:
+        if not isinstance(recovery_events, list):
+            errors.append("stats data_recovery_events must be a list")
+        elif (not isinstance(uncertain_count, int) or uncertain_count < 0
+              or uncertain_count != sum(
+                  bool(event.get("reconciliation_uncertain"))
+                  for event in (state.get("data_recovery_events") or [])
+                  if isinstance(event, dict)
+              )):
+            errors.append("stats reconciliation_uncertain_count is inconsistent")
     provider_health = stats.get("provider_health")
     if provider_health is not None:
         if not isinstance(provider_health, dict):
@@ -242,6 +313,50 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                 latency = value.get("last_latency_ms")
                 if latency is not None and (not _finite(latency) or float(latency) < 0):
                     errors.append(f"stats provider_health for {key} has invalid latency")
+    funnel = stats.get("signal_funnel")
+    if funnel is not None:
+        counters = (
+            "evaluated_bars", "insufficient_history", "no_breakout",
+            "raw_breakout_candidates", "filter_rejections",
+            "market_state_rejections", "risk_budget_rejections",
+            "duplicate_signals", "cohort_rejections", "final_entries",
+            "contract_constraint_rejections",
+        )
+        if not isinstance(funnel, dict):
+            errors.append("stats signal_funnel must be an object")
+        else:
+            for key in counters:
+                if not isinstance(funnel.get(key), int) or funnel.get(key, 0) < 0:
+                    errors.append(f"stats signal_funnel {key} is invalid")
+            terminal_total = sum(int(funnel.get(key) or 0) for key in (
+                "insufficient_history", "no_breakout", "filter_rejections",
+                "market_state_rejections", "risk_budget_rejections",
+                "duplicate_signals", "cohort_rejections", "final_entries",
+            ))
+            if int(funnel.get("evaluated_bars") or 0) != terminal_total:
+                errors.append("stats signal_funnel terminal counts do not match evaluated_bars")
+            candidate_total = sum(int(funnel.get(key) or 0) for key in (
+                "filter_rejections", "market_state_rejections", "risk_budget_rejections",
+                "duplicate_signals", "cohort_rejections", "final_entries",
+            ))
+            if int(funnel.get("raw_breakout_candidates") or 0) != candidate_total:
+                errors.append("stats signal_funnel candidate counts are inconsistent")
+            if not isinstance(funnel.get("rejection_reasons"), dict):
+                errors.append("stats signal_funnel rejection_reasons is invalid")
+            if not isinstance(funnel.get("last_evaluated_bar_by_symbol"), dict):
+                errors.append("stats signal_funnel last_evaluated_bar_by_symbol is invalid")
+    diagnostics = stats.get("last_signal_diagnostics_by_symbol")
+    if diagnostics is not None and not isinstance(diagnostics, dict):
+        errors.append("stats last_signal_diagnostics_by_symbol must be an object")
+    redundancy = stats.get("provider_redundancy")
+    if redundancy is not None:
+        allowed_redundancy = {"unknown", "not_configured", "healthy", "degraded_redundancy", "unavailable"}
+        if not isinstance(redundancy, dict) or redundancy.get("status") not in allowed_redundancy:
+            errors.append("stats provider_redundancy is invalid")
+        elif (not isinstance(redundancy.get("configured_providers"), list)
+              or not isinstance(redundancy.get("degraded_symbols"), list)
+              or not isinstance(redundancy.get("unavailable_symbols"), list)):
+            errors.append("stats provider_redundancy fields are invalid")
     closed_by_provider = stats.get("closed_count_by_provider")
     if closed_by_provider is not None:
         expected_by_provider = {}
@@ -273,7 +388,9 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
         if not isinstance(breakdown, dict):
             errors.append("stats sample_breakdown must be an object")
         else:
-            for dimension in ("provider", "symbol", "market_state", "funding_mark_quality"):
+            for dimension in (
+                    "provider", "symbol", "strategy_version", "cohort_id",
+                    "market_state", "funding_mark_quality"):
                 buckets = breakdown.get(dimension)
                 if not isinstance(buckets, dict):
                     errors.append(f"stats sample_breakdown {dimension} is missing")
@@ -325,6 +442,7 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
 
 
 def main(argv=None):
+    console_output.configure_utf8_output()
     parser = argparse.ArgumentParser(description="校验永续研究影子交易状态")
     parser.add_argument("--state", default=DEFAULT_STATE_PATH)
     parser.add_argument("--stats", default=DEFAULT_STATS_PATH)

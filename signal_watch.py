@@ -200,14 +200,97 @@ def _urlopen_with_retry(request, timeout, attempts=MAX_REQUEST_ATTEMPTS,
     raise last_error
 
 
+def _safe_response_excerpt(body, limit=160):
+    """Return a compact response sample suitable for persisted diagnostics."""
+    text = bytes(body or b"").decode("utf-8", errors="replace")
+    return " ".join(text.split())[:limit]
+
+
+def _http_json_error(category, url, attempt, status=None, content_type=None,
+                     body=None, detail=None):
+    parsed = urllib.parse.urlsplit(url)
+    endpoint = f"{parsed.netloc}{parsed.path}"
+    response_length = len(body) if body is not None else "unknown"
+    message = (
+        f"{category}: status={status if status is not None else 'unavailable'}; "
+        f"content_type={content_type or 'missing'}; response_length={response_length}; "
+        f"attempts={attempt}; endpoint={endpoint}"
+    )
+    excerpt = _safe_response_excerpt(body)
+    if excerpt:
+        message += f"; body_excerpt={excerpt!r}"
+    if detail:
+        message += f"; detail={str(detail)[:160]}"
+    return RuntimeError(message)
+
+
 def http_get_json(url, timeout=5, attempts=MAX_REQUEST_ATTEMPTS,
                   backoff_seconds=RETRY_BACKOFF_SECONDS):
     req = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "User-Agent": "CoinPulse/1.0"}
     )
-    with _urlopen_with_retry(req, timeout, attempts, backoff_seconds) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    attempts = max(1, int(attempts))
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with _urlopen_with_retry(req, timeout, attempts=1,
+                                     backoff_seconds=backoff_seconds) as resp:
+                status = getattr(resp, "status", None)
+                if status is None and hasattr(resp, "getcode"):
+                    status = resp.getcode()
+                headers = getattr(resp, "headers", None)
+                content_type = headers.get("Content-Type", "") if headers is not None else ""
+                body = resp.read()
+            if not body:
+                raise _http_json_error(
+                    "EmptyResponse", url, attempt, status, content_type, body
+                )
+            media_type = content_type.split(";", 1)[0].strip().lower()
+            if media_type and not (media_type == "application/json" or media_type.endswith("+json")):
+                raise _http_json_error(
+                    "UnexpectedContentType", url, attempt, status, content_type, body
+                )
+            try:
+                return json.loads(body.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise _http_json_error(
+                    "InvalidJSON", url, attempt, status, content_type, body, exc
+                ) from exc
+        except urllib.error.HTTPError as exc:
+            try:
+                body = exc.read()
+            except OSError:
+                body = None
+            content_type = exc.headers.get("Content-Type", "") if exc.headers is not None else ""
+            last_error = _http_json_error(
+                "HTTPError", url, attempt, exc.code, content_type, body, exc.reason
+            )
+            if exc.code not in (408, 425, 429) and exc.code < 500:
+                raise last_error from exc
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_error = _http_json_error(
+                "NetworkError", url, attempt, detail=exc
+            )
+        except RuntimeError as exc:
+            last_error = exc
+        if attempt < attempts:
+            time.sleep(float(backoff_seconds) * (2 ** (attempt - 1)))
+    raise last_error
+
+
+def _turtle_plan_context(levels, n, price, filters, **extra):
+    """Attach machine-readable breakout context without changing signal rules."""
+    buffer_value = float(filters.get("breakout_buffer_n", 0.0)) * float(n)
+    context = {
+        "levels": levels,
+        "n": n,
+        "price": price,
+        "long_breakout_threshold": levels["entry_high"] + buffer_value,
+        "short_breakout_threshold": levels["entry_low"] - buffer_value,
+    }
+    context.update(extra)
+    return context
 
 
 def fetch_binance_data(symbol, interval):
@@ -630,36 +713,39 @@ def build_turtle_signal(
         next_add = entry - 0.5 * n
         exit_level = levels["exit_high"]
     else:
-        return None, [], {
-            "levels": levels, "n": n, "price": price,
-            "wait": f"上破 {format_price(levels['entry_high'])} 做多 / 下破 {format_price(levels['entry_low'])} 做空"
-        }
+        return None, [], _turtle_plan_context(
+            levels, n, price, filters,
+            wait=f"上破 {format_price(levels['entry_high'])} 做多 / 下破 {format_price(levels['entry_low'])} 做空",
+        )
     if system == "system1" and system1_blocked:
-        return None, ["S1跳过上一次盈利突破"], {
-            "levels": levels, "n": n, "price": price, "blocked": True
-        }
+        return None, ["S1跳过上一次盈利突破"], _turtle_plan_context(
+            levels, n, price, filters, blocked=True,
+            candidate_direction=direction, filter_stage="system_rule",
+        )
     if filters.get("higher_timeframe", True) and higher_timeframe(interval):
         if higher_trend is None and filters.get("require_higher_timeframe", True):
-            return None, ["高周期EMA趋势不可用，暂不入场"], {
-                "levels": levels, "n": n, "price": price, "filtered": True,
-                "filter_reason": "高周期EMA趋势不可用，暂不入场"
-            }
+            reason = "高周期EMA趋势不可用，暂不入场"
+            return None, [reason], _turtle_plan_context(
+                levels, n, price, filters, filtered=True, filter_reason=reason,
+                candidate_direction=direction, filter_stage="higher_timeframe",
+            )
         if higher_trend in ("long", "short") and higher_trend != direction:
             trend_label = "多头" if higher_trend == "long" else "空头"
             reason = f"高周期EMA{int(filters.get('higher_ema_period', 200))}为{trend_label}，过滤反向突破"
-            return None, [reason], {
-                "levels": levels, "n": n, "price": price, "filtered": True,
-                "filter_reason": reason
-            }
+            return None, [reason], _turtle_plan_context(
+                levels, n, price, filters, filtered=True, filter_reason=reason,
+                candidate_direction=direction, filter_stage="higher_timeframe",
+            )
     confirmation_reasons, confirmation_metrics = turtle_confirmation_filters(
         klines, idx, direction, n, filters
     )
     if confirmation_reasons:
         reason = "；".join(confirmation_reasons)
-        return None, confirmation_reasons, {
-            "levels": levels, "n": n, "price": price, "filtered": True,
-            "filter_reason": reason, "filter_metrics": confirmation_metrics
-        }
+        return None, confirmation_reasons, _turtle_plan_context(
+            levels, n, price, filters, filtered=True, filter_reason=reason,
+            filter_metrics=confirmation_metrics, candidate_direction=direction,
+            filter_stage="confirmation",
+        )
     # risk_fraction is the maximum loss at the 2N stop, not the notional size.
     unit_quantity = turtle_unit_quantity(account_value, n, risk_fraction, 2.0)
     plan = {

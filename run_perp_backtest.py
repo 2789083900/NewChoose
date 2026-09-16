@@ -8,6 +8,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+import console_output
 import derivatives_snapshots
 import derivatives_risk
 import perp_backtest
@@ -19,7 +20,8 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         fee_rate=0.0004, slippage_rate=0.0005, system="system2",
         slippage_model="volume_impact", slippage_impact_coefficient=0.001,
         max_slippage_rate=0.01, maintenance_margin_rate=0.005,
-        liquidation_fee_rate=0.0, maintenance_margin_tiers=None):
+        liquidation_fee_rate=0.0, maintenance_margin_tiers=None,
+        max_total_open_risk=0.04):
     maintenance_margin_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
         maintenance_margin_tiers
     )
@@ -36,6 +38,7 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         maintenance_margin_rate=maintenance_margin_rate,
         liquidation_fee_rate=liquidation_fee_rate,
         maintenance_margin_tiers=maintenance_margin_tiers,
+        max_total_open_risk=max_total_open_risk,
     )
     funding_stress = perp_backtest.run_funding_flip_stress(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
@@ -46,6 +49,8 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         maintenance_margin_rate=maintenance_margin_rate,
         liquidation_fee_rate=liquidation_fee_rate,
         maintenance_margin_tiers=maintenance_margin_tiers,
+        baseline_result=scenarios["baseline"],
+        max_total_open_risk=max_total_open_risk,
     )
     liquidity_stress = perp_backtest.run_liquidity_stress_tests(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
@@ -56,6 +61,20 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         maintenance_margin_rate=maintenance_margin_rate,
         liquidation_fee_rate=liquidation_fee_rate,
         maintenance_margin_tiers=maintenance_margin_tiers,
+        baseline_result=scenarios["baseline"],
+        max_total_open_risk=max_total_open_risk,
+    )
+    maintenance_margin_stress = perp_backtest.run_maintenance_margin_stress(
+        snapshot, account_value=account_value, risk_fraction=risk_fraction,
+        leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
+        system=system, slippage_model=slippage_model,
+        slippage_impact_coefficient=slippage_impact_coefficient,
+        max_slippage_rate=max_slippage_rate,
+        maintenance_margin_rate=maintenance_margin_rate,
+        liquidation_fee_rate=liquidation_fee_rate,
+        maintenance_margin_tiers=maintenance_margin_tiers,
+        tiered_result=scenarios["baseline"],
+        max_total_open_risk=max_total_open_risk,
     )
     generated_at = datetime.now(timezone.utc)
     contract_rows = snapshot.get("contract_klines") or []
@@ -98,6 +117,7 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "maintenance_margin_rate": maintenance_margin_rate,
             "liquidation_fee_rate": liquidation_fee_rate,
             "maintenance_margin_tiers": maintenance_margin_tiers or [],
+            "max_total_open_risk": max_total_open_risk,
         },
         "contract_specs": snapshot.get("contract_specs"),
         "risk_model": {
@@ -112,6 +132,7 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         "cost_stress": scenarios,
         "funding_flip_stress": funding_stress,
         "liquidity_stress": liquidity_stress,
+        "maintenance_margin_stress": maintenance_margin_stress,
     }
     if output:
         os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
@@ -122,6 +143,7 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
 
 
 def main(argv=None):
+    console_output.configure_utf8_output()
     parser = argparse.ArgumentParser(description="运行可复现的永续海龟回测")
     parser.add_argument("--symbol", required=True)
     parser.add_argument("--interval", default="4h")
@@ -137,6 +159,7 @@ def main(argv=None):
     parser.add_argument("--max-slippage-rate", type=float, default=0.01)
     parser.add_argument("--maintenance-margin-rate", type=float, default=0.005)
     parser.add_argument("--liquidation-fee-rate", type=float, default=0.0)
+    parser.add_argument("--max-total-open-risk", type=float, default=0.04)
     parser.add_argument(
         "--maintenance-margin-tiers-json", default="",
         help='JSON array such as [{"max_notional":50000,"rate":0.005}]',
@@ -153,6 +176,7 @@ def main(argv=None):
             args.leverage, args.fee_rate, args.slippage_rate, args.system,
             args.slippage_model, args.slippage_impact_coefficient, args.max_slippage_rate,
             args.maintenance_margin_rate, args.liquidation_fee_rate, maintenance_tiers,
+            args.max_total_open_risk,
         )
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -164,6 +188,17 @@ def main(argv=None):
     print(f"基准收益：{report['cost_stress']['baseline']['return_pct']:.4f}%")
     print(f"2倍成本收益：{report['cost_stress']['double_cost']['return_pct']:.4f}%")
     print(f"4倍成本收益：{report['cost_stress']['quadruple_cost']['return_pct']:.4f}%")
+    margin_stress = report["maintenance_margin_stress"]
+    if margin_stress["enabled"]:
+        print(
+            "维持保证金对照："
+            f"固定 {margin_stress['flat']['return_pct']:.4f}% / "
+            f"分层 {margin_stress['tiered']['return_pct']:.4f}%，"
+            f"强平 {margin_stress['flat']['liquidation_count']} / "
+            f"{margin_stress['tiered']['liquidation_count']}"
+        )
+    else:
+        print("维持保证金对照：未配置已核验分层档位，未启用")
     if args.output:
         print(f"报告：{os.path.abspath(args.output)}")
     return 0

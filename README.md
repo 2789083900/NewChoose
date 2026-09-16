@@ -56,7 +56,9 @@ python collect_perp_snapshot.py --symbol BTCUSDT --interval 4h --limit 3600
 python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\NewChoose\derivatives_data --output D:\桌面\NewChoose\perp_reports\BTCUSDT-4h.json
 ```
 
-永续回测的成交约定是信号确认后的下一根 K 线开盘价，并记录该根 K 线的实际成交时间；持仓期间反向突破通道会逐根 K 线更新，入场当根不使用未知盘中路径立即退出。手续费、滑点、资金费率和近似强平仍分别计入报告。没有交易所风险档位数据时，报告会标明使用交易所无关的研究近似强平模型，不能当作实盘清算价。
+永续回测的成交约定是信号确认后的下一根 K 线开盘价，并记录该根 K 线的实际成交时间；已知数据窗口的最后一根 K 线也会执行预定开盘成交，并对更早建立的仓位依次检查强平、止损和通道退出。持仓期间反向突破通道会逐根 K 线更新，风险退出优先于同根 K 线加仓；行情每有利移动 `0.5N` 可增加一个单位，最多 4 单位，并受 `--max-total-open-risk`（默认 4%）、可用保证金和合约规格约束。入场当根不使用未知盘中路径立即退出或加仓；幸存仓位才在期末收盘强制平仓，最终手续费和滑点也计入最大回撤。手续费、滑点、资金费率和近似强平仍分别计入报告。没有交易所风险档位数据时，报告会标明使用交易所无关的研究近似强平模型，不能当作实盘清算价。
+
+回测报告还会生成 `maintenance_margin_stress`：配置 `--maintenance-margin-tiers-json` 后，对照固定维持保证金率与分层维持保证金率下的收益、交易数、强平数、最大回撤和期末权益，差值口径固定为“分层减固定”。未配置经过核验的档位时该项明确标记为禁用，不会生成虚假的对照结果。命令行输出会在 Python 运行环境支持时统一使用 UTF-8，便于 Windows 终端和重定向日志稳定显示中文。
 
 只有经过校验并保存到版本化快照的资料才会进入永续回测；接口失败、数据过旧或数据不连续时不会写入文件。
 
@@ -76,7 +78,9 @@ python perp_shadow.py --config signal_watch.config.json
 
 每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。`provider=auto` 会按币种执行 Binance -> OKX 故障转移，并对连续失败的数据源应用 `provider_cooldown_seconds` 冷却；`perp_shadow_stats.json` 会记录每次尝试、切换原因、请求延迟和按 provider 分组的已完成样本。缓存按 provider 分文件保存，旧版无后缀缓存仍可读取。`research_data_mode` 默认是 `price_only_research`，允许 funding/OI 暂缺但会保留覆盖诊断；设置为 `full_perpetual_research` 后，缺少 funding、历史 OI、funding/OI 未覆盖合约 K 线窗口，或内部观测存在过大缺口的快照不会创建新样本（资金费按约 8 小时结算周期容差判断，内部最大缺口不超过预期周期的 3 倍，OI 至少需要两个不同时间点）。快照会记录采集 provider、是否仅使用已闭合 K 线和 interval 元数据，回测报告会回显这些信息；非 TRADING/live 合约会被拒绝。多币种权益曲线使用请求币种共同拥有的最新收盘时间，避免不同步数据混入同一组合时间点。模板当前 `enabled: true`，但始终强制 `research_only: true`，不会自动推送或自动下单；若需仅手动运行，可在本地配置中设为 `enabled: false`。
 
-风险档位可以用 `maintenance_margin_tiers_by_provider.binance` 和 `maintenance_margin_tiers_by_provider.okx` 分别配置。自动故障转移创建样本时只冻结实际 provider 对应的档位，不能跨交易所复用；空数组表示仍使用全局固定维持保证金率近似。
+旧版风险档位仍可用 `maintenance_margin_tiers_by_provider.binance` 和 `.okx` 按 provider 配置。真实档位应优先写入 `maintenance_margin_tiers_by_provider_symbol.<provider>.<symbol>`，每个绑定包含 `tiers`、官方 `source`、带时区的 `effective_at` 和 `tier_version`；系统会计算或核对 `tier_checksum`。选择顺序是 provider+symbol、provider、全局档位、固定维持保证金率。自动故障转移创建样本时只冻结实际 provider 和 symbol 对应的档位、来源、版本、有效时间与校验和，后续配置变化不会重写旧交易。模板仍保持空映射，表示尚未导入经核验的官方风险档位。
+
+影子样本由 `strategy_version` 和 `cohort_id` 隔离。系统首次看到 cohort 时会冻结影响信号、仓位、成本和风险结果的完整参数指纹；以后同一 cohort 的参数发生变化时，已有仓位仍按各自参数快照继续管理，但禁止创建新样本，并显示 `cohort_status=parameter_mismatch`。需要实验新参数时必须显式使用新的 cohort ID。交易 ID、交易记录、统计分组和活动 cohort 样本进度都会保存该版本信息，避免把不同策略口径的胜率和收益混为一谈。
 
 每笔已成交记录还会保存 MFE/MAE（以首笔入场价为基准，避免加仓改写历史路径）、持仓小时数，以及入场/退出时的合约价、标记价、指数价、基差和 OI 快照。状态中的 `equity` 是已实现权益，`marked_equity` 会按最近标记价加入未实现盈亏；统计文件会给出最大回撤、平均 MFE/MAE、平均持仓时间和资金费率占毛收益比例。权益曲线按每轮处理到的最新已收盘合约 K 线时间采样，同一市场时间会覆盖旧点，不代表逐笔成交或逐根 K 线的完整组合净值。
 每轮权益曲线还会记录开放名义价值、保证金、做多/做空方向暴露和开放风险比例；统计文件会汇总这些字段的峰值以及最大连续亏损，用于后续组合风险评估。
@@ -236,7 +240,7 @@ python signal_watch.py --test
 
 云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。活跃记录最多保留 500 条，较早记录会先按信号月份归档到 `signal_archive/signals-YYYY-MM.json`，再从活跃文件移除，避免长期前瞻样本丢失。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
 
-仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每 15 分钟检查 `monitor_health.json`。如果超过 20 分钟没有心跳，或最近一次扫描失败，会通过 `SERVERCHAN_SENDKEY` 发送一次失联告警；恢复后发送一次恢复通知，状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。
+仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每 15 分钟检查 `monitor_health.json` 和 `perp_shadow_stats.json`。普通监控超过 20 分钟没有心跳、最近一次扫描失败，或永续统计超过 30 分钟未生成时，会通过 `SERVERCHAN_SENDKEY` 按故障组件变化发送一次失联告警；全部恢复后发送一次恢复通知。状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。该 dead-man 检查与主扫描工作流分离，但仍运行在 GitHub Actions 内；若需要监控 GitHub Actions 平台级调度中断，应再接入仓库外部的 URL/提交时间监控。
 
 推送消息会同时标明K线收盘时间、信号生成时间（UTC/北京时间）、生成延迟和影子成交窗口状态。默认生成延迟超过5分钟就标记为“窗口已错过，禁止追价”；该状态只用于人工执行提示，不会自动下单。
 
@@ -246,9 +250,17 @@ python signal_watch.py --test
 
 永续模块现在会根据最近 20 根合约 K 线及可用的资金费、基差、OI 变化标注市场状态：`trend` 正常风险，`range` 和 `volatility_expansion` 默认将新信号风险降至 50%，`extreme_risk`（基差/资金费/OI 触发阈值）暂停新开仓。状态、指标和触发标记会写入永续状态与推送；已有仓位仍按原止损、标记价和强平近似模型管理。
 
+永续统计还会按“币种 + 已闭合 K 线时间”去重记录 `signal_funnel`：已评估 K 线、历史不足、未突破、原始突破候选、确认过滤、市场状态拒绝、风险预算拒绝、重复信号和最终入场。`last_signal_diagnostics_by_symbol` 保留各币种最新收盘价、上下突破阈值、距阈值百分比、ATR/过滤指标和无交易原因，因此 5 分钟扫描不会把同一根 4h K 线重复算成多个观察样本。
+
+公开行情请求会把空响应、非 JSON Content-Type、无效 JSON、HTTP 错误和网络错误分类，并记录状态码、Content-Type、响应长度、尝试次数与不含查询参数的端点。`provider_redundancy` 会单独标记多 provider 是否完整可用；例如 Binance 失败而 OKX 成功时研究任务继续，但 `data_status=degraded`、`provider_redundancy.status=degraded_redundancy`，恢复时会写入转换事件。
+
+市场数据新鲜度与任务运行时间分开审计。`market_data_max_lag_intervals` 默认是 `1.05`，为一个完整周期加 5% 调度宽限；4h 已闭合 K 线允许的价格数据年龄约为 252 分钟。该规则只检查所有研究模式都必需的合约价、标记价和指数价，较低频的资金费或 OI 不会误判 `price_only_research`。陈旧快照会在任何持仓或信号状态变更前被拒绝，并继续尝试备用 provider。统计同时输出每个币种的 `market_data_lag_minutes`、阈值、组件明细和总体 `max_market_data_lag_minutes`。
+
+开放仓位从数据中断恢复时，恢复事件会记录上次市场时间、恢复市场时间、回放 K 线数量以及 `reconciliation_uncertain`。只要中断期间需要用 OHLC K 线回放，就无法还原同一根 K 线内的真实路径，系统明确标记不确定，并采用“强平、止损、通道退出优先于加仓”的保守顺序；不会把结果描述为逐成交级精确重建。
+
 永续影子交易默认使用 `volume_impact` 滑点模型：基础滑点叠加委托数量/前一根已收盘 K 线成交量参与率的平方根冲击，并受 `max_slippage_rate` 限制；使用前一根成交量可避免开盘或盘中成交引用未来数据，成交量缺失时自动回退到固定滑点。每次入场、加仓和出场都会保存模型、流动性代理时间、参与率和实际滑点，统计文件汇总平均/最大滑点及回退次数。可复现回测支持同一模型，旧的直接 API 调用仍默认 `fixed` 以保持历史结果可复现。
 
-永续回测报告还会运行成交量降至基准 50% 和 20% 的流动性压力场景。该结果仅衡量 K 线成交量代理下的参数敏感性，不包含盘口价差、深度、部分成交或跨价位成交，不应解释为真实盘口成交仿真。
+永续回测报告还会运行成交量降至基准 50% 和 20% 的流动性压力场景，对照收益、交易数、最大回撤和最大有效滑点，差值口径为“压力场景减基准”。各压力模块共享同一次基准回测，避免重复计算和基准漂移。该结果仅衡量 K 线成交量代理下的参数敏感性，不包含盘口价差、深度、部分成交或跨价位成交，不应解释为真实盘口成交仿真。
 
 OKX 适配器会使用公开合约规格中的 `ctVal`，把 K 线成交量、OI、最小下单量和数量步长从“张”统一换算为基础币数量，同时保留原始张数。这样 Binance 与 OKX 的仓位和流动性冲击计算使用同一单位。
 

@@ -14,6 +14,7 @@ import shutil
 import sys
 from datetime import datetime
 
+import console_output
 import signal_watch as sw
 import track_signals
 
@@ -117,6 +118,7 @@ def repair(base_dir, apply=False):
 
 
 def main():
+    console_output.configure_utf8_output()
     parser = argparse.ArgumentParser(description="CoinPulse 运行态安全修复")
     parser.add_argument("--base-dir", default=os.path.dirname(os.path.abspath(__file__)))
     parser.add_argument("--apply", action="store_true", help="确认后执行备份、隔离测试交易并重建报告")

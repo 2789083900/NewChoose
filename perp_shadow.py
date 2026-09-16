@@ -18,6 +18,7 @@ import sys
 import time
 from datetime import datetime, timezone
 
+import console_output
 import derivatives_data
 import derivatives_risk
 import okx_data
@@ -63,6 +64,12 @@ def empty_state(account_value=10000.0):
         "market_time_by_symbol": {},
         "notification_history": [],
         "market_state_by_symbol": {},
+        "signal_funnel": {},
+        "last_signal_diagnostics_by_symbol": {},
+        "provider_redundancy_status": "unknown",
+        "provider_redundancy_events": [],
+        "strategy_cohorts": {},
+        "active_cohort": {},
     }
 
 
@@ -122,6 +129,17 @@ def load_state(path, account_value=10000.0):
         state["market_time_by_symbol"] = {}
     if not isinstance(state.get("market_state_by_symbol"), dict):
         state["market_state_by_symbol"] = {}
+    if not isinstance(state.get("signal_funnel"), dict):
+        state["signal_funnel"] = {}
+    if not isinstance(state.get("last_signal_diagnostics_by_symbol"), dict):
+        state["last_signal_diagnostics_by_symbol"] = {}
+    if not isinstance(state.get("provider_redundancy_events"), list):
+        state["provider_redundancy_events"] = []
+    state.setdefault("provider_redundancy_status", "unknown")
+    if not isinstance(state.get("strategy_cohorts"), dict):
+        state["strategy_cohorts"] = {}
+    if not isinstance(state.get("active_cohort"), dict):
+        state["active_cohort"] = {}
     for trade in state["open_trades"] + state["closed_trades"]:
         if not isinstance(trade, dict):
             raise ValueError("perpetual shadow state contains a non-object trade")
@@ -186,6 +204,71 @@ def _number(config, key, default, minimum=0.0):
     return max(minimum, value)
 
 
+def _version_identifier(config, key, default):
+    value = str(config.get(key) or default).strip()
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
+    if not value or len(value) > 80 or any(char not in allowed for char in value):
+        raise ValueError(f"derivatives.{key} must be a stable identifier")
+    return value
+
+
+def _tier_checksum(tiers):
+    canonical = json.dumps(tiers, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _normalize_symbol_tier_bindings(value):
+    if value in (None, {}):
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("derivatives.maintenance_margin_tiers_by_provider_symbol must be an object")
+    normalized = {}
+    for provider, symbols in value.items():
+        venue = str(provider).strip().lower()
+        if venue not in {"binance", "okx"} or not isinstance(symbols, dict):
+            raise ValueError("symbol maintenance tiers require binance/okx provider objects")
+        normalized[venue] = {}
+        for symbol, raw_binding in symbols.items():
+            symbol_value = derivatives_data.normalize_symbol(symbol)
+            if not isinstance(raw_binding, dict):
+                raise ValueError("symbol maintenance tier binding must be an object")
+            tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+                raw_binding.get("tiers") or []
+            )
+            source = str(raw_binding.get("source") or "").strip()
+            effective_at = str(raw_binding.get("effective_at") or "").strip()
+            tier_version = str(raw_binding.get("tier_version") or "").strip()
+            market_type = str(raw_binding.get("market_type") or derivatives_data.MARKET_TYPE)
+            if market_type != derivatives_data.MARKET_TYPE:
+                raise ValueError("symbol maintenance tiers must target linear_perpetual")
+            if tiers and not (source and effective_at and tier_version):
+                raise ValueError(
+                    "non-empty symbol maintenance tiers require source, effective_at and tier_version"
+                )
+            if effective_at:
+                try:
+                    parsed = datetime.fromisoformat(effective_at.replace("Z", "+00:00"))
+                except ValueError as exc:
+                    raise ValueError("symbol maintenance tier effective_at must be ISO-8601") from exc
+                if parsed.tzinfo is None:
+                    raise ValueError("symbol maintenance tier effective_at must include a timezone")
+            checksum = _tier_checksum(tiers)
+            supplied = str(raw_binding.get("tier_checksum") or "").strip().lower()
+            if supplied and supplied != checksum:
+                raise ValueError("symbol maintenance tier checksum mismatch")
+            normalized[venue][symbol_value] = {
+                "provider": venue,
+                "symbol": symbol_value,
+                "market_type": derivatives_data.MARKET_TYPE,
+                "tiers": tiers,
+                "source": source,
+                "effective_at": effective_at or None,
+                "tier_version": tier_version or None,
+                "tier_checksum": checksum,
+            }
+    return normalized
+
+
 def shadow_settings(config):
     raw = dict((config or {}).get("derivatives") or {})
     if raw.get("market_type", derivatives_data.MARKET_TYPE) != derivatives_data.MARKET_TYPE:
@@ -227,6 +310,9 @@ def shadow_settings(config):
         if provider_name not in {"binance", "okx"}:
             raise ValueError("maintenance margin tier provider must be binance or okx")
         provider_tiers[provider_name] = derivatives_risk.normalize_maintenance_margin_tiers(tiers)
+    provider_symbol_tiers = _normalize_symbol_tier_bindings(
+        raw.get("maintenance_margin_tiers_by_provider_symbol") or {}
+    )
     liquidation_fee = _number(raw, "liquidation_fee_rate", 0.0)
     risk_fraction = _number(raw, "risk_fraction", 0.005)
     max_open_risk = _number(raw, "max_total_open_risk", 0.03)
@@ -237,6 +323,12 @@ def shadow_settings(config):
         raise ValueError("derivatives risk parameters are outside supported bounds")
     if risk_fraction > 1 or max_open_risk > 1:
         raise ValueError("derivatives risk fractions must be <= 1")
+    strategy_version = _version_identifier(
+        raw, "strategy_version", "perp_turtle_system2_v1"
+    )
+    cohort_id = _version_identifier(
+        raw, "cohort_id", "btc_eth_4h_baseline_v1"
+    )
     return {
         "enabled": bool(raw.get("enabled", False)),
         "research_only": True,
@@ -252,17 +344,23 @@ def shadow_settings(config):
         "provider_cooldown_seconds": _number(raw, "provider_cooldown_seconds", 900.0, 0.0),
         "provider_failure_threshold": int(_number(raw, "provider_failure_threshold", 1, 1)),
         "cache_max_stale_minutes": _number(raw, "cache_max_stale_minutes", 720.0, 0.0),
+        "market_data_max_lag_intervals": _number(
+            raw, "market_data_max_lag_intervals", 1.05, 1.0
+        ),
         "cache_dir": str(raw.get("cache_dir") or ""),
         "sample_goal_min_trades": int(_number(raw, "sample_goal_min_trades", 30, 1)),
         "sample_goal_preferred_trades": int(_number(raw, "sample_goal_preferred_trades", 50, 1)),
         "sample_group_goal_min_trades": int(_number(raw, "sample_group_goal_min_trades", 10, 1)),
         "system": raw.get("system", "system2"),
+        "strategy_version": strategy_version,
+        "cohort_id": cohort_id,
         "account_value": _number(raw, "account_value", 10000.0, 1.0),
         "risk_fraction": risk_fraction,
         "leverage": leverage,
         "maintenance_margin_rate": maintenance,
         "maintenance_margin_tiers": margin_tiers,
         "maintenance_margin_tiers_by_provider": provider_tiers,
+        "maintenance_margin_tiers_by_provider_symbol": provider_symbol_tiers,
         "liquidation_fee_rate": liquidation_fee,
         "fee_rate": _number(raw, "fee_rate", 0.0004),
         "slippage_rate": _number(raw, "slippage_rate", 0.0005),
@@ -378,8 +476,8 @@ def classify_market_state(snapshot, settings=None):
     }
 
 
-def _signal_id(symbol, interval, bar_time, direction, system):
-    return f"perp|{symbol}|{interval}|{int(bar_time)}|{direction}|{system}"
+def _signal_id(symbol, interval, bar_time, direction, system, cohort_id="legacy"):
+    return f"perp|{cohort_id}|{symbol}|{interval}|{int(bar_time)}|{direction}|{system}"
 
 
 def parameter_snapshot(settings):
@@ -390,7 +488,8 @@ def parameter_snapshot(settings):
             "maintenance_margin_tiers",
             "fee_rate", "slippage_rate", "slippage_model", "slippage_impact_coefficient",
             "max_slippage_rate", "max_total_open_risk",
-            "interval", "system", "market_state_enabled", "extreme_basis_pct",
+            "interval", "system", "strategy_version", "cohort_id",
+            "market_state_enabled", "extreme_basis_pct",
             "extreme_funding_rate", "extreme_oi_change_pct", "expansion_atr_ratio",
             "trend_efficiency_min", "trend_move_min_pct", "range_risk_multiplier",
             "expansion_risk_multiplier",
@@ -405,18 +504,97 @@ def parameter_snapshot(settings):
         "risk_price": "mark_price",
         "margin_mode": "isolated_approximation",
         "risk_parameter_provider": settings.get("risk_parameter_provider", "unknown"),
+        "risk_parameter_symbol": settings.get("risk_parameter_symbol", "unknown"),
+        "cohort_parameter_sha256": settings.get("cohort_parameter_sha256"),
+        "maintenance_margin_tier_metadata": copy.deepcopy(
+            settings.get("maintenance_margin_tier_metadata") or {
+                "scope": "global_flat_or_legacy",
+                "tier_checksum": _tier_checksum(settings.get("maintenance_margin_tiers") or []),
+            }
+        ),
         "sample_collection_phase": "phase_1_btc_eth_shadow_only",
     }
 
 
-def _provider_settings(settings, provider):
-    """Bind risk tiers to the venue that owns the trade's market-data path."""
+def cohort_parameter_snapshot(settings):
+    keys = (
+        "symbols", "research_data_mode", "interval", "system", "strategy_version",
+        "account_value", "risk_fraction", "leverage", "maintenance_margin_rate",
+        "maintenance_margin_tiers", "maintenance_margin_tiers_by_provider",
+        "maintenance_margin_tiers_by_provider_symbol", "liquidation_fee_rate",
+        "fee_rate", "slippage_rate", "slippage_model", "slippage_impact_coefficient",
+        "max_slippage_rate", "max_total_open_risk", "market_state_enabled",
+        "extreme_basis_pct", "extreme_funding_rate", "extreme_oi_change_pct",
+        "expansion_atr_ratio", "trend_efficiency_min", "trend_move_min_pct",
+        "range_risk_multiplier", "expansion_risk_multiplier", "filters",
+    )
+    return {key: copy.deepcopy(settings.get(key)) for key in keys}
+
+
+def _bind_strategy_cohort(state, settings):
+    cohort_id = settings["cohort_id"]
+    parameters = cohort_parameter_snapshot(settings)
+    checksum = parameter_checksum(parameters)
+    registry = state.setdefault("strategy_cohorts", {})
+    existing = registry.get(cohort_id)
+    now_ms = int(time.time() * 1000)
+    if not isinstance(existing, dict):
+        existing = {
+            "cohort_id": cohort_id,
+            "strategy_version": settings["strategy_version"],
+            "parameter_sha256": checksum,
+            "parameter_snapshot": parameters,
+            "registered_at_epoch_ms": now_ms,
+        }
+        registry[cohort_id] = existing
+    matches = (
+        existing.get("strategy_version") == settings["strategy_version"]
+        and existing.get("parameter_sha256") == checksum
+    )
+    active = {
+        "cohort_id": cohort_id,
+        "strategy_version": settings["strategy_version"],
+        "parameter_sha256": checksum,
+        "registered_parameter_sha256": existing.get("parameter_sha256"),
+        "status": "active" if matches else "parameter_mismatch",
+        "new_entries_enabled": bool(matches),
+    }
+    state["active_cohort"] = active
+    bound = dict(settings)
+    bound["cohort_parameter_sha256"] = checksum
+    bound["new_entries_enabled"] = bool(matches)
+    bound["cohort_status"] = active["status"]
+    return bound
+
+
+def _provider_settings(settings, provider, symbol=None):
+    """Bind risk tiers to the venue and instrument that own the trade path."""
     bound = dict(settings)
     venue = str(provider or "unknown").strip().lower()
+    symbol_value = derivatives_data.normalize_symbol(symbol) if symbol else "unknown"
     provider_tiers = settings.get("maintenance_margin_tiers_by_provider") or {}
+    metadata = {
+        "scope": "global",
+        "tier_checksum": _tier_checksum(settings.get("maintenance_margin_tiers") or []),
+    }
     if venue in provider_tiers:
         bound["maintenance_margin_tiers"] = copy.deepcopy(provider_tiers[venue])
+        metadata = {
+            "scope": "provider",
+            "provider": venue,
+            "tier_checksum": _tier_checksum(bound["maintenance_margin_tiers"]),
+        }
+    binding = (
+        (settings.get("maintenance_margin_tiers_by_provider_symbol") or {})
+        .get(venue, {}).get(symbol_value)
+    )
+    if binding:
+        bound["maintenance_margin_tiers"] = copy.deepcopy(binding["tiers"])
+        metadata = {key: copy.deepcopy(value) for key, value in binding.items() if key != "tiers"}
+        metadata["scope"] = "provider_symbol"
     bound["risk_parameter_provider"] = venue
+    bound["risk_parameter_symbol"] = symbol_value
+    bound["maintenance_margin_tier_metadata"] = metadata
     return bound
 
 
@@ -706,6 +884,7 @@ def _fill_pending(trade, bar, settings, specs, state, snapshot=None, liquidity_b
     if (quantity <= 0 or not derivatives_data.quantity_is_executable(quantity, entry, specs)
             or margin > available_margin):
         trade.update({"status": "rejected", "rejection_reason": "contract_or_margin_constraint"})
+        _record_contract_constraint(state, trade)
         state["rejected_signals"].append(trade)
         return False
     fee = entry * quantity * settings["fee_rate"]
@@ -858,6 +1037,88 @@ def update_trade(trade, snapshot, settings, state):
     return "open"
 
 
+SIGNAL_FUNNEL_COUNTERS = (
+    "evaluated_bars", "insufficient_history", "no_breakout",
+    "raw_breakout_candidates", "filter_rejections",
+    "market_state_rejections", "risk_budget_rejections",
+    "duplicate_signals", "cohort_rejections", "final_entries",
+    "contract_constraint_rejections",
+)
+
+
+def _signal_funnel_state(state):
+    funnel = state.setdefault("signal_funnel", {})
+    for key in SIGNAL_FUNNEL_COUNTERS:
+        funnel[key] = int(funnel.get(key) or 0)
+    if not isinstance(funnel.get("rejection_reasons"), dict):
+        funnel["rejection_reasons"] = {}
+    if not isinstance(funnel.get("last_evaluated_bar_by_symbol"), dict):
+        funnel["last_evaluated_bar_by_symbol"] = {}
+    return funnel
+
+
+def _breakout_diagnostic(snapshot, market_state, plan, reasons, outcome):
+    bars = snapshot.get("contract_klines") or []
+    signal_time = int(bars[-1]["time"]) if bars else None
+    price = float((plan or {}).get("price", bars[-1].get("close") if bars else 0) or 0)
+    long_threshold = (plan or {}).get("long_breakout_threshold")
+    short_threshold = (plan or {}).get("short_breakout_threshold")
+
+    def distance_pct(threshold, direction):
+        if threshold in (None, "") or price <= 0:
+            return None
+        gap = float(threshold) - price if direction == "long" else price - float(threshold)
+        return round(gap / price * 100, 6)
+
+    return {
+        "symbol": snapshot.get("symbol"),
+        "provider": snapshot.get("venue", "unknown"),
+        "signal_bar_time": signal_time,
+        "outcome": outcome,
+        "candidate_direction": (plan or {}).get("candidate_direction"),
+        "filter_stage": (plan or {}).get("filter_stage"),
+        "reasons": list(reasons or []),
+        "price": price or None,
+        "n": (plan or {}).get("n"),
+        "long_breakout_threshold": long_threshold,
+        "short_breakout_threshold": short_threshold,
+        "distance_to_long_breakout_pct": distance_pct(long_threshold, "long"),
+        "distance_to_short_breakout_pct": distance_pct(short_threshold, "short"),
+        "filter_metrics": dict((plan or {}).get("filter_metrics") or {}),
+        "market_state": market_state,
+    }
+
+
+def _record_signal_evaluation(state, diagnostic, counter, rejection_reason=None):
+    symbol = diagnostic.get("symbol")
+    signal_time = diagnostic.get("signal_bar_time")
+    state.setdefault("last_signal_diagnostics_by_symbol", {})[symbol] = diagnostic
+    funnel = _signal_funnel_state(state)
+    last_by_symbol = funnel["last_evaluated_bar_by_symbol"]
+    if signal_time is None or int(last_by_symbol.get(symbol) or -1) == int(signal_time):
+        return False
+    last_by_symbol[symbol] = int(signal_time)
+    funnel["evaluated_bars"] += 1
+    funnel[counter] += 1
+    if counter not in {"insufficient_history", "no_breakout"}:
+        funnel["raw_breakout_candidates"] += 1
+    if rejection_reason:
+        reasons = funnel["rejection_reasons"]
+        reasons[rejection_reason] = int(reasons.get(rejection_reason) or 0) + 1
+    return True
+
+
+def _record_contract_constraint(state, trade):
+    if trade.get("funnel_contract_constraint_recorded"):
+        return
+    funnel = _signal_funnel_state(state)
+    funnel["contract_constraint_rejections"] += 1
+    reasons = funnel["rejection_reasons"]
+    reason = "contract_or_margin_constraint"
+    reasons[reason] = int(reasons.get(reason) or 0) + 1
+    trade["funnel_contract_constraint_recorded"] = True
+
+
 def create_signal(snapshot, settings, state):
     bars = snapshot["contract_klines"]
     market_state = classify_market_state(snapshot, settings) if settings.get("market_state_enabled", True) else {
@@ -868,10 +1129,46 @@ def create_signal(snapshot, settings, state):
         settings["interval"], filter_options=settings["filters"],
     )
     if not direction or not plan:
+        outcome = "insufficient_history" if plan is None else (
+            "filtered" if plan.get("filtered") or plan.get("blocked") else "no_breakout"
+        )
+        counter = {
+            "insufficient_history": "insufficient_history",
+            "filtered": "filter_rejections",
+            "no_breakout": "no_breakout",
+        }[outcome]
+        diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, outcome)
+        rejection_reason = (plan or {}).get("filter_reason") or (reasons[0] if reasons else None)
+        _record_signal_evaluation(state, diagnostic, counter, rejection_reason)
+        return None
+    plan = {
+        **plan,
+        "candidate_direction": direction,
+        "price": float(bars[-1]["close"]),
+    }
+    levels = sw.turtle_levels(bars, len(bars) - 1, settings["system"], settings["interval"])
+    if levels:
+        buffer_value = float(settings["filters"].get("breakout_buffer_n", 0.0)) * float(plan["n"])
+        plan.update({
+            "long_breakout_threshold": float(levels["entry_high"]) + buffer_value,
+            "short_breakout_threshold": float(levels["entry_low"]) - buffer_value,
+        })
+    if not settings.get("new_entries_enabled", True):
+        diagnostic = _breakout_diagnostic(
+            snapshot, market_state, plan, reasons, "cohort_parameter_mismatch"
+        )
+        _record_signal_evaluation(
+            state, diagnostic, "cohort_rejections", "cohort_parameter_mismatch"
+        )
         return None
     signal_time = int(bars[-1]["time"])
-    signal_id = _signal_id(snapshot["symbol"], settings["interval"], signal_time, direction, settings["system"])
+    signal_id = _signal_id(
+        snapshot["symbol"], settings["interval"], signal_time, direction,
+        settings["system"], settings["cohort_id"],
+    )
     if signal_id in state["seen_signal_ids"]:
+        diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, "duplicate_signal")
+        _record_signal_evaluation(state, diagnostic, "duplicate_signals", "duplicate_signal")
         return None
     state["seen_signal_ids"].append(signal_id)
     if market_state["state"] == "extreme_risk":
@@ -881,6 +1178,10 @@ def create_signal(snapshot, settings, state):
             "symbol": snapshot["symbol"], "provider": snapshot.get("venue", "unknown"),
             "research_only": True, "signal_bar_time": signal_time,
         })
+        diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, "market_state_rejected")
+        _record_signal_evaluation(
+            state, diagnostic, "market_state_rejections", "market_state_extreme_risk"
+        )
         return None
     risk_multiplier = float(market_state.get("risk_multiplier", 1.0))
     effective_risk_fraction = settings["risk_fraction"] * risk_multiplier
@@ -892,6 +1193,10 @@ def create_signal(snapshot, settings, state):
             "provider": snapshot.get("venue", "unknown"),
             "research_only": True, "signal_bar_time": signal_time,
         })
+        diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, "risk_budget_rejected")
+        _record_signal_evaluation(
+            state, diagnostic, "risk_budget_rejections", "portfolio_risk_limit"
+        )
         return None
     parameters = parameter_snapshot(settings)
     account_equity = float(state["equity"])
@@ -912,6 +1217,9 @@ def create_signal(snapshot, settings, state):
         "research_only": True, "symbol": snapshot["symbol"],
         "provider": snapshot.get("venue", "unknown"),
         "interval": settings["interval"], "system": settings["system"],
+        "strategy_version": settings["strategy_version"],
+        "cohort_id": settings["cohort_id"],
+        "cohort_parameter_sha256": settings.get("cohort_parameter_sha256"),
         "direction": direction, "status": "pending_entry",
         "signal_bar_time": signal_time,
         "fill_time": signal_time + sw.INTERVAL_MS[settings["interval"]],
@@ -930,6 +1238,8 @@ def create_signal(snapshot, settings, state):
         "parameter_sha256": parameter_checksum(parameters),
     }
     state["open_trades"].append(trade)
+    diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, "signal_created")
+    _record_signal_evaluation(state, diagnostic, "final_entries")
     return trade
 
 
@@ -969,6 +1279,7 @@ def _perpetual_notification_content(event_type, trade, snapshot=None):
         f"事件：{event_type}",
         f"Provider：{provider}",
         f"交易ID：{trade.get('id', '--')}",
+        f"策略版本：{trade.get('strategy_version', 'legacy_unknown')} · Cohort：{trade.get('cohort_id', 'legacy_unknown')}",
     ]
     market_state = trade.get("market_state") or {}
     if market_state:
@@ -1105,7 +1416,9 @@ def send_perpetual_test_notification(config):
 
 
 def process_snapshot(snapshot, settings, state):
-    settings = _provider_settings(settings, snapshot.get("venue"))
+    settings = _provider_settings(
+        settings, snapshot.get("venue"), snapshot.get("symbol")
+    )
     errors = derivatives_data.validate_perpetual_snapshot(snapshot, settings["interval"])
     if errors:
         raise RuntimeError("invalid perpetual shadow snapshot: " + "; ".join(errors))
@@ -1181,6 +1494,8 @@ def _sample_breakdown(closed, group_goal):
     dimensions = {
         "provider": lambda trade: str(trade.get("provider") or "unknown"),
         "symbol": lambda trade: str(trade.get("symbol") or "unknown"),
+        "strategy_version": lambda trade: str(trade.get("strategy_version") or "legacy_unknown"),
+        "cohort_id": lambda trade: str(trade.get("cohort_id") or "legacy_unknown"),
         "market_state": _market_state_label,
         "funding_mark_quality": _funding_quality,
     }
@@ -1221,6 +1536,85 @@ def _configured_sample_coverage(closed, settings, group_goal):
     return coverage
 
 
+def _provider_redundancy_summary(settings, symbol_health):
+    configured = list(settings.get("providers") or [])
+    if len(configured) < 2:
+        return {
+            "status": "not_configured", "configured_providers": configured,
+            "degraded_symbols": [], "unavailable_symbols": [],
+        }
+    degraded = []
+    unavailable = []
+    for symbol, health in symbol_health.items():
+        attempts = health.get("provider_attempts") or []
+        if not health.get("provider") or health.get("provider") == "cache":
+            unavailable.append(symbol)
+        elif any(item.get("status") in {"error", "skipped_cooldown"} for item in attempts):
+            degraded.append(symbol)
+    status = "unavailable" if unavailable and len(unavailable) == len(symbol_health) else (
+        "degraded_redundancy" if degraded or unavailable else "healthy"
+    )
+    return {
+        "status": status,
+        "configured_providers": configured,
+        "degraded_symbols": sorted(degraded),
+        "unavailable_symbols": sorted(unavailable),
+    }
+
+
+def _market_data_freshness(snapshot, settings):
+    """Assess only price series required by every research mode."""
+    required = ("contract_klines", "mark_price_klines", "index_price_klines")
+    health = snapshot.get("data_health") or {}
+    reported = health.get("data_lag_minutes") or {}
+    by_component = {}
+    for name in required:
+        if name in reported:
+            try:
+                value = float(reported[name])
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value) and value >= 0:
+                by_component[name] = round(value, 2)
+    interval_minutes = sw.INTERVAL_MS[settings["interval"]] / 60000
+    limit = interval_minutes * float(settings["market_data_max_lag_intervals"])
+    lag = max(by_component.values()) if len(by_component) == len(required) else None
+    return {
+        "status": "unknown" if lag is None else ("stale" if lag > limit else "fresh"),
+        "lag_minutes": round(lag, 2) if lag is not None else None,
+        "max_lag_minutes": round(limit, 2),
+        "max_lag_intervals": float(settings["market_data_max_lag_intervals"]),
+        "component_lag_minutes": by_component,
+    }
+
+
+def _reconciliation_detail(state, symbol, snapshot, settings):
+    interval_ms = sw.INTERVAL_MS[settings["interval"]]
+    previous_close = int((state.get("market_time_by_symbol") or {}).get(symbol) or 0)
+    bars = snapshot.get("contract_klines") or []
+    latest_close = (int(bars[-1]["time"]) + interval_ms) if bars else 0
+    if previous_close <= 0 or latest_close <= 0:
+        return {
+            "reconciliation_uncertain": True,
+            "uncertainty_reason": "missing_market_time_checkpoint",
+            "replayed_bar_count": None,
+            "previous_market_time": previous_close or None,
+            "recovered_market_time": latest_close or None,
+            "conservative_rule": "liquidation_then_stop_then_channel_exit_before_scale_in",
+        }
+    replayed = max(0, (latest_close - previous_close) // interval_ms)
+    return {
+        "reconciliation_uncertain": replayed > 0,
+        "uncertainty_reason": (
+            "ohlc_path_unknown_during_replayed_bars" if replayed > 0 else None
+        ),
+        "replayed_bar_count": int(replayed),
+        "previous_market_time": previous_close,
+        "recovered_market_time": latest_close,
+        "conservative_rule": "liquidation_then_stop_then_channel_exit_before_scale_in",
+    }
+
+
 def build_stats(state, settings=None):
     closed = state["closed_trades"]
     settings = settings or {}
@@ -1229,6 +1623,11 @@ def build_stats(state, settings=None):
     group_goal = int(settings.get("sample_group_goal_min_trades", 10))
     progress_target = preferred_goal
     closed_count = len(closed)
+    active_cohort = state.get("active_cohort") or {}
+    active_cohort_id = active_cohort.get("cohort_id") or settings.get("cohort_id")
+    active_cohort_closed = [
+        trade for trade in closed if trade.get("cohort_id") == active_cohort_id
+    ] if active_cohort_id else []
     wins = [item for item in closed if float(item.get("net_pnl") or 0) > 0]
     funding = sum(float(item.get("funding_cashflow") or 0) for item in closed + state["open_trades"])
     marked_equity, unrealized = _marked_equity(state)
@@ -1279,6 +1678,14 @@ def build_stats(state, settings=None):
             detail = unit.get("slippage") if isinstance(unit, dict) else None
             if isinstance(detail, dict) and detail.get("rate") is not None:
                 slippage_samples.append(detail)
+    symbol_tier_bindings = settings.get("maintenance_margin_tiers_by_provider_symbol") or {}
+    symbol_tier_binding_count = sum(len(symbols) for symbols in symbol_tier_bindings.values())
+    has_tiered_margins = bool(settings.get("maintenance_margin_tiers")) or any(
+        bool(tiers) for tiers in (settings.get("maintenance_margin_tiers_by_provider") or {}).values()
+    ) or any(
+        bool(binding.get("tiers"))
+        for symbols in symbol_tier_bindings.values() for binding in symbols.values()
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1287,6 +1694,9 @@ def build_stats(state, settings=None):
         "provider": settings.get("provider", "binance"),
         "provider_cooldown_seconds": float(settings.get("provider_cooldown_seconds", 0) or 0),
         "provider_failure_threshold": int(settings.get("provider_failure_threshold", 1) or 1),
+        "market_data_max_lag_intervals": float(
+            settings.get("market_data_max_lag_intervals", 1.05) or 1.05
+        ),
         "research_data_mode": settings.get("research_data_mode", "price_only_research"),
         "equity": round(float(state["equity"]), 8),
         "marked_equity": round(marked_equity, 8),
@@ -1295,6 +1705,28 @@ def build_stats(state, settings=None):
         "open_count": len(state["open_trades"]),
         "pending_entry_count": sum(item.get("status") == "pending_entry" for item in state["open_trades"]),
         "closed_count": closed_count,
+        "strategy_version": settings.get("strategy_version", "legacy_unknown"),
+        "cohort_id": active_cohort_id,
+        "cohort_status": active_cohort.get("status", "unknown"),
+        "new_entries_enabled": bool(active_cohort.get("new_entries_enabled", True)),
+        "active_cohort_parameter_sha256": active_cohort.get("parameter_sha256"),
+        "active_cohort_closed_count": len(active_cohort_closed),
+        "active_cohort_remaining_to_minimum": max(0, minimum_goal - len(active_cohort_closed)),
+        "active_cohort_remaining_to_preferred": max(0, preferred_goal - len(active_cohort_closed)),
+        "active_cohort_reliability": (
+            "insufficient_sample" if len(active_cohort_closed) < minimum_goal
+            else "observation_sample" if len(active_cohort_closed) < preferred_goal
+            else "preferred_sample"
+        ),
+        "strategy_cohorts": {
+            name: {
+                "strategy_version": item.get("strategy_version"),
+                "parameter_sha256": item.get("parameter_sha256"),
+                "registered_at_epoch_ms": item.get("registered_at_epoch_ms"),
+            }
+            for name, item in (state.get("strategy_cohorts") or {}).items()
+            if isinstance(item, dict)
+        },
         "closed_count_by_provider": provider_sample_counts,
         "sample_group_goal_min_trades": group_goal,
         "sample_breakdown": _sample_breakdown(closed, group_goal),
@@ -1317,13 +1749,17 @@ def build_stats(state, settings=None):
         },
         "liquidation_model": {
             "model_version": derivatives_risk.liquidation_model_version(
-                settings.get("maintenance_margin_tiers")
+                [{}] if has_tiered_margins else []
             ),
             "maintenance_margin_rate": float(settings.get("maintenance_margin_rate", 0.005)),
             "maintenance_margin_tiers": list(settings.get("maintenance_margin_tiers") or []),
             "maintenance_margin_tiers_by_provider": copy.deepcopy(
                 settings.get("maintenance_margin_tiers_by_provider") or {}
             ),
+            "maintenance_margin_tiers_by_provider_symbol": copy.deepcopy(
+                symbol_tier_bindings
+            ),
+            "provider_symbol_binding_count": symbol_tier_binding_count,
             "liquidation_fee_rate": float(settings.get("liquidation_fee_rate", 0.0)),
             "limitations": [
                 "isolated_margin_approximation",
@@ -1353,7 +1789,21 @@ def build_stats(state, settings=None):
         "last_successful_symbols": list(state.get("last_successful_symbols") or []),
         "symbol_health": dict(state.get("symbol_health") or {}),
         "provider_health": dict(state.get("provider_health") or {}),
+        "provider_redundancy": copy.deepcopy(state.get("provider_redundancy") or {
+            "status": state.get("provider_redundancy_status", "unknown"),
+            "configured_providers": list(settings.get("providers") or []),
+            "degraded_symbols": [], "unavailable_symbols": [],
+        }),
+        "provider_redundancy_events": list(state.get("provider_redundancy_events") or [])[-100:],
+        "signal_funnel": copy.deepcopy(_signal_funnel_state(state)),
+        "last_signal_diagnostics_by_symbol": copy.deepcopy(
+            state.get("last_signal_diagnostics_by_symbol") or {}
+        ),
         "data_recovery_events": list(state.get("data_recovery_events") or [])[-100:],
+        "reconciliation_uncertain_count": sum(
+            bool(event.get("reconciliation_uncertain"))
+            for event in (state.get("data_recovery_events") or [])
+        ),
         "data_unavailable_hold_symbols": sorted(
             symbol for symbol, health in (state.get("symbol_health") or {}).items()
             if health.get("position_status") == "data_unavailable_hold"
@@ -1374,6 +1824,10 @@ def build_stats(state, settings=None):
         ),
         "max_data_lag_minutes": round(max(
             (float(health.get("data_lag_minutes") or 0)
+             for health in (state.get("symbol_health") or {}).values()), default=0
+        ), 2),
+        "max_market_data_lag_minutes": round(max(
+            (float(health.get("market_data_lag_minutes") or 0)
              for health in (state.get("symbol_health") or {}).values()), default=0
         ), 2),
         "rejected_count": len(state["rejected_signals"]),
@@ -1411,6 +1865,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     state.setdefault("market_time_by_symbol", {})
     state.setdefault("market_state_by_symbol", {})
     state.setdefault("data_recovery_events", [])
+    settings = _bind_strategy_cohort(state, settings)
     fetchers = {"binance": derivatives_data.fetch_perpetual_snapshot,
                 "okx": okx_data.fetch_perpetual_snapshot}
     errors = {}
@@ -1440,6 +1895,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             continue
           started = time.perf_counter()
           attempt_component_errors = {}
+          attempt_market_freshness = None
           try:
             fetch_kwargs = {
                 "limit": settings["history_limit"], "closed_only": True,
@@ -1499,12 +1955,24 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 )
                 message = "required perpetual data unavailable: " + ", ".join(missing_required)
                 raise RuntimeError(message + (f"; component_errors: {detail}" if detail else ""))
+            market_freshness = _market_data_freshness(snapshot, settings)
+            attempt_market_freshness = market_freshness
+            if market_freshness["status"] == "stale":
+                raise RuntimeError(
+                    "stale perpetual market data: "
+                    f"lag_minutes={market_freshness['lag_minutes']}; "
+                    f"max_lag_minutes={market_freshness['max_lag_minutes']}"
+                )
             state_before_symbol = copy.deepcopy(state)
             had_data_hold = (
                 (state.get("symbol_health", {}).get(symbol) or {}).get("status") in
                 {"stale_cache", "stale", "unavailable"}
                 and any(item.get("symbol") == symbol and item.get("status") == "open"
                         for item in state.get("open_trades", []))
+            )
+            reconciliation = (
+                _reconciliation_detail(state, symbol, snapshot, settings)
+                if had_data_hold else None
             )
             candidate_state = copy.deepcopy(state)
             signal = process_snapshot(snapshot, settings, candidate_state)
@@ -1517,7 +1985,9 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                     "symbol": symbol, "at_epoch_ms": int(time.time() * 1000),
                     "provider": snapshot.get("venue", provider),
                     "status": "data_recovered_reconcile",
+                    **reconciliation,
                 })
+                candidate_state["data_recovery_events"] = candidate_state["data_recovery_events"][-100:]
             candidate_provider_health = candidate_state["provider_health"].setdefault(provider_key, {})
             candidate_provider_health.update({
                 "consecutive_failures": 0,
@@ -1532,19 +2002,39 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                     int(candidate_state["market_time_by_symbol"].get(symbol) or 0), observed_time
                 )
             lag = max((float(value) for value in (health.get("data_lag_minutes") or {}).values()), default=0.0)
-            lag_limit = sw.INTERVAL_MS[settings["interval"]] * 3 / 60000
-            status = "stale" if lag > lag_limit else ("partial" if component_errors else "healthy")
+            status = "partial" if component_errors else "healthy"
+            signal_diagnostic = copy.deepcopy(
+                (candidate_state.get("last_signal_diagnostics_by_symbol") or {}).get(symbol)
+            )
+            current_signal_time = int(snapshot["contract_klines"][-1]["time"])
+            if ((signal_diagnostic or {}).get("signal_bar_time") != current_signal_time):
+                signal_diagnostic = None
+            has_open_position = any(
+                item.get("symbol") == symbol and item.get("status") in {"pending_entry", "open"}
+                for item in candidate_state.get("open_trades", [])
+            )
             next_symbol_health = {
                 "status": status, "component_errors": component_errors,
                 "data_lag_minutes": round(lag, 2),
+                "market_data_lag_minutes": market_freshness["lag_minutes"],
+                "market_data_max_lag_minutes": market_freshness["max_lag_minutes"],
+                "market_data_freshness": market_freshness["status"],
+                "market_data_component_lag_minutes": market_freshness["component_lag_minutes"],
                 "latest_market_time": latest_market_time,
-                "signal_status": "signal_created" if signal else "no_signal",
+                "signal_status": "signal_created" if signal else (
+                    "position_open" if has_open_position
+                    else (signal_diagnostic or {}).get("outcome") or "not_evaluated"
+                ),
+                "signal_diagnostic": signal_diagnostic,
                 "market_state": candidate_state.get("market_state_by_symbol", {}).get(symbol),
                 "provider": snapshot.get("venue", provider),
                 "provider_attempts": provider_attempts,
                 "provider_switch_reason": switch_reason,
                 "provider_latency_ms": latency_ms,
                 "position_status": "data_recovered_reconcile" if had_data_hold else "normal",
+                "reconciliation_uncertain": bool(
+                    reconciliation and reconciliation["reconciliation_uncertain"]
+                ),
             }
             if any(item.get("status") == "error" for item in provider_attempts):
                 next_symbol_health["provider_switch_reason"] = (
@@ -1554,6 +2044,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 next_symbol_health["provider_switch_reason"] = "fallback_after_provider_cooldown"
             provider_attempts.append({
                 "provider": provider, "status": "success", "latency_ms": latency_ms,
+                "market_data_freshness": market_freshness,
             })
             # Commit this symbol atomically only after all processing and
             # derived health calculations succeed.
@@ -1580,6 +2071,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "provider": provider, "status": "error", "latency_ms": latency_ms,
                 "error": str(exc), "consecutive_failures": failures,
                 "component_errors": attempt_component_errors,
+                "market_data_freshness": attempt_market_freshness,
             })
             if selected is None and len(provider_attempts) > 1:
                 switch_reason = f"{provider_attempts[-2].get('provider')} failed; tried {provider}"
@@ -1587,6 +2079,22 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             continue
         error_text = " | ".join(f"{name}: {message}" for name, message in provider_errors.items())
         errors[symbol] = error_text
+        known_freshness = [
+            item.get("market_data_freshness") for item in provider_attempts
+            if isinstance(item.get("market_data_freshness"), dict)
+            and item["market_data_freshness"].get("lag_minutes") is not None
+        ]
+        best_freshness = min(
+            known_freshness, key=lambda item: float(item["lag_minutes"]), default=None
+        )
+        fallback_freshness = best_freshness or {
+            "status": "unknown", "lag_minutes": None,
+            "max_lag_minutes": round(
+                sw.INTERVAL_MS[settings["interval"]] / 60000
+                * settings["market_data_max_lag_intervals"], 2
+            ),
+            "component_lag_minutes": {},
+        }
         cached = _load_snapshot_cache(
             settings["cache_dir"], symbol, settings["interval"],
             settings["cache_max_stale_minutes"],
@@ -1596,6 +2104,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             symbol_health[symbol] = {
                 "status": "stale_cache", "component_errors": provider_errors,
                 "data_lag_minutes": age_minutes, "latest_market_time": None,
+                "market_data_lag_minutes": fallback_freshness["lag_minutes"],
+                "market_data_max_lag_minutes": fallback_freshness["max_lag_minutes"],
+                "market_data_freshness": "stale_cache",
+                "market_data_component_lag_minutes": fallback_freshness["component_lag_minutes"],
                 "signal_status": "not_evaluated", "provider": "cache",
                 "provider_attempts": provider_attempts,
                 "provider_switch_reason": switch_reason,
@@ -1612,6 +2124,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             "status": "stale" if "stale" in error_text.lower() else "unavailable",
             "component_errors": provider_errors,
             "data_lag_minutes": None, "latest_market_time": None,
+            "market_data_lag_minutes": fallback_freshness["lag_minutes"],
+            "market_data_max_lag_minutes": fallback_freshness["max_lag_minutes"],
+            "market_data_freshness": fallback_freshness["status"],
+            "market_data_component_lag_minutes": fallback_freshness["component_lag_minutes"],
             "signal_status": "not_evaluated", "provider": None,
             "provider_attempts": provider_attempts,
             "provider_switch_reason": switch_reason,
@@ -1623,6 +2139,20 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 else "no_open_position"
             ),
         }
+    redundancy = _provider_redundancy_summary(settings, symbol_health)
+    previous_redundancy = str(state.get("provider_redundancy_status") or "unknown")
+    current_redundancy = redundancy["status"]
+    if current_redundancy != previous_redundancy:
+        state.setdefault("provider_redundancy_events", []).append({
+            "at_epoch_ms": int(time.time() * 1000),
+            "from": previous_redundancy,
+            "to": current_redundancy,
+            "degraded_symbols": list(redundancy["degraded_symbols"]),
+            "unavailable_symbols": list(redundancy["unavailable_symbols"]),
+        })
+        state["provider_redundancy_events"] = state["provider_redundancy_events"][-100:]
+    state["provider_redundancy_status"] = current_redundancy
+    state["provider_redundancy"] = redundancy
     state["updated_at_epoch_ms"] = int(time.time() * 1000)
     state["last_errors"] = errors
     state["run_count"] = int(state.get("run_count") or 0) + 1
@@ -1636,13 +2166,17 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             int(state.get("last_market_time") or 0), min(available_times)
         )
     state["symbol_health"] = symbol_health
-    if not errors and not any(item.get("status") == "partial" for item in symbol_health.values()):
+    redundancy_degraded = current_redundancy == "degraded_redundancy"
+    if (not errors and not redundancy_degraded
+            and not any(item.get("status") == "partial" for item in symbol_health.values())):
         state["data_status"] = "healthy"
         state["consecutive_unavailable_runs"] = 0
         state["last_success_at_epoch_ms"] = state["updated_at_epoch_ms"]
     elif successful_market_times or any(item.get("status") == "stale_cache" for item in symbol_health.values()):
         state["data_status"] = "degraded"
         state["consecutive_unavailable_runs"] = 0
+        if successful_market_times:
+            state["last_success_at_epoch_ms"] = state["updated_at_epoch_ms"]
     else:
         state["data_status"] = "unavailable"
         state["consecutive_unavailable_runs"] = int(state.get("consecutive_unavailable_runs") or 0) + 1
@@ -1658,6 +2192,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
     stats["stale_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] in {"stale", "stale_cache"})
     stats["cached_symbols"] = sorted(symbol for symbol, health in symbol_health.items() if health["status"] == "stale_cache")
     stats["max_data_lag_minutes"] = round(max((float(health.get("data_lag_minutes") or 0) for health in symbol_health.values()), default=0.0), 2)
+    stats["max_market_data_lag_minutes"] = round(max(
+        (float(health.get("market_data_lag_minutes") or 0)
+         for health in symbol_health.values()), default=0.0
+    ), 2)
     deliveries = dispatch_perpetual_notifications(notification_events, state, config)
     stats["notification_deliveries"] = deliveries
     stats["notification_history_count"] = len(state.get("notification_history") or [])
@@ -1669,6 +2207,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
 
 
 def main(argv=None):
+    console_output.configure_utf8_output()
     parser = argparse.ArgumentParser(description="运行 Binance USD-M 永续研究影子交易")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--state", default=DEFAULT_STATE_PATH)

@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 
+import console_output
 import derivatives_data
 import derivatives_snapshots
 
@@ -50,6 +51,7 @@ def collect(symbol, interval="4h", limit=3600, output_dir=DEFAULT_OUTPUT_DIR,
 
 
 def main(argv=None):
+    console_output.configure_utf8_output()
     parser = argparse.ArgumentParser(description="保存 Binance USD-M 永续研究快照")
     parser.add_argument("--symbol", required=True, help="例如 BTCUSDT")
     parser.add_argument("--interval", default="4h", choices=sorted(derivatives_data.SUPPORTED_INTERVALS))

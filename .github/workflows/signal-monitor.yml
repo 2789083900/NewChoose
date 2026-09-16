@@ -103,6 +103,12 @@ jobs:
               print("perpetual shadow data coverage: {}/{} symbols; status={}; unavailable_runs={}".format(len(stats.get("successful_symbols", [])), len(stats.get("requested_symbols", [])), stats.get("data_status"), stats.get("consecutive_unavailable_runs", 0)))
               print("perpetual shadow providers:", {symbol: health.get("provider") for symbol, health in (stats.get("symbol_health") or {}).items()})
               print("perpetual shadow provider attempts:", {symbol: health.get("provider_attempts") for symbol, health in (stats.get("symbol_health") or {}).items()})
+              print("perpetual shadow provider redundancy:", stats.get("provider_redundancy", {}))
+              print("perpetual shadow market freshness:", {symbol: {"status": health.get("market_data_freshness"), "lag_minutes": health.get("market_data_lag_minutes"), "max_lag_minutes": health.get("market_data_max_lag_minutes")} for symbol, health in (stats.get("symbol_health") or {}).items()})
+              print("perpetual shadow signal funnel:", stats.get("signal_funnel", {}))
+              print("perpetual shadow latest signal diagnostics:", stats.get("last_signal_diagnostics_by_symbol", {}))
+              print("perpetual shadow active cohort:", {"strategy_version": stats.get("strategy_version"), "cohort_id": stats.get("cohort_id"), "status": stats.get("cohort_status"), "new_entries_enabled": stats.get("new_entries_enabled"), "closed_count": stats.get("active_cohort_closed_count")})
+              print("perpetual shadow uncertain reconciliations:", stats.get("reconciliation_uncertain_count", 0))
               if stats.get("cached_symbols"):
                   print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
               if stats.get("errors"):

@@ -32,7 +32,7 @@ jobs:
         continue-on-error: true
         env:
           SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
-        run: python check_monitor_health.py --max-age-minutes 20
+        run: python check_monitor_health.py --max-age-minutes 20 --max-perp-age-minutes 30
 
       - name: Save alert transition state
         shell: bash

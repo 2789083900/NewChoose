@@ -23,6 +23,7 @@ import run_perp_backtest
 import perp_shadow
 import validate_perp_shadow
 import check_monitor_health
+import console_output
 from track_signals import build_quality_report
 from signal_archive import archive_and_trim
 
@@ -42,6 +43,15 @@ def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
 
 
 class TurtleCoreTests(unittest.TestCase):
+    def test_console_output_configures_supported_streams(self):
+        stdout = mock.Mock()
+        stderr = mock.Mock()
+        with mock.patch.object(console_output.sys, "stdout", stdout), \
+             mock.patch.object(console_output.sys, "stderr", stderr):
+            console_output.configure_utf8_output()
+        stdout.reconfigure.assert_called_once_with(encoding="utf-8")
+        stderr.reconfigure.assert_called_once_with(encoding="utf-8")
+
     def test_workflow_publishes_perpetual_state_only_after_successful_validation(self):
         workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
         with open(workflow, encoding="utf-8") as file:
@@ -391,7 +401,8 @@ class TurtleCoreTests(unittest.TestCase):
                 json.dump(state, file)
             summary = repair_runtime_state.inspect_state(state)
             self.assertEqual(len(summary["closed_test"]), 1)
-            repair_runtime_state.repair(directory, apply=False)
+            with mock.patch("builtins.print"):
+                repair_runtime_state.repair(directory, apply=False)
             with open(state_path, encoding="utf-8") as file:
                 self.assertEqual(len(json.load(file)["closed_trades"]), 2)
 
@@ -481,6 +492,33 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(result, {"ok": True})
         self.assertEqual(getter.call_count, 2)
         self.assertTrue(getter.call_args_list[1].args[0].startswith("https://fapi1.binance.com/"))
+
+    def test_http_json_classifies_empty_and_non_json_responses(self):
+        class Response:
+            def __init__(self, body, content_type):
+                self.status = 200
+                self.headers = {"Content-Type": content_type}
+                self.body = body
+
+            def read(self):
+                return self.body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+        with mock.patch.object(sw, "_urlopen_with_retry", return_value=Response(b"", "application/json")):
+            with self.assertRaisesRegex(RuntimeError, r"EmptyResponse: status=200.*response_length=0"):
+                sw.http_get_json("https://example.test/api/v1/time", attempts=1)
+        with mock.patch.object(sw, "_urlopen_with_retry", return_value=Response(
+            b"<html>blocked by policy</html>", "text/html; charset=utf-8"
+        )):
+            with self.assertRaisesRegex(RuntimeError, r"UnexpectedContentType: status=200.*text/html") as caught:
+                sw.http_get_json("https://example.test/api/v1/time", attempts=1)
+        self.assertIn("response_length=30", str(caught.exception))
+        self.assertNotIn("example.test?", str(caught.exception))
 
     def test_okx_perpetual_adapter_emits_normalized_snapshot(self):
         rows = [[1700000000000, "100", "102", "99", "101", "12", "0", "0", "0"]]
@@ -836,6 +874,91 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(perp_shadow.parameter_snapshot(okx)["risk_parameter_provider"], "okx")
         self.assertEqual(settings["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.005)
 
+    def test_perpetual_risk_tiers_bind_to_provider_and_symbol_with_provenance(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "maintenance_margin_tiers_by_provider": {
+                "binance": [{"max_notional": 50000, "rate": 0.01}],
+            },
+            "maintenance_margin_tiers_by_provider_symbol": {
+                "binance": {
+                    "BTCUSDT": {
+                        "tiers": [{"max_notional": 100000, "rate": 0.02}],
+                        "source": "https://example.test/binance-risk-table",
+                        "effective_at": "2026-09-16T00:00:00Z",
+                        "tier_version": "example-v1",
+                    },
+                },
+            },
+        }})
+        btc = perp_shadow._provider_settings(settings, "binance", "BTCUSDT")
+        eth = perp_shadow._provider_settings(settings, "binance", "ETHUSDT")
+        self.assertEqual(btc["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.02)
+        self.assertEqual(eth["maintenance_margin_tiers"][0]["maintenance_margin_rate"], 0.01)
+        snapshot = perp_shadow.parameter_snapshot(btc)
+        metadata = snapshot["maintenance_margin_tier_metadata"]
+        self.assertEqual(snapshot["risk_parameter_symbol"], "BTCUSDT")
+        self.assertEqual(metadata["scope"], "provider_symbol")
+        self.assertEqual(metadata["provider"], "binance")
+        self.assertEqual(metadata["tier_version"], "example-v1")
+        self.assertEqual(metadata["tier_checksum"],
+                         perp_shadow._tier_checksum(snapshot["maintenance_margin_tiers"]))
+
+    def test_perpetual_symbol_risk_tiers_require_versioned_provenance(self):
+        binding = {"maintenance_margin_tiers_by_provider_symbol": {
+            "binance": {"BTCUSDT": {
+                "tiers": [{"max_notional": 100000, "rate": 0.02}],
+            }},
+        }}
+        with self.assertRaisesRegex(ValueError, "require source"):
+            perp_shadow.shadow_settings({"derivatives": binding})
+        binding["maintenance_margin_tiers_by_provider_symbol"]["binance"]["BTCUSDT"].update({
+            "source": "official", "effective_at": "2026-09-16T00:00:00Z",
+            "tier_version": "v1", "tier_checksum": "0" * 64,
+        })
+        with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+            perp_shadow.shadow_settings({"derivatives": binding})
+
+    def test_perpetual_cohort_blocks_new_samples_after_parameter_drift(self):
+        state = perp_shadow.empty_state()
+        baseline = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h", "cohort_id": "baseline-v1",
+            "strategy_version": "turtle-v1", "risk_fraction": 0.005,
+        }})
+        bound = perp_shadow._bind_strategy_cohort(state, baseline)
+        self.assertTrue(bound["new_entries_enabled"])
+        drifted = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h", "cohort_id": "baseline-v1",
+            "strategy_version": "turtle-v1", "risk_fraction": 0.01,
+        }})
+        blocked = perp_shadow._bind_strategy_cohort(state, drifted)
+        self.assertFalse(blocked["new_entries_enabled"])
+        self.assertEqual(state["active_cohort"]["status"], "parameter_mismatch")
+
+        bars = make_bars(400, close=100, high=101, low=99)
+        snapshot = {"symbol": "BTCUSDT", "venue": "binance",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": [],
+                    "open_interest": [], "contract_specs": {"symbol": "BTCUSDT"}}
+        plan = {"entry": 101, "stop": 99, "next_add": 102, "exit_level": 98,
+                "n": 1, "unit_quantity": 1, "max_quantity": 4, "exit_days": 20,
+                "system": "system2"}
+        market_state = {"state": "trend", "risk_multiplier": 1.0,
+                        "flags": [], "metrics": {}}
+        with mock.patch.object(sw, "build_turtle_signal", return_value=("long", ["breakout"], plan)), \
+             mock.patch.object(perp_shadow, "classify_market_state", return_value=market_state):
+            signal = perp_shadow.create_signal(snapshot, blocked, state)
+        self.assertIsNone(signal)
+        self.assertEqual(state["open_trades"], [])
+        self.assertEqual(state["signal_funnel"]["cohort_rejections"], 1)
+
+        new_cohort = dict(drifted)
+        new_cohort["cohort_id"] = "experiment-v2"
+        enabled = perp_shadow._bind_strategy_cohort(state, new_cohort)
+        self.assertTrue(enabled["new_entries_enabled"])
+        self.assertEqual(len(state["strategy_cohorts"]), 2)
+
     def test_perpetual_shadow_tracks_data_availability_across_runs(self):
         with tempfile.TemporaryDirectory() as directory:
             state_path = os.path.join(directory, "state.json")
@@ -1065,6 +1188,114 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual([item["provider"] for item in health["provider_attempts"]], ["binance", "okx"])
         self.assertEqual(health["provider_switch_reason"], "fallback_after_1_failure(s)")
         self.assertIsInstance(health["provider_latency_ms"], float)
+        self.assertEqual(result["stats"]["data_status"], "degraded")
+        self.assertEqual(result["stats"]["provider_redundancy"]["status"],
+                         "degraded_redundancy")
+        self.assertEqual(result["stats"]["provider_redundancy"]["degraded_symbols"],
+                         ["BTCUSDT"])
+
+    def test_perpetual_signal_funnel_deduplicates_same_closed_bar(self):
+        bars = make_bars(400, close=100, high=101, low=99)
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance",
+            "symbol": "BTCUSDT", "interval": "4h", "contract_klines": bars,
+            "mark_price_klines": bars, "index_price_klines": bars,
+            "funding_rates": [], "open_interest": [],
+            "contract_specs": {"symbol": "BTCUSDT", "contract_type": "PERPETUAL",
+                               "quote_asset": "USDT", "price_tick": 0.1,
+                               "quantity_step": 0.001, "min_quantity": 0.001,
+                               "min_notional": 5.0},
+        }
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h",
+        }})
+        state = perp_shadow.empty_state()
+        self.assertIsNone(perp_shadow.create_signal(snapshot, settings, state))
+        self.assertIsNone(perp_shadow.create_signal(snapshot, settings, state))
+        funnel = state["signal_funnel"]
+        self.assertEqual(funnel["evaluated_bars"], 1)
+        self.assertEqual(funnel["no_breakout"], 1)
+        self.assertEqual(funnel["raw_breakout_candidates"], 0)
+        diagnostic = state["last_signal_diagnostics_by_symbol"]["BTCUSDT"]
+        self.assertEqual(diagnostic["outcome"], "no_breakout")
+        self.assertIsNotNone(diagnostic["distance_to_long_breakout_pct"])
+
+    def test_perpetual_market_freshness_uses_required_price_series_only(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h", "market_data_max_lag_intervals": 1.05,
+        }})
+        snapshot = {"data_health": {"data_lag_minutes": {
+            "contract_klines": 230, "mark_price_klines": 231,
+            "index_price_klines": 232, "funding_rates": 600,
+            "open_interest": 800,
+        }}}
+        fresh = perp_shadow._market_data_freshness(snapshot, settings)
+        self.assertEqual(fresh["status"], "fresh")
+        self.assertEqual(fresh["lag_minutes"], 232)
+        snapshot["data_health"]["data_lag_minutes"]["mark_price_klines"] = 253
+        stale = perp_shadow._market_data_freshness(snapshot, settings)
+        self.assertEqual(stale["status"], "stale")
+        self.assertEqual(stale["max_lag_minutes"], 252)
+
+    def test_perpetual_stale_price_snapshot_cannot_mutate_trading_state(self):
+        row = {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}
+        snapshot = {"market_type": "linear_perpetual", "venue": "binance",
+                    "symbol": "BTCUSDT", "interval": "4h", "contract_klines": [row],
+                    "mark_price_klines": [row], "index_price_klines": [row],
+                    "contract_specs": {"symbol": "BTCUSDT"},
+                    "data_health": {"component_errors": {}, "data_lag_minutes": {
+                        "contract_klines": 260, "mark_price_klines": 260,
+                        "index_price_klines": 260,
+                    }}}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(perp_shadow, "process_snapshot") as process:
+            result = perp_shadow.run(
+                {"derivatives": {"enabled": True, "research_only": True,
+                    "symbols": ["BTCUSDT"], "interval": "4h",
+                    "market_data_max_lag_intervals": 1.05}},
+                os.path.join(directory, "state.json"),
+                os.path.join(directory, "stats.json"),
+                fetcher=lambda *_args, **_kwargs: snapshot,
+            )
+        process.assert_not_called()
+        health = result["stats"]["symbol_health"]["BTCUSDT"]
+        self.assertEqual(health["status"], "stale")
+        self.assertEqual(health["market_data_freshness"], "stale")
+        self.assertEqual(result["stats"]["successful_symbols"], [])
+
+    def test_perpetual_stale_primary_price_fails_over_before_processing(self):
+        row = {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}
+        base = {"market_type": "linear_perpetual", "symbol": "BTCUSDT", "interval": "4h",
+                "contract_klines": [row], "mark_price_klines": [row],
+                "index_price_klines": [row], "funding_rates": [], "open_interest": [],
+                "contract_specs": {"symbol": "BTCUSDT"}}
+        stale = {**base, "venue": "binance", "data_health": {
+            "component_errors": {}, "data_lag_minutes": {
+                "contract_klines": 260, "mark_price_klines": 260,
+                "index_price_klines": 260,
+            }}}
+        fresh = {**base, "venue": "okx", "data_health": {
+            "component_errors": {}, "data_lag_minutes": {
+                "contract_klines": 10, "mark_price_klines": 10,
+                "index_price_klines": 10,
+            }}}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(derivatives_data, "fetch_perpetual_snapshot", return_value=stale), \
+             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=fresh), \
+             mock.patch.object(perp_shadow, "process_snapshot", return_value=None) as process:
+            result = perp_shadow.run(
+                {"derivatives": {"enabled": True, "research_only": True,
+                    "provider": "auto", "symbols": ["BTCUSDT"], "interval": "4h"}},
+                os.path.join(directory, "state.json"),
+                os.path.join(directory, "stats.json"),
+            )
+        process.assert_called_once()
+        health = result["stats"]["symbol_health"]["BTCUSDT"]
+        self.assertEqual(health["provider"], "okx")
+        self.assertEqual(health["market_data_freshness"], "fresh")
+        self.assertIn("stale perpetual market data", health["provider_attempts"][0]["error"])
 
     def test_perpetual_provider_cooldown_skips_repeated_primary_failure(self):
         specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
@@ -1092,6 +1323,79 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(second["stats"]["symbol_health"]["BTCUSDT"]["provider_switch_reason"],
                          "fallback_after_provider_cooldown")
         self.assertEqual(okx_fetch.call_count, 2)
+
+    def test_perpetual_provider_redundancy_records_degradation_and_recovery(self):
+        specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
+                 "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001,
+                 "min_notional": 5.0}
+        row = {"time": 1, "open": 100, "high": 101, "low": 99, "close": 100, "volume": 1}
+        binance_snapshot = {"market_type": "linear_perpetual", "venue": "binance",
+                            "symbol": "BTCUSDT", "interval": "4h",
+                            "contract_klines": [row], "mark_price_klines": [row],
+                            "index_price_klines": [row], "funding_rates": [],
+                            "open_interest": [], "contract_specs": specs,
+                            "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+        okx_snapshot = {**binance_snapshot, "venue": "okx"}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(derivatives_data, "fetch_perpetual_snapshot", side_effect=[
+                 RuntimeError("binance down"), binance_snapshot,
+             ]), \
+             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=okx_snapshot), \
+             mock.patch.object(perp_shadow, "process_snapshot", return_value=None):
+            config = {"derivatives": {"enabled": True, "research_only": True,
+                "provider": "auto", "symbols": ["BTCUSDT"], "interval": "4h",
+                "provider_cooldown_seconds": 0}}
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            first = perp_shadow.run(config, state_path, stats_path)
+            second = perp_shadow.run(config, state_path, stats_path)
+        self.assertEqual(first["stats"]["provider_redundancy"]["status"],
+                         "degraded_redundancy")
+        self.assertEqual(second["stats"]["provider_redundancy"]["status"], "healthy")
+        transitions = [(event["from"], event["to"])
+                       for event in second["stats"]["provider_redundancy_events"]]
+        self.assertIn(("degraded_redundancy", "healthy"), transitions)
+
+    def test_perpetual_open_position_hold_and_recovery_persist_across_runs(self):
+        specs = {"symbol": "BTCUSDT", "contract_type": "PERPETUAL", "quote_asset": "USDT",
+                 "price_tick": 0.1, "quantity_step": 0.001, "min_quantity": 0.001,
+                 "min_notional": 5.0}
+        interval_ms = 4 * 60 * 60 * 1000
+        previous_close = 1_700_000_000_000
+        bars = [{"time": previous_close + index * interval_ms, "open": 100,
+                 "high": 101, "low": 99, "close": 100, "volume": 1}
+                for index in range(3)]
+        snapshot = {"market_type": "linear_perpetual", "venue": "binance",
+                    "symbol": "BTCUSDT", "interval": "4h", "contract_klines": bars,
+                    "mark_price_klines": bars, "index_price_klines": bars,
+                    "funding_rates": [], "open_interest": [], "contract_specs": specs,
+                    "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
+        state = perp_shadow.empty_state()
+        state["market_time_by_symbol"] = {"BTCUSDT": previous_close}
+        state["open_trades"] = [{"id": "open-1", "market_type": "linear_perpetual",
+                                 "research_only": True, "symbol": "BTCUSDT",
+                                 "provider": "binance", "status": "open"}]
+        with tempfile.TemporaryDirectory() as directory:
+            state_path = os.path.join(directory, "state.json")
+            stats_path = os.path.join(directory, "stats.json")
+            sw.atomic_write_json(state_path, state)
+            config = {"derivatives": {"enabled": True, "research_only": True,
+                                       "symbols": ["BTCUSDT"], "interval": "4h"}}
+            failing = lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("offline"))
+            held = perp_shadow.run(config, state_path, stats_path, fetcher=failing)
+            with mock.patch.object(perp_shadow, "process_snapshot", return_value=None):
+                recovered = perp_shadow.run(
+                    config, state_path, stats_path,
+                    fetcher=lambda *_args, **_kwargs: snapshot,
+                )
+        self.assertEqual(held["stats"]["data_unavailable_hold_symbols"], ["BTCUSDT"])
+        health = recovered["stats"]["symbol_health"]["BTCUSDT"]
+        self.assertEqual(health["position_status"], "data_recovered_reconcile")
+        event = recovered["stats"]["data_recovery_events"][-1]
+        self.assertEqual(event["symbol"], "BTCUSDT")
+        self.assertTrue(event["reconciliation_uncertain"])
+        self.assertEqual(event["replayed_bar_count"], 3)
+        self.assertEqual(recovered["stats"]["reconciliation_uncertain_count"], 1)
 
     def test_perpetual_snapshot_cache_is_separated_by_provider(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1490,6 +1794,95 @@ class TurtleCoreTests(unittest.TestCase):
             liquidity["volume_20pct"]["average_effective_slippage_pct"],
             liquidity["baseline"]["average_effective_slippage_pct"],
         )
+        self.assertEqual(
+            liquidity["summary"]["difference_definition"],
+            "scenario_minus_baseline",
+        )
+        self.assertIn("volume_50pct_trade_count_delta", liquidity["summary"])
+        self.assertIn("volume_20pct_max_drawdown_delta_pct", liquidity["summary"])
+        self.assertIn(
+            "volume_20pct_max_effective_slippage_delta_pct",
+            liquidity["summary"],
+        )
+
+    def test_stress_helpers_reuse_precomputed_baseline(self):
+        baseline = {
+            "return_pct": 1.0, "trade_count": 2, "liquidation_count": 0,
+            "max_drawdown_pct": 3.0, "ending_equity": 10100.0,
+            "max_effective_slippage_pct": 0.1, "funding_cashflow": -2.0,
+            "liquidation_model": {"model_version": "isolated_linear_tiered_v1"},
+        }
+        flipped = {**baseline, "return_pct": 0.8, "funding_cashflow": -4.0}
+        with mock.patch.object(
+            perp_backtest, "backtest_perpetual", return_value=flipped
+        ) as backtest:
+            funding = perp_backtest.run_funding_flip_stress(
+                {"funding_rates": []}, baseline_result=baseline
+            )
+        self.assertIs(funding["normal"], baseline)
+        self.assertEqual(backtest.call_count, 1)
+
+        volume_50 = {
+            **baseline, "return_pct": 0.5, "trade_count": 3,
+            "max_drawdown_pct": 4.0, "max_effective_slippage_pct": 0.2,
+        }
+        volume_20 = {
+            **baseline, "return_pct": -0.5, "trade_count": 4,
+            "max_drawdown_pct": 5.5, "max_effective_slippage_pct": 0.4,
+        }
+        with mock.patch.object(
+            perp_backtest, "backtest_perpetual", side_effect=[volume_50, volume_20]
+        ) as backtest:
+            liquidity = perp_backtest.run_liquidity_stress_tests(
+                {}, baseline_result=baseline
+            )
+        self.assertIs(liquidity["baseline"], baseline)
+        self.assertEqual(backtest.call_count, 2)
+        self.assertEqual(liquidity["summary"]["volume_20pct_trade_count_delta"], 2)
+        self.assertEqual(
+            liquidity["summary"]["volume_20pct_max_drawdown_delta_pct"], 2.5
+        )
+        self.assertEqual(
+            liquidity["summary"]["volume_20pct_max_effective_slippage_delta_pct"],
+            0.3,
+        )
+
+    def test_maintenance_margin_stress_requires_configured_tiers(self):
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h"}
+        result = perp_backtest.run_maintenance_margin_stress(snapshot)
+        self.assertFalse(result["enabled"])
+        self.assertEqual(
+            result["reason"], "maintenance_margin_tiers_not_configured"
+        )
+
+    def test_maintenance_margin_stress_compares_tiered_minus_flat(self):
+        flat = {
+            "return_pct": 1.25, "trade_count": 3, "liquidation_count": 1,
+            "max_drawdown_pct": 2.5, "ending_equity": 10125.0,
+            "liquidation_model": {"model_version": "isolated_linear_v1"},
+        }
+        tiered = {
+            "return_pct": 0.75, "trade_count": 3, "liquidation_count": 2,
+            "max_drawdown_pct": 3.0, "ending_equity": 10075.0,
+            "liquidation_model": {"model_version": "isolated_linear_tiered_v1"},
+        }
+        with mock.patch.object(
+            perp_backtest, "backtest_perpetual", side_effect=[flat, tiered]
+        ) as backtest:
+            result = perp_backtest.run_maintenance_margin_stress(
+                {}, maintenance_margin_rate=0.005,
+                maintenance_margin_tiers=[{"max_notional": 50000, "rate": 0.01}],
+            )
+        self.assertTrue(result["enabled"])
+        self.assertEqual(backtest.call_args_list[0].kwargs["maintenance_margin_tiers"], None)
+        self.assertEqual(
+            backtest.call_args_list[1].kwargs["maintenance_margin_tiers"][0]["maintenance_margin_rate"],
+            0.01,
+        )
+        self.assertEqual(result["difference_definition"], "tiered_minus_flat")
+        self.assertEqual(result["differences"]["return_pct"], -0.5)
+        self.assertEqual(result["differences"]["liquidation_count"], 1)
+        self.assertEqual(result["differences"]["ending_equity"], -50.0)
 
     def test_perpetual_entry_fills_on_the_next_bar_open(self):
         bars = []
@@ -1512,6 +1905,143 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(result["trades"][0]["entry_time"], bars[331]["time"])
         self.assertAlmostEqual(result["trades"][0]["entry"], bars[331]["open"] * 1.0005)
 
+    def test_perpetual_entry_can_fill_on_final_known_bar(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(333)]
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"],
+                  {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[(None, [], None), signal]
+        ):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0
+            )
+        self.assertEqual(result["trade_count"], 1)
+        self.assertEqual(result["trades"][0]["entry_time"], bars[-1]["time"])
+        self.assertEqual(result["trades"][0]["reason"], "end_of_test")
+
+    def test_perpetual_final_bar_checks_stop_before_forced_close(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(333)]
+        bars[-1] = {**bars[-1], "low": 97}
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"],
+                  {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        levels = {"exit_low": 50.0, "exit_high": 150.0}
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 5
+        ), mock.patch.object(sw, "turtle_levels", return_value=levels):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0
+            )
+        self.assertEqual(result["trade_count"], 1)
+        self.assertEqual(result["trades"][0]["exit_time"], bars[-1]["time"])
+        self.assertEqual(result["trades"][0]["reason"], "stop")
+
+    def test_perpetual_forced_close_cost_is_in_final_drawdown(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(333)]
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"],
+                  {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[(None, [], None), signal]
+        ):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0.001, slippage_rate=0.001
+            )
+        self.assertLess(result["return_pct"], 0)
+        self.assertAlmostEqual(
+            result["max_drawdown_pct"], -result["return_pct"], places=4
+        )
+
+    def test_perpetual_backtest_pyramids_at_half_n_to_four_units(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 100.1, "low": 99.9, "close": 100,
+                 "volume": 1000} for index in range(334)]
+        bars[332] = {**bars[332], "high": 102, "close": 102}
+        bars[333] = {**bars[333], "open": 102, "high": 102.1,
+                     "low": 101.9, "close": 102}
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"],
+                  {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        levels = {"exit_low": 50.0, "exit_high": 150.0}
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 5
+        ), mock.patch.object(sw, "turtle_levels", return_value=levels):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0,
+                risk_fraction=0.005, max_total_open_risk=0.04,
+            )
+        trade = result["trades"][0]
+        self.assertEqual(len(trade["units"]), 4)
+        self.assertEqual([unit["price"] for unit in trade["units"]],
+                         [100.0, 100.5, 101.0, 101.5])
+        self.assertEqual(trade["quantity"], 100.0)
+        self.assertEqual(trade["avg_entry"], 100.75)
+        self.assertEqual(result["execution_fill_count"], 5)
+
+    def test_perpetual_backtest_pyramiding_respects_total_risk_cap(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 100.1, "low": 99.9, "close": 100,
+                 "volume": 1000} for index in range(334)]
+        bars[332] = {**bars[332], "high": 102, "close": 102}
+        bars[333] = {**bars[333], "open": 102, "high": 102.1,
+                     "low": 101.9, "close": 102}
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("long", ["test breakout"],
+                  {"n": 1.0, "stop": 90.0, "exit_level": 50.0})
+        levels = {"exit_low": 50.0, "exit_high": 150.0}
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 5
+        ), mock.patch.object(sw, "turtle_levels", return_value=levels):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0,
+                risk_fraction=0.005, max_total_open_risk=0.01,
+            )
+        self.assertEqual(len(result["trades"][0]["units"]), 2)
+        self.assertEqual(result["max_total_open_risk"], 0.01)
+
+    def test_perpetual_backtest_pyramids_short_positions_symmetrically(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 100.1, "low": 99.9, "close": 100,
+                 "volume": 1000} for index in range(334)]
+        bars[332] = {**bars[332], "low": 98, "close": 98}
+        bars[333] = {**bars[333], "open": 98, "high": 98.1,
+                     "low": 97.9, "close": 98}
+        snapshot = {"market_type": "linear_perpetual", "interval": "4h",
+                    "contract_klines": bars, "mark_price_klines": bars,
+                    "index_price_klines": bars, "funding_rates": []}
+        signal = ("short", ["test breakout"],
+                  {"n": 1.0, "stop": 110.0, "exit_level": 150.0})
+        levels = {"exit_low": 50.0, "exit_high": 150.0}
+        with mock.patch.object(
+            sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 5
+        ), mock.patch.object(sw, "turtle_levels", return_value=levels):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0,
+                risk_fraction=0.005, max_total_open_risk=0.04,
+            )
+        trade = result["trades"][0]
+        self.assertEqual([unit["price"] for unit in trade["units"]],
+                         [100.0, 99.5, 99.0, 98.5])
+        self.assertEqual(trade["avg_entry"], 99.25)
+        self.assertEqual(result["execution_fill_count"], 5)
+
     def test_perpetual_channel_exit_uses_the_correct_side_of_mark_bar(self):
         bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
                  "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
@@ -1523,7 +2053,10 @@ class TurtleCoreTests(unittest.TestCase):
         levels = {"exit_low": 50.0, "exit_high": 150.0}
         with mock.patch.object(sw, "build_turtle_signal", side_effect=[signal] + [(None, [], None)] * 10), \
              mock.patch.object(sw, "turtle_levels", return_value=levels):
-            result = perp_backtest.backtest_perpetual(snapshot, fee_rate=0, slippage_rate=0)
+            result = perp_backtest.backtest_perpetual(
+                snapshot, fee_rate=0, slippage_rate=0,
+                max_total_open_risk=0.005,
+            )
         self.assertEqual(result["trade_count"], 1)
         self.assertEqual(result["trades"][0]["reason"], "end_of_test")
 
@@ -1711,6 +2244,19 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(
                 report["liquidity_stress"]["summary"]["model"],
                 "contract_kline_volume_sensitivity_v1",
+            )
+            self.assertIs(
+                report["funding_flip_stress"]["normal"],
+                report["cost_stress"]["baseline"],
+            )
+            self.assertIs(
+                report["liquidity_stress"]["baseline"],
+                report["cost_stress"]["baseline"],
+            )
+            self.assertFalse(report["maintenance_margin_stress"]["enabled"])
+            self.assertEqual(
+                report["maintenance_margin_stress"]["reason"],
+                "maintenance_margin_tiers_not_configured",
             )
             self.assertTrue(os.path.isfile(output))
 
@@ -1916,6 +2462,8 @@ class TurtleCoreTests(unittest.TestCase):
                  mock.patch.object(sw, "save_state"), \
                  mock.patch.object(sw, "portfolio_risk_snapshot", return_value={}), \
                  mock.patch.object(sw.logging, "basicConfig"), \
+                 mock.patch.object(sw.logging, "FileHandler"), \
+                 mock.patch.object(sw.logging, "StreamHandler"), \
                  mock.patch.object(sw.logging, "exception"):
                 result = sw.main()
             self.assertEqual(result, 1)
@@ -2059,10 +2607,13 @@ class TurtleCoreTests(unittest.TestCase):
     def test_monitor_health_alerts_only_on_status_transition(self):
         with tempfile.TemporaryDirectory() as directory, \
              mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
              mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
              mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
             with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
                 json.dump({"updated_at_epoch": 100, "status": "ok"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:33:10Z"}, file)
             first = check_monitor_health.check(max_age_minutes=20, now=2000, sendkey="SCT-test")
             second = check_monitor_health.check(max_age_minutes=20, now=2001, sendkey="SCT-test")
             self.assertEqual(first["status"], "stale")
@@ -2082,6 +2633,29 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIn("abc123", detail)
         self.assertIn("覆盖率：0.0%", detail)
         self.assertIn("BTCUSDT|4h: timeout", detail)
+
+    def test_monitor_health_detects_perpetual_heartbeat_transition_once(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+            mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 3590, "status": "ok"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:00:00Z"}, file)
+            first = check_monitor_health.check(
+                max_age_minutes=20, max_perp_age_minutes=30,
+                now=3600, sendkey="SCT-test",
+            )
+            second = check_monitor_health.check(
+                max_age_minutes=20, max_perp_age_minutes=30,
+                now=3601, sendkey="SCT-test",
+            )
+        self.assertEqual(first["failed_components"], ["perpetual_shadow"])
+        self.assertEqual(second["failed_components"], ["perpetual_shadow"])
+        self.assertEqual(notify.call_count, 1)
+        self.assertIn("perp_shadow_stats.json", notify.call_args.args[2])
 
     def test_empty_portfolio_backtest_returns_a_valid_equity_curve(self):
         class Args:

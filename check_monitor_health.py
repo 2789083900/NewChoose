@@ -9,11 +9,13 @@ import time
 import urllib.parse
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
 ALERT_STATE_PATH = os.path.join(BASE_DIR, "monitor_alert_state.json")
+PERP_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
 
 
 def load_json(path, fallback):
@@ -40,6 +42,20 @@ def health_age_seconds(health, now=None):
     except (TypeError, ValueError):
         updated = 0
     return max(0, now - updated) if updated else None
+
+
+def perpetual_age_seconds(stats, now=None):
+    now = int(time.time()) if now is None else int(now)
+    try:
+        generated = datetime.fromisoformat(
+            str(stats.get("generated_at_utc") or "").replace("Z", "+00:00")
+        )
+        if generated.tzinfo is None:
+            generated = generated.replace(tzinfo=timezone.utc)
+        age = now - int(generated.timestamp())
+        return age if age >= 0 else None
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
 
 
 def send_serverchan(sendkey, title, content):
@@ -73,20 +89,45 @@ def health_alert_detail(health, age_seconds):
     return "".join(parts)
 
 
-def check(max_age_minutes=20, now=None, sendkey=""):
+def combined_alert_detail(health, health_age, perp_stats, perp_age, failed_components):
+    parts = []
+    if "ordinary_monitor" in failed_components:
+        parts.append(health_alert_detail(health, health_age))
+    if "perpetual_shadow" in failed_components:
+        parts.append("perp_shadow_stats.json 未在预期周期内更新。")
+        if perp_age is not None:
+            parts.append(f"永续统计距今约 {round(perp_age / 60, 1)} 分钟。")
+        if perp_stats.get("generated_at_utc"):
+            parts.append(f"最后生成时间：{perp_stats['generated_at_utc']}。")
+        redundancy = (perp_stats.get("provider_redundancy") or {}).get("status")
+        if redundancy:
+            parts.append(f"最近 provider 冗余状态：{redundancy}。")
+    return "".join(parts)
+
+
+def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
     health = load_json(HEALTH_PATH, {})
+    perp_stats = load_json(PERP_STATS_PATH, {})
     age = health_age_seconds(health, now=now)
+    perp_age = perpetual_age_seconds(perp_stats, now=now)
     status = health.get("status")
-    stale = age is None or age > max_age_minutes * 60 or status in {"failed", "stale"}
-    current = "stale" if stale else "healthy"
+    failed_components = []
+    if age is None or age > max_age_minutes * 60 or status in {"failed", "stale"}:
+        failed_components.append("ordinary_monitor")
+    if perp_age is None or perp_age > max_perp_age_minutes * 60:
+        failed_components.append("perpetual_shadow")
+    current = "stale" if failed_components else "healthy"
     previous = load_json(ALERT_STATE_PATH, {})
     previous_status = previous.get("status")
-    notify = current != previous_status and bool(sendkey)
+    previous_components = sorted(previous.get("failed_components") or [])
+    notify = (current != previous_status or sorted(failed_components) != previous_components) and bool(sendkey)
     notification_error = None
     if notify:
         try:
             if current == "stale":
-                detail = health_alert_detail(health, age)
+                detail = combined_alert_detail(
+                    health, age, perp_stats, perp_age, failed_components
+                )
                 send_serverchan(sendkey, "CoinPulse 监控失联告警", detail)
             else:
                 send_serverchan(sendkey, "CoinPulse 监控恢复", "监控健康记录已恢复更新，扫描任务重新可用。")
@@ -96,20 +137,28 @@ def check(max_age_minutes=20, now=None, sendkey=""):
         "status": current,
         "checked_at_epoch": int(time.time() if now is None else now),
         "health_age_seconds": age,
+        "perpetual_age_seconds": perp_age,
+        "failed_components": failed_components,
         "last_health_status": status,
     }
     # Persist only transitions (or the initial state) so the health workflow
     # does not create a commit every 15 minutes while nothing changed.
-    if previous.get("status") != current or previous.get("last_health_status") != status or not previous:
+    if (previous.get("status") != current
+            or previous.get("last_health_status") != status
+            or previous_components != sorted(failed_components) or not previous):
         atomic_write(ALERT_STATE_PATH, next_state)
-    return {"status": current, "age_seconds": age, "notified": notify, "notification_error": notification_error}
+    return {"status": current, "age_seconds": age, "perpetual_age_seconds": perp_age,
+            "failed_components": failed_components, "notified": notify,
+            "notification_error": notification_error}
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-age-minutes", type=float, default=20)
+    parser.add_argument("--max-perp-age-minutes", type=float, default=30)
     args = parser.parse_args()
-    result = check(args.max_age_minutes, sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""))
+    result = check(args.max_age_minutes, args.max_perp_age_minutes,
+                   sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""))
     print(json.dumps(result, ensure_ascii=False))
     return 1 if result["status"] == "stale" else 0
 

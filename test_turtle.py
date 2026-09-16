@@ -528,11 +528,12 @@ class TurtleCoreTests(unittest.TestCase):
             if "funding-rate-history" in url:
                 return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
             if "open-interest" in url:
-                return {"code": "0", "data": [{"ts": "1700000000000", "oi": "12", "oiUsd": "1212"}]}
+                return {"code": "0", "data": [["1700000000000", "12", "0.12", "1212"]]}
             return {"code": "0", "data": rows}
         snapshot = okx_data.fetch_perpetual_snapshot("btcusdt", "4h", limit=1,
                                                       http_get=fake_get, closed_only=False,
-                                                      include_contract_specs=True)
+                                                      include_contract_specs=True,
+                                                      open_interest_limit=2)
         self.assertEqual(snapshot["venue"], "okx")
         self.assertEqual(snapshot["contract_klines"][0]["close"], 101.0)
         self.assertEqual(snapshot["contract_klines"][0]["volume"], 0.12)
@@ -541,6 +542,8 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(snapshot["contract_specs"]["quantity_step"], 0.00001)
         self.assertEqual(snapshot["open_interest"][0]["open_interest"], 0.12)
         self.assertEqual(snapshot["open_interest"][0]["open_interest_contracts"], 12.0)
+        self.assertEqual(snapshot["collection"]["open_interest_limit"], 2)
+        self.assertEqual(snapshot["collection"]["open_interest_coverage"], "historical")
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
 
     def test_okx_closed_only_flag_controls_current_candle_filter(self):
@@ -562,7 +565,7 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(len(kept), 1)
         self.assertEqual(filtered, [])
 
-    def test_okx_funding_history_paginates_and_marks_oi_latest_only(self):
+    def test_okx_funding_and_open_interest_history_paginate(self):
         calls = []
         def fake_get(url):
             calls.append(url)
@@ -571,13 +574,21 @@ class TurtleCoreTests(unittest.TestCase):
                     return {"code": "0", "data": [{"fundingTime": "1699999000000", "fundingRate": "0.0002"}]}
                 return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
             if "open-interest" in url:
-                return {"code": "0", "data": [{"ts": "1700000000000", "oi": "12"}]}
+                count = len([item for item in calls if "open-interest" in item])
+                timestamp = 1700000000000 if count == 1 else 1699999000000
+                return {"code": "0", "data": [[str(timestamp), "12", "0.12", "1212"]]}
             return {"code": "0", "data": []}
         funding = okx_data._funding("BTC-USDT-SWAP", 2, fake_get)
         self.assertEqual(len(funding), 2)
         self.assertEqual(len([url for url in calls if "funding-rate-history" in url]), 2)
-        oi = okx_data._open_interest("BTC-USDT-SWAP", fake_get)
-        self.assertIsNone(oi[0]["open_interest_value"])
+        oi = okx_data._open_interest("BTC-USDT-SWAP", "4H", 2, fake_get)
+        self.assertEqual([row["time"] for row in oi], [1699999000000, 1700000000000])
+        self.assertEqual(oi[-1]["open_interest"], 0.12)
+        self.assertEqual(oi[-1]["open_interest_contracts"], 12.0)
+        oi_urls = [url for url in calls if "open-interest" in url]
+        self.assertEqual(len(oi_urls), 2)
+        self.assertNotIn("end=", oi_urls[0])
+        self.assertIn("end=1699999999999", oi_urls[1])
 
     def test_okx_specs_infers_base_asset_when_api_leaves_base_currency_blank(self):
         def fake_get(_url):
@@ -596,8 +607,8 @@ class TurtleCoreTests(unittest.TestCase):
     def test_okx_open_interest_requires_exchange_timestamp(self):
         with self.assertRaises(RuntimeError):
             okx_data._open_interest(
-                "BTC-USDT-SWAP",
-                lambda _url: {"code": "0", "data": [{"oi": "12"}]},
+                "BTC-USDT-SWAP", "4H", 1,
+                lambda _url: {"code": "0", "data": [["bad", "12", "0.12", "1212"]]},
             )
 
     def test_perpetual_snapshot_can_report_component_failure_without_hiding_it(self):
@@ -1177,7 +1188,7 @@ class TurtleCoreTests(unittest.TestCase):
                     "data_health": {"component_errors": {}, "data_lag_minutes": {}}}
         with tempfile.TemporaryDirectory() as directory, \
              mock.patch.object(derivatives_data, "fetch_perpetual_snapshot", side_effect=RuntimeError("binance down")), \
-             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=snapshot), \
+             mock.patch.object(okx_data, "fetch_perpetual_snapshot", return_value=snapshot) as okx_fetch, \
              mock.patch.object(perp_shadow, "process_snapshot", return_value=None):
             result = perp_shadow.run({"derivatives": {"enabled": True, "research_only": True,
                 "provider": "auto", "symbols": ["BTCUSDT"], "interval": "4h"}},
@@ -1193,6 +1204,7 @@ class TurtleCoreTests(unittest.TestCase):
                          "degraded_redundancy")
         self.assertEqual(result["stats"]["provider_redundancy"]["degraded_symbols"],
                          ["BTCUSDT"])
+        self.assertEqual(okx_fetch.call_args.kwargs["open_interest_limit"], 2)
 
     def test_perpetual_signal_funnel_deduplicates_same_closed_bar(self):
         bars = make_bars(400, close=100, high=101, low=99)

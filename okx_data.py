@@ -6,6 +6,7 @@ The adapter emits the same normalized snapshot contract as derivatives_data.
 It is public-data only and never accepts credentials.
 """
 
+import math
 import time
 import urllib.parse
 
@@ -137,31 +138,61 @@ def _specs(inst_id, getter):
             "native_min_quantity_contracts": native_minimum}
 
 
-def _open_interest(inst_id, getter):
-    rows = _data(getter(_url("/api/v5/public/open-interest", instType="SWAP", instId=inst_id)))
-    if not rows:
-        return []
-    row = rows[0]
-    if not isinstance(row, dict):
-        return []
-    if row.get("ts") in (None, ""):
-        raise RuntimeError("OKX open-interest row is missing timestamp")
-    timestamp = int(row["ts"])
-    oi = float(row.get("oi") or 0)
-    oi_value = row.get("oiUsd")
-    return [{"time": timestamp, "open_interest": oi,
-             "open_interest_value": float(oi_value) if oi_value not in (None, "") else None}]
+def _open_interest(inst_id, period, limit, getter):
+    """Page OKX's official contract-level open-interest history."""
+    target = min(1440, max(1, int(limit)))
+    collected = {}
+    cursor = None
+    for _ in range((target + 99) // 100 + 2):
+        rows = _data(getter(_url(
+            "/api/v5/rubik/stat/contracts/open-interest-history",
+            instId=inst_id, period=period, limit=min(100, target - len(collected)),
+            end=cursor,
+        )))
+        if not rows:
+            break
+        before_count = len(collected)
+        for row in rows:
+            if not isinstance(row, (list, tuple)) or len(row) < 4:
+                raise RuntimeError("invalid OKX open-interest history row")
+            try:
+                timestamp = int(row[0])
+                contracts = float(row[1])
+                base_value = float(row[2])
+                usd_value = float(row[3])
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("invalid OKX open-interest history row") from exc
+            if (timestamp <= 0 or any(
+                    not math.isfinite(value) or value < 0
+                    for value in (contracts, base_value, usd_value))):
+                raise RuntimeError("invalid OKX open-interest history row")
+            collected[timestamp] = {
+                "time": timestamp,
+                "open_interest": base_value,
+                "open_interest_value": usd_value,
+                "open_interest_contracts": contracts,
+            }
+        if len(collected) == before_count:
+            break
+        cursor = str(min(int(row[0]) for row in rows) - 1)
+        if len(collected) >= target:
+            break
+    return sorted(collected.values(), key=lambda item: item["time"])[-target:]
 
 
 def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                              closed_only=True, include_contract_specs=False,
                              allow_partial=False, request_timeout=None,
-                             request_attempts=None, request_backoff_seconds=None):
+                             request_attempts=None, request_backoff_seconds=None,
+                             open_interest_limit=None):
     symbol_value = binance.normalize_symbol(symbol)
     interval_value = binance.validate_interval(interval)
     inst_id = instrument_id(symbol_value)
     getter = http_get or (lambda url: _get(url, request_timeout, request_attempts, request_backoff_seconds))
     errors = {}
+    oi_limit = int(limit if open_interest_limit is None else open_interest_limit)
+    if oi_limit < 1:
+        raise ValueError("open_interest_limit must be >= 1")
 
     def collect(name, callback, default):
         try:
@@ -182,11 +213,18 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                 "symbol": symbol_value, "interval": interval_value, "fetched_at_epoch_ms": fetched,
                 "contract_klines": contract, "mark_price_klines": mark, "index_price_klines": index,
                 "funding_rates": collect("funding_rates", lambda: _funding(inst_id, limit, getter), []),
-                "open_interest": collect("open_interest", lambda: _open_interest(inst_id, getter), []),
+                "open_interest": collect(
+                    "open_interest", lambda: _open_interest(inst_id, bar, oi_limit, getter), []
+                ),
                 "collection": {"requested_kline_bars": int(limit), "funding_events_limit": int(limit),
                 "funding_history_paginated": True, "closed_only": bool(closed_only),
                 "provider": "okx", "interval_ms": sw.INTERVAL_MS[interval_value],
-                "open_interest_limit": 1, "open_interest_coverage": "latest_only"}}
+                "open_interest_limit": min(1440, oi_limit),
+                "open_interest_coverage": "historical",
+                "open_interest_history_paginated": True,
+                "open_interest_history_limited_by_source": oi_limit > 1440,
+                "open_interest_unit": "base_asset",
+                "native_derivatives_unit": "contracts"}}
     if include_contract_specs:
         snapshot["contract_specs"] = collect("contract_specs", lambda: _specs(inst_id, getter), None)
     specs = snapshot.get("contract_specs") or {}
@@ -196,14 +234,16 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
             candle["volume_contracts"] = float(candle.get("volume") or 0)
             candle["volume"] = candle["volume_contracts"] * contract_value
         for observation in snapshot["open_interest"]:
-            observation["open_interest_contracts"] = float(observation.get("open_interest") or 0)
-            observation["open_interest"] = observation["open_interest_contracts"] * contract_value
+            if observation.get("open_interest_contracts") in (None, ""):
+                observation["open_interest_contracts"] = float(
+                    observation.get("open_interest") or 0
+                )
+                observation["open_interest"] = (
+                    observation["open_interest_contracts"] * contract_value
+                )
         snapshot["collection"]["contract_volume_unit"] = "base_asset"
-        snapshot["collection"]["open_interest_unit"] = "base_asset"
-        snapshot["collection"]["native_derivatives_unit"] = "contracts"
     else:
         snapshot["collection"]["contract_volume_unit"] = "contracts"
-        snapshot["collection"]["open_interest_unit"] = "contracts"
     latest = {}
     latest_bar_open_times = {}
     interval_ms = sw.INTERVAL_MS[interval_value]

@@ -76,7 +76,7 @@ python run_perp_backtest.py --symbol BTCUSDT --interval 4h --data-dir D:\桌面\
 python perp_shadow.py --config signal_watch.config.json
 ```
 
-每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；OI 公共历史仍受数据源最多 500 条限制。`provider=auto` 会按币种执行 Binance -> OKX 故障转移，并对连续失败的数据源应用 `provider_cooldown_seconds` 冷却；`perp_shadow_stats.json` 会记录每次尝试、切换原因、请求延迟和按 provider 分组的已完成样本。缓存按 provider 分文件保存，旧版无后缀缓存仍可读取。`research_data_mode` 默认是 `price_only_research`，允许 funding/OI 暂缺但会保留覆盖诊断；设置为 `full_perpetual_research` 后，缺少 funding、历史 OI、funding/OI 未覆盖合约 K 线窗口，或内部观测存在过大缺口的快照不会创建新样本（资金费按约 8 小时结算周期容差判断，内部最大缺口不超过预期周期的 3 倍，OI 至少需要两个不同时间点）。快照会记录采集 provider、是否仅使用已闭合 K 线和 interval 元数据，回测报告会回显这些信息；非 TRADING/live 合约会被拒绝。多币种权益曲线使用请求币种共同拥有的最新收盘时间，避免不同步数据混入同一组合时间点。模板当前 `enabled: true`，但始终强制 `research_only: true`，不会自动推送或自动下单；若需仅手动运行，可在本地配置中设为 `enabled: false`。
+每次运行会依次处理已有永续影子仓位，再检查新信号。信号按下一根合约 K 线开盘影子成交；止损、反向通道退出和近似强平使用标记价格 K 线；资金费率按公开结算时间戳计入；价格精度、数量步长、最小数量和最小名义价值来自公开合约规格。总开放风险受 `max_total_open_risk` 限制，历史窗口由 `history_limit` 控制并自动分页；Binance OI 公共历史最多 500 条，OKX 单合约 OI 公共历史最多 1,440 条。`provider=auto` 会按币种执行 Binance -> OKX 故障转移，并对连续失败的数据源应用 `provider_cooldown_seconds` 冷却；`perp_shadow_stats.json` 会记录每次尝试、切换原因、请求延迟和按 provider 分组的已完成样本。缓存按 provider 分文件保存，旧版无后缀缓存仍可读取。`research_data_mode` 默认是 `price_only_research`，允许 funding/OI 暂缺但会保留覆盖诊断；设置为 `full_perpetual_research` 后，缺少 funding、历史 OI、funding/OI 未覆盖合约 K 线窗口，或内部观测存在过大缺口的快照不会创建新样本（资金费按约 8 小时结算周期容差判断，内部最大缺口不超过预期周期的 3 倍，OI 至少需要两个不同时间点）。快照会记录采集 provider、是否仅使用已闭合 K 线和 interval 元数据，回测报告会回显这些信息；非 TRADING/live 合约会被拒绝。多币种权益曲线使用请求币种共同拥有的最新收盘时间，避免不同步数据混入同一组合时间点。模板当前 `enabled: true`，但始终强制 `research_only: true`，不会自动推送或自动下单；若需仅手动运行，可在本地配置中设为 `enabled: false`。
 
 旧版风险档位仍可用 `maintenance_margin_tiers_by_provider.binance` 和 `.okx` 按 provider 配置。真实档位应优先写入 `maintenance_margin_tiers_by_provider_symbol.<provider>.<symbol>`，每个绑定包含 `tiers`、官方 `source`、带时区的 `effective_at` 和 `tier_version`；系统会计算或核对 `tier_checksum`。选择顺序是 provider+symbol、provider、全局档位、固定维持保证金率。自动故障转移创建样本时只冻结实际 provider 和 symbol 对应的档位、来源、版本、有效时间与校验和，后续配置变化不会重写旧交易。模板仍保持空映射，表示尚未导入经核验的官方风险档位。
 
@@ -262,7 +262,7 @@ python signal_watch.py --test
 
 永续回测报告还会运行成交量降至基准 50% 和 20% 的流动性压力场景，对照收益、交易数、最大回撤和最大有效滑点，差值口径为“压力场景减基准”。各压力模块共享同一次基准回测，避免重复计算和基准漂移。该结果仅衡量 K 线成交量代理下的参数敏感性，不包含盘口价差、深度、部分成交或跨价位成交，不应解释为真实盘口成交仿真。
 
-OKX 适配器会使用公开合约规格中的 `ctVal`，把 K 线成交量、OI、最小下单量和数量步长从“张”统一换算为基础币数量，同时保留原始张数。这样 Binance 与 OKX 的仓位和流动性冲击计算使用同一单位。
+OKX 适配器会使用公开合约规格中的 `ctVal`，把 K 线成交量、最小下单量和数量步长从“张”统一换算为基础币数量，同时保留原始张数。OI 使用官方单合约历史端点直接返回的基础币、张数和 USD 三种口径，不再局限于最新快照，也不会重复乘算 `ctVal`。这样 Binance 与 OKX 的仓位、OI 变化和流动性冲击计算使用明确且一致的单位。
 
 现在看板还会读取 `signal_quality_report.json`，把“海龟实际止损/通道退出胜率”和“信号后 24h/48h 方向胜率”分开显示，并给出小样本 95% 区间和可靠性等级。至少完成 30 笔海龟影子交易前，胜率只作为观察数据；建议积累 50 笔后再评估是否值得据推送执行。24h/48h 方向胜率不能替代按完整止损、加仓和退出规则结算的策略胜率。
 

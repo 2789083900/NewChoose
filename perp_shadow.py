@@ -1907,6 +1907,12 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 fetch_kwargs["request_timeout"] = settings["request_timeout_seconds"]
                 fetch_kwargs["request_attempts"] = settings["request_attempts"]
                 fetch_kwargs["request_backoff_seconds"] = settings["request_backoff_seconds"]
+                if provider == "okx":
+                    fetch_kwargs["open_interest_limit"] = (
+                        settings["history_limit"]
+                        if settings["research_data_mode"] == "full_perpetual_research"
+                        else 2
+                    )
             snapshot = fetch(symbol, settings["interval"], **fetch_kwargs)
             latency_ms = round((time.perf_counter() - started) * 1000, 2)
             health = snapshot.get("data_health") or {}

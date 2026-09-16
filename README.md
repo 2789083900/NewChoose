@@ -240,7 +240,9 @@ python signal_watch.py --test
 
 云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。活跃记录最多保留 500 条，较早记录会先按信号月份归档到 `signal_archive/signals-YYYY-MM.json`，再从活跃文件移除，避免长期前瞻样本丢失。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
 
-仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每 15 分钟检查 `monitor_health.json` 和 `perp_shadow_stats.json`。普通监控超过 20 分钟没有心跳、最近一次扫描失败，或永续统计超过 30 分钟未生成时，会通过 `SERVERCHAN_SENDKEY` 按故障组件变化发送一次失联告警；全部恢复后发送一次恢复通知。状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。该 dead-man 检查与主扫描工作流分离，但仍运行在 GitHub Actions 内；若需要监控 GitHub Actions 平台级调度中断，应再接入仓库外部的 URL/提交时间监控。
+仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每 15 分钟检查 `monitor_health.json` 和 `perp_shadow_stats.json`。普通监控超过 20 分钟没有心跳、最近一次扫描失败，或永续统计超过 30 分钟未生成时，会通过 `SERVERCHAN_SENDKEY` 按故障组件变化发送一次失联告警；全部恢复后发送一次恢复通知。状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。该 dead-man 检查与主扫描工作流分离，但仍运行在 GitHub Actions 内。
+
+如需监控 GitHub Actions 平台级调度中断，可在仓库 `Settings -> Secrets and variables -> Actions` 添加可选 secret `EXTERNAL_HEARTBEAT_URL`，值填外部监控服务提供的 HTTPS 心跳地址（例如 Healthchecks.io、Uptime Kuma 或自建接收端点）。主扫描只有在行情扫描、永续处理、两类状态校验和状态写回都成功后才发送一次 GET，并附带运行 ID 和提交 SHA；测试运行不会发送。心跳端点短暂失败不会阻断状态写回，但外部服务应把超过一个扫描周期（建议 10-15 分钟）未收到心跳视为故障。未配置该 secret 时步骤会跳过。
 
 推送消息会同时标明K线收盘时间、信号生成时间（UTC/北京时间）、生成延迟和影子成交窗口状态。默认生成延迟超过5分钟就标记为“窗口已错过，禁止追价”；该状态只用于人工执行提示，不会自动下单。
 

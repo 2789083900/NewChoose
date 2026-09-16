@@ -69,6 +69,22 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIn("git config rebase.autoStash true", ordinary)
         self.assertIn("validate_perp_shadow.py --max-age-minutes 30", text)
 
+    def test_workflow_sends_optional_external_heartbeat_after_state_writes(self):
+        workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        heartbeat = text.split("- name: Send external success heartbeat", 1)[1].split(
+            "- name: Fail when perpetual shadow processing failed", 1
+        )[0]
+        self.assertIn("steps.save_ordinary_state.outcome == 'success'", heartbeat)
+        self.assertIn("steps.save_perpetual_state.outcome == 'success'", heartbeat)
+        self.assertIn("steps.validate_perpetual_shadow.outcome == 'success'", heartbeat)
+        self.assertIn('parsed.scheme != "https"', heartbeat)
+        self.assertIn("if not raw_url:", heartbeat)
+        self.assertIn('method="GET"', heartbeat)
+        self.assertIn("continue-on-error: true", heartbeat)
+        self.assertIn("test_push != 'true'", heartbeat)
+
     CONFIRMATION_OFF = {
         "adx_enabled": False,
         "volume_confirmation": False,

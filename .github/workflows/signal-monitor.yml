@@ -136,6 +136,7 @@ jobs:
         if: github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
 
       - name: Save ordinary signal state
+        id: save_ordinary_state
         shell: bash
         if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true'
         run: |
@@ -175,6 +176,7 @@ jobs:
           fi
 
       - name: Save perpetual shadow state
+        id: save_perpetual_state
         shell: bash
         if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.perpetual_shadow.outcome == 'success' && steps.validate_perpetual_shadow.outcome == 'success'
         run: |
@@ -209,6 +211,50 @@ jobs:
             echo "unable to publish perpetual shadow state after retries" >&2
             exit 1
           fi
+
+      - name: Send external success heartbeat
+        continue-on-error: true
+        if: success() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.perpetual_shadow.outcome == 'success' && steps.validate_perpetual_shadow.outcome == 'success' && steps.save_ordinary_state.outcome == 'success' && steps.save_perpetual_state.outcome == 'success'
+        env:
+          EXTERNAL_HEARTBEAT_URL: ${{ secrets.EXTERNAL_HEARTBEAT_URL }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          import urllib.error
+          import urllib.request
+          from urllib.parse import urlsplit
+
+          raw_url = os.environ.get("EXTERNAL_HEARTBEAT_URL", "").strip()
+          if not raw_url:
+              print("external heartbeat is not configured; skipping")
+              raise SystemExit(0)
+          parsed = urlsplit(raw_url)
+          if parsed.scheme != "https" or not parsed.netloc or any(char.isspace() for char in raw_url):
+              print("EXTERNAL_HEARTBEAT_URL must be an HTTPS URL", file=sys.stderr)
+              raise SystemExit(1)
+
+          request = urllib.request.Request(
+              raw_url,
+              method="GET",
+              headers={
+                  "User-Agent": "CoinPulse-GitHubActions-Heartbeat",
+                  "X-CoinPulse-Run-ID": os.environ.get("GITHUB_RUN_ID", ""),
+                  "X-CoinPulse-Commit": os.environ.get("GITHUB_SHA", ""),
+              },
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=10) as response:
+                  print(f"external heartbeat acknowledged: HTTP {response.status}")
+          except urllib.error.HTTPError as exc:
+              print(f"external heartbeat returned HTTP {exc.code}", file=sys.stderr)
+              raise SystemExit(1)
+          except (urllib.error.URLError, TimeoutError, OSError) as exc:
+              print(f"external heartbeat failed: {exc}", file=sys.stderr)
+              raise SystemExit(1)
 
       - name: Fail when perpetual shadow processing failed
         if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && (steps.perpetual_shadow.outcome == 'failure' || steps.validate_perpetual_shadow.outcome == 'failure')

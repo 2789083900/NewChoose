@@ -141,7 +141,8 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                     errors.append(f"{trade_id} parameter snapshot checksum mismatch")
                 elif isinstance(parameters.get("maintenance_margin_tier_metadata"), dict):
                     metadata = parameters["maintenance_margin_tier_metadata"]
-                    if metadata.get("scope") == "provider_symbol":
+                    scope = metadata.get("scope")
+                    if scope in {"provider_symbol", "provider_symbol_official_snapshot"}:
                         tiers = parameters.get("maintenance_margin_tiers") or []
                         if metadata.get("tier_checksum") != _parameter_checksum(tiers):
                             errors.append(f"{trade_id} maintenance margin tier checksum mismatch")
@@ -149,8 +150,12 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                             errors.append(f"{trade_id} maintenance margin tier provider mismatch")
                         if metadata.get("symbol") != trade.get("symbol"):
                             errors.append(f"{trade_id} maintenance margin tier symbol mismatch")
-                        if not all(metadata.get(field) for field in (
-                                "source", "effective_at", "tier_version")):
+                        required = (
+                            ("source", "effective_at", "tier_version")
+                            if scope == "provider_symbol"
+                            else ("source", "retrieved_at_epoch_ms", "tier_version")
+                        )
+                        if not all(metadata.get(field) for field in required):
                             errors.append(f"{trade_id} maintenance margin tier provenance is incomplete")
                 if trade.get("cohort_id"):
                     cohort = cohort_registry.get(trade["cohort_id"])

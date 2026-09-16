@@ -439,6 +439,33 @@ class TurtleCoreTests(unittest.TestCase):
                 {"max_notional": float("nan"), "rate": 0.005},
             ])
 
+    def test_liquidation_price_supports_quantity_maintenance_tiers(self):
+        low_quantity = derivatives_risk.liquidation_model_metadata(
+            100, 5, "long", 2, maintenance_margin_tiers=[
+                {"max_quantity": 10, "rate": 0.004},
+                {"max_quantity": 20, "rate": 0.01},
+            ],
+        )
+        high_quantity = derivatives_risk.liquidation_model_metadata(
+            100, 15, "long", 2, maintenance_margin_tiers=[
+                {"max_quantity": 10, "rate": 0.004},
+                {"max_quantity": 20, "rate": 0.01},
+            ],
+        )
+        self.assertEqual(low_quantity["maintenance_margin_rate"], 0.004)
+        self.assertEqual(high_quantity["maintenance_margin_rate"], 0.01)
+        self.assertEqual(high_quantity["maintenance_tier_dimension"], "quantity")
+        self.assertGreater(high_quantity["liquidation_price"], low_quantity["liquidation_price"])
+        with self.assertRaisesRegex(ValueError, "one cap dimension"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "max_quantity": 10, "rate": 0.005},
+            ])
+        with self.assertRaisesRegex(ValueError, "one cap dimension"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "rate": 0.005},
+                {"max_quantity": 20, "rate": 0.01},
+            ])
+
     def test_perpetual_risk_rejects_invalid_market_inputs(self):
         with self.assertRaises(ValueError):
             derivatives_risk.validate_market_type("spot_perpetual")
@@ -525,6 +552,11 @@ class TurtleCoreTests(unittest.TestCase):
         def fake_get(url):
             if "instruments" in url:
                 return {"code": "0", "data": [{"state": "live", "baseCcy": "BTC", "tickSz": "0.1", "lotSz": "0.001", "minSz": "0.001", "ctVal": "0.01", "ctValCcy": "BTC"}]}
+            if "position-tiers" in url:
+                return {"code": "0", "data": [
+                    {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+                    {"instFamily": "BTC-USDT", "maxSz": "5000", "mmr": "0.005"},
+                ]}
             if "funding-rate-history" in url:
                 return {"code": "0", "data": [{"fundingTime": "1700000000000", "fundingRate": "0.0001"}]}
             if "open-interest" in url:
@@ -544,6 +576,13 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(snapshot["open_interest"][0]["open_interest_contracts"], 12.0)
         self.assertEqual(snapshot["collection"]["open_interest_limit"], 2)
         self.assertEqual(snapshot["collection"]["open_interest_coverage"], "historical")
+        self.assertEqual(snapshot["maintenance_margin_tiers"][0], {
+            "max_quantity": 10.0, "maintenance_margin_rate": 0.004,
+        })
+        self.assertEqual(
+            snapshot["maintenance_margin_tier_metadata"]["source_parameters"]["tdMode"],
+            "isolated",
+        )
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
 
     def test_okx_closed_only_flag_controls_current_candle_filter(self):
@@ -913,6 +952,36 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(metadata["tier_version"], "example-v1")
         self.assertEqual(metadata["tier_checksum"],
                          perp_shadow._tier_checksum(snapshot["maintenance_margin_tiers"]))
+
+    def test_okx_official_quantity_tiers_fill_only_unconfigured_risk_binding(self):
+        official_snapshot = {
+            "maintenance_margin_tiers": [
+                {"max_quantity": 10, "maintenance_margin_rate": 0.004},
+            ],
+            "maintenance_margin_tier_metadata": {
+                "source": "https://www.okx.com/api/v5/public/position-tiers",
+                "tier_version": "official-v1",
+            },
+        }
+        settings = perp_shadow.shadow_settings({"derivatives": {}})
+        bound = perp_shadow._provider_settings(
+            settings, "okx", "BTCUSDT", snapshot=official_snapshot,
+        )
+        self.assertEqual(bound["maintenance_margin_tiers"][0]["max_quantity"], 10.0)
+        self.assertEqual(
+            bound["maintenance_margin_tier_metadata"]["scope"],
+            "provider_symbol_official_snapshot",
+        )
+        configured = perp_shadow.shadow_settings({"derivatives": {
+            "maintenance_margin_tiers_by_provider": {
+                "okx": [{"max_notional": 50000, "rate": 0.02}],
+            },
+        }})
+        explicit = perp_shadow._provider_settings(
+            configured, "okx", "BTCUSDT", snapshot=official_snapshot,
+        )
+        self.assertIn("max_notional", explicit["maintenance_margin_tiers"][0])
+        self.assertEqual(explicit["maintenance_margin_tier_metadata"]["scope"], "provider")
 
     def test_perpetual_symbol_risk_tiers_require_versioned_provenance(self):
         binding = {"maintenance_margin_tiers_by_provider_symbol": {

@@ -6,11 +6,14 @@ The adapter emits the same normalized snapshot contract as derivatives_data.
 It is public-data only and never accepts credentials.
 """
 
+import hashlib
+import json
 import math
 import time
 import urllib.parse
 
 import derivatives_data as binance
+import derivatives_risk
 import signal_watch as sw
 
 
@@ -138,6 +141,48 @@ def _specs(inst_id, getter):
             "native_min_quantity_contracts": native_minimum}
 
 
+def _position_tiers(inst_id, contract_value, getter):
+    """Return official isolated-margin tiers in normalized base-asset units."""
+    family = inst_id.removesuffix("-SWAP")
+    endpoint = "/api/v5/public/position-tiers"
+    rows = _data(getter(_url(
+        endpoint, instType="SWAP", tdMode="isolated", instFamily=family,
+    )))
+    tiers = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise RuntimeError("invalid OKX position-tier row")
+        try:
+            max_contracts = float(row["maxSz"])
+            rate = float(row["mmr"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise RuntimeError("invalid OKX position-tier row") from exc
+        if (row.get("instFamily") not in (None, "", family)
+                or not math.isfinite(max_contracts) or max_contracts <= 0
+                or not math.isfinite(rate) or not 0 <= rate < 1):
+            raise RuntimeError("invalid OKX position-tier row")
+        tiers.append({
+            "max_quantity": max_contracts * float(contract_value),
+            "maintenance_margin_rate": rate,
+        })
+    normalized = derivatives_risk.normalize_maintenance_margin_tiers(tiers)
+    if not normalized:
+        raise RuntimeError(f"OKX position tiers not found: {inst_id}")
+    canonical = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return {
+        "tiers": normalized,
+        "source": f"{BASE_URL}{endpoint}",
+        "source_parameters": {
+            "instType": "SWAP", "tdMode": "isolated", "instFamily": family,
+        },
+        "retrieved_at_epoch_ms": int(time.time() * 1000),
+        "tier_version": hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16],
+        "native_cap_unit": "contracts",
+        "normalized_cap_unit": "base_asset",
+        "contract_value": float(contract_value),
+    }
+
+
 def _open_interest(inst_id, period, limit, getter):
     """Page OKX's official contract-level open-interest history."""
     target = min(1440, max(1, int(limit)))
@@ -229,6 +274,19 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
         snapshot["contract_specs"] = collect("contract_specs", lambda: _specs(inst_id, getter), None)
     specs = snapshot.get("contract_specs") or {}
     contract_value = float(specs.get("contract_value") or 0)
+    if include_contract_specs and contract_value > 0:
+        try:
+            tier_getter = http_get or (lambda url: _get(
+                url, min(float(request_timeout or binance.PERPETUAL_HTTP_TIMEOUT), 10.0),
+                1, 0.0,
+            ))
+            tier_binding = _position_tiers(inst_id, contract_value, tier_getter)
+            snapshot["maintenance_margin_tiers"] = tier_binding["tiers"]
+            snapshot["maintenance_margin_tier_metadata"] = {
+                key: value for key, value in tier_binding.items() if key != "tiers"
+            }
+        except Exception as exc:
+            errors["maintenance_margin_tiers"] = str(exc)
     if contract_value > 0:
         for candle in snapshot["contract_klines"]:
             candle["volume_contracts"] = float(candle.get("volume") or 0)

@@ -82,16 +82,27 @@ def execution_slippage(base_rate, quantity, bar_volume=None, model="fixed",
 
 
 def normalize_maintenance_margin_tiers(tiers):
-    """Validate and canonicalize notional-based maintenance margin tiers."""
+    """Validate notional- or quantity-based maintenance margin tiers."""
     if tiers in (None, []):
         return []
     if not isinstance(tiers, list):
         raise ValueError("maintenance margin tiers must be a list")
     normalized = []
+    dimension = None
     for tier in tiers:
         if not isinstance(tier, dict):
             raise ValueError("maintenance margin tiers must be objects")
-        cap = tier.get("max_notional", tier.get("notional_cap"))
+        notional_cap = tier.get("max_notional", tier.get("notional_cap"))
+        quantity_cap = tier.get("max_quantity", tier.get("quantity_cap"))
+        if (notional_cap is None) == (quantity_cap is None):
+            raise ValueError(
+                "maintenance margin tiers require exactly one cap dimension"
+            )
+        tier_dimension = "notional" if notional_cap is not None else "quantity"
+        if dimension is not None and tier_dimension != dimension:
+            raise ValueError("maintenance margin tiers must use one cap dimension")
+        dimension = tier_dimension
+        cap = notional_cap if tier_dimension == "notional" else quantity_cap
         rate = tier.get("maintenance_margin_rate", tier.get("rate"))
         try:
             cap_value, rate_value = float(cap), float(rate)
@@ -109,23 +120,27 @@ def normalize_maintenance_margin_tiers(tiers):
     if any(rates[index] < rates[index - 1] for index in range(1, len(rates))):
         raise ValueError("maintenance margin tier rates must not decrease")
     return [
-        {"max_notional": cap, "maintenance_margin_rate": rate}
+        {f"max_{dimension}": cap, "maintenance_margin_rate": rate}
         for cap, rate in normalized
     ]
 
 
-def _tier_maintenance_rate(notional, tiers, default_rate):
-    """Select the first maintenance rate whose cap contains ``notional``."""
+def _tier_maintenance_rate(notional, tiers, default_rate, quantity=None):
+    """Select the first rate whose notional or quantity cap contains a position."""
     normalized = normalize_maintenance_margin_tiers(tiers)
     if not normalized:
         return float(default_rate), "flat"
-    value = float(notional)
+    dimension = "quantity" if "max_quantity" in normalized[0] else "notional"
+    if dimension == "quantity" and quantity is None:
+        raise ValueError("quantity is required for quantity-based maintenance tiers")
+    value = float(quantity if dimension == "quantity" else notional)
+    cap_key = f"max_{dimension}"
     for item in normalized:
-        cap, rate = item["max_notional"], item["maintenance_margin_rate"]
+        cap, rate = item[cap_key], item["maintenance_margin_rate"]
         if value <= cap:
-            return rate, f"tier_{cap:g}"
+            return rate, f"{dimension}_tier_{cap:g}"
     last = normalized[-1]
-    return last["maintenance_margin_rate"], f"tier_{last['max_notional']:g}_plus"
+    return last["maintenance_margin_rate"], f"{dimension}_tier_{last[cap_key]:g}_plus"
 
 
 def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=0.005,
@@ -154,7 +169,9 @@ def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=
         if quantity is None:
             raise ValueError("quantity is required when maintenance margin tiers are configured")
         notional = position_notional(entry, quantity)
-        mmr, tier_label = _tier_maintenance_rate(notional, maintenance_margin_tiers, mmr)
+        mmr, tier_label = _tier_maintenance_rate(
+            notional, maintenance_margin_tiers, mmr, quantity=quantity
+        )
     # Isolated linear approximation: equity is exhausted at 1/leverage loss
     # after reserving maintenance margin and liquidation fee allowance.
     loss_allowance = (1.0 / lev) - mmr - liq_fee
@@ -174,7 +191,7 @@ def liquidation_model_metadata(entry_price, quantity, direction, leverage,
     notional = position_notional(entry_price, quantity)
     mmr, tier = _tier_maintenance_rate(
         notional, normalized,
-        maintenance_margin_rate,
+        maintenance_margin_rate, quantity=quantity,
     )
     price = liquidation_price(
         entry_price, direction, leverage, maintenance_margin_rate,
@@ -190,6 +207,10 @@ def liquidation_model_metadata(entry_price, quantity, direction, leverage,
         "liquidation_fee_rate": float(liquidation_fee_rate),
         "notional": notional,
         "maintenance_tier": tier,
+        "maintenance_tier_dimension": (
+            "quantity" if normalized and "max_quantity" in normalized[0]
+            else "notional" if normalized else "flat"
+        ),
         "tier_count": len(normalized),
     }
 

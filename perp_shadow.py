@@ -68,6 +68,7 @@ def empty_state(account_value=10000.0):
         "last_signal_diagnostics_by_symbol": {},
         "provider_redundancy_status": "unknown",
         "provider_redundancy_events": [],
+        "risk_tier_metadata_by_symbol": {},
         "strategy_cohorts": {},
         "active_cohort": {},
     }
@@ -135,6 +136,8 @@ def load_state(path, account_value=10000.0):
         state["last_signal_diagnostics_by_symbol"] = {}
     if not isinstance(state.get("provider_redundancy_events"), list):
         state["provider_redundancy_events"] = []
+    if not isinstance(state.get("risk_tier_metadata_by_symbol"), dict):
+        state["risk_tier_metadata_by_symbol"] = {}
     state.setdefault("provider_redundancy_status", "unknown")
     if not isinstance(state.get("strategy_cohorts"), dict):
         state["strategy_cohorts"] = {}
@@ -567,7 +570,7 @@ def _bind_strategy_cohort(state, settings):
     return bound
 
 
-def _provider_settings(settings, provider, symbol=None):
+def _provider_settings(settings, provider, symbol=None, snapshot=None):
     """Bind risk tiers to the venue and instrument that own the trade path."""
     bound = dict(settings)
     venue = str(provider or "unknown").strip().lower()
@@ -592,6 +595,20 @@ def _provider_settings(settings, provider, symbol=None):
         bound["maintenance_margin_tiers"] = copy.deepcopy(binding["tiers"])
         metadata = {key: copy.deepcopy(value) for key, value in binding.items() if key != "tiers"}
         metadata["scope"] = "provider_symbol"
+    official_tiers = (snapshot or {}).get("maintenance_margin_tiers") or []
+    if not bound.get("maintenance_margin_tiers") and venue == "okx" and official_tiers:
+        bound["maintenance_margin_tiers"] = (
+            derivatives_risk.normalize_maintenance_margin_tiers(official_tiers)
+        )
+        metadata = copy.deepcopy(
+            (snapshot or {}).get("maintenance_margin_tier_metadata") or {}
+        )
+        metadata.update({
+            "scope": "provider_symbol_official_snapshot",
+            "provider": venue,
+            "symbol": symbol_value,
+            "tier_checksum": _tier_checksum(bound["maintenance_margin_tiers"]),
+        })
     bound["risk_parameter_provider"] = venue
     bound["risk_parameter_symbol"] = symbol_value
     bound["maintenance_margin_tier_metadata"] = metadata
@@ -1417,7 +1434,7 @@ def send_perpetual_test_notification(config):
 
 def process_snapshot(snapshot, settings, state):
     settings = _provider_settings(
-        settings, snapshot.get("venue"), snapshot.get("symbol")
+        settings, snapshot.get("venue"), snapshot.get("symbol"), snapshot=snapshot
     )
     errors = derivatives_data.validate_perpetual_snapshot(snapshot, settings["interval"])
     if errors:
@@ -1429,6 +1446,9 @@ def process_snapshot(snapshot, settings, state):
     if contract_status not in allowed_statuses:
         raise RuntimeError(f"perpetual contract is not tradable: status={contract_status}")
     symbol = snapshot["symbol"]
+    state.setdefault("risk_tier_metadata_by_symbol", {})[symbol] = copy.deepcopy(
+        settings.get("maintenance_margin_tier_metadata") or {}
+    )
     snapshot_provider = snapshot.get("venue")
     open_for_symbol = [item for item in state["open_trades"] if item["symbol"] == symbol]
     bound_providers = {
@@ -1760,11 +1780,14 @@ def build_stats(state, settings=None):
                 symbol_tier_bindings
             ),
             "provider_symbol_binding_count": symbol_tier_binding_count,
+            "active_tier_metadata_by_symbol": copy.deepcopy(
+                state.get("risk_tier_metadata_by_symbol") or {}
+            ),
             "liquidation_fee_rate": float(settings.get("liquidation_fee_rate", 0.0)),
             "limitations": [
                 "isolated_margin_approximation",
                 "no_wallet_balance_or_partial_liquidation_model",
-                "manual_venue_tiers",
+                "manual_or_official_venue_tiers",
             ],
         },
         "sample_goal_min_trades": minimum_goal,

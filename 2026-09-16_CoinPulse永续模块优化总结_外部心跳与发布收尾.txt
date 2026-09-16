@@ -1,0 +1,60 @@
+CoinPulse 项目工作总结（2026-09-16）
+主题：官方 OKX 风险档位、永续云端验证、外部 dead-man 心跳与下次对话接续说明
+
+文档用途
+
+本文件用于下次打开新对话时恢复上下文。新对话开始后，先完整读取本文件，再按需要读取：
+D:\桌面\工作记录\2026-09-15_CoinPulse永续模块优化总结_云端故障修复与后续计划.txt
+
+项目目录：D:\桌面\NewChoose
+远端仓库：https://github.com/2789083900/NewChoose
+远端主分支：master
+
+重要说明：下面“已完成”是今天已经写入代码并完成验证的内容；“后期优化方向”仍是待办，不能误认为已有能力。
+
+一、今天工作的总体结论
+
+今天在昨天永续可靠性加固的基础上完成了两项收尾：
+
+1. 官方 OKX 风险档位已经接入并发布。OKX isolated position tiers 会把官方 maxSz 结合 ctVal 转换为基础币数量档位，供名义价值/数量维度的强平近似模型使用；provider、symbol、来源、模式、获取时间、版本和 tier checksum 会冻结到新交易参数快照中。手工 provider+symbol 配置仍优先，官方端点不可用时安全回退，不阻断行情处理。
+2. 外部 dead-man 心跳已经接入 GitHub Actions。正式扫描、永续处理、运行态校验、永续校验、普通状态写回和永续状态写回全部成功后，才尝试向 `EXTERNAL_HEARTBEAT_URL` 发送一次 HTTPS GET，并附带运行 ID、提交 SHA 和固定 User-Agent。测试运行不会发送，未配置 secret 时安全跳过，心跳端点失败不会阻断已完成的状态写回。
+
+二、今天完成的详细工作
+
+1. 官方 OKX 风险档位发布与真实验证
+
+- 提交：`97d73f1 feat: bind official OKX quantity risk tiers`。
+- 风险档位支持数量上限与名义价值上限两种维度，避免把 OKX 的合约张数直接误当成美元名义价值。
+- 手工档位优先级为 provider+symbol、provider、全局档位、固定维持保证金率；实际 provider 故障转移时不会跨交易所复用档位。
+- `validate_perp_shadow.py` 增加官方快照的来源、provider/symbol、版本、有效时间和 checksum 完整性校验。
+- 云端运行 #124 成功，BTC/ETH 均记录 OKX isolated 官方档位元数据；OKX OI 历史也已真实生效。
+
+2. 外部 dead-man 心跳接入
+
+- 提交：`320f900 feat: add external monitor heartbeat`。
+- 文件：`.github/workflows/signal-monitor.yml`、`README.md`、`test_turtle.py`。
+- 工作流新增 `save_ordinary_state` 和 `save_perpetual_state` 步骤 ID，心跳步骤只在这两个状态写回以及所有校验成功后运行。
+- 心跳 URL 必须是 HTTPS、包含主机且不能含空白字符；网络错误、HTTP 错误和超时会让心跳步骤记录失败，但不会覆盖已完成的状态提交。
+- `EXTERNAL_HEARTBEAT_URL` 只作为该步骤的 secret 环境变量使用；当前仓库尚未配置此 secret，因此外部服务目前还没有真正收到心跳。
+- README 已写明 Healthchecks.io、Uptime Kuma 或自建 HTTPS 接收端点的配置方式，建议外部服务在 10-15 分钟无心跳时告警。
+
+3. 测试、校验和云端结果
+
+- 本地 `python -B -m unittest test_turtle.py`：152 项全部通过。
+- `python -B validate_perp_shadow.py`：通过。
+- `python -B validate_runtime_state.py`：通过。
+- Python 编译检查和 `git diff --check`：通过。
+- GitHub Actions 正式扫描 #125 使用 `320f900` 成功完成；扫描、永续处理、两类校验、两次状态写回均成功，外部心跳步骤也以成功状态结束（因未配置 secret，实际执行的是安全跳过）。
+- 远端机器人随后产生运行态提交，`320f900` 仍保留在 `origin/master` 历史中；当前远端最新状态提交为 `262a395`。
+
+四、后期优化方向（尚未完成）
+
+1. 配置并真实验证 `EXTERNAL_HEARTBEAT_URL`，确认外部服务收到心跳。
+2. 增加心跳失败的无敏感诊断字段、响应时间和连续失败次数。
+3. 持续维护 OKX 官方档位，并评估接入 Binance 官方档位。
+4. 积累 strategy_version/cohort_id 隔离样本，观察 provider 降级、OI/funding 缺失和恢复对账长期统计。
+5. 继续使用隔离 worktree 发布，避免运行态 JSON、缓存和 IDE 文件混入功能提交。
+
+五、下次新对话建议启动语句
+
+“请先读取 `D:\桌面\工作记录\2026-09-16_CoinPulse永续模块优化总结_外部心跳与发布收尾.txt`，确认外部心跳 secret 是否已配置，再检查远端最新 Actions 运行和永续统计；不要回滚本地未提交运行态文件。若要继续优化，优先完成外部心跳真实接收验证和心跳失败可观测性。”

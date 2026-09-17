@@ -130,6 +130,10 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                         errors.append(f"{trade_id} has invalid funding mark sources")
                     elif "funding_settlement_count" in trade and sum(sources.values()) != settled:
                         errors.append(f"{trade_id} funding mark sources do not match settlements")
+            if "liquidation_fee" in trade and (
+                    not _finite(trade.get("liquidation_fee"))
+                    or float(trade.get("liquidation_fee")) < 0):
+                errors.append(f"{trade_id} has invalid liquidation_fee")
             if trade.get("status") == "closed" and "holding_hours" in trade:
                 if not _finite(trade.get("holding_hours")) or float(trade["holding_hours"]) < 0:
                     errors.append(f"{trade_id} has invalid holding_hours")
@@ -508,6 +512,15 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                 expected_sources[source] = expected_sources.get(source, 0) + int(count)
         if stats.get("funding_mark_sources") != expected_sources:
             errors.append("stats funding_mark_sources does not match state")
+    if "liquidation_fee_total" in stats:
+        expected_liquidation_fees = round(sum(
+            float(trade.get("liquidation_fee") or 0)
+            for trade in (state.get("closed_trades") or [])
+        ), 8)
+        if (not _finite(stats.get("liquidation_fee_total"))
+                or abs(float(stats["liquidation_fee_total"])
+                       - expected_liquidation_fees) > 1e-8):
+            errors.append("stats liquidation_fee_total does not match state")
     breakdown = stats.get("sample_breakdown")
     if breakdown is not None:
         if not isinstance(breakdown, dict):

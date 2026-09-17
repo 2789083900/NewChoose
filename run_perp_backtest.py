@@ -90,7 +90,8 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         slippage_model="volume_impact", slippage_impact_coefficient=0.001,
         max_slippage_rate=0.01, maintenance_margin_rate=0.005,
         liquidation_fee_rate=0.0, maintenance_margin_tiers=None,
-        max_total_open_risk=0.04):
+        max_total_open_risk=0.04, liquidation_fee_stress_rate=0.005,
+        liquidation_extreme_slippage_multiplier=2.0):
     manual_tiers_provided = maintenance_margin_tiers is not None
     manual_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
         maintenance_margin_tiers
@@ -154,6 +155,20 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         tiered_result=scenarios["baseline"],
         max_total_open_risk=max_total_open_risk,
     )
+    liquidation_fee_stress = perp_backtest.run_liquidation_fee_stress(
+        snapshot, account_value=account_value, risk_fraction=risk_fraction,
+        leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
+        system=system, slippage_model=slippage_model,
+        slippage_impact_coefficient=slippage_impact_coefficient,
+        max_slippage_rate=max_slippage_rate,
+        maintenance_margin_rate=maintenance_margin_rate,
+        liquidation_fee_rate=liquidation_fee_rate,
+        stress_liquidation_fee_rate=liquidation_fee_stress_rate,
+        extreme_slippage_multiplier=liquidation_extreme_slippage_multiplier,
+        maintenance_margin_tiers=maintenance_margin_tiers,
+        baseline_result=scenarios["baseline"],
+        max_total_open_risk=max_total_open_risk,
+    )
     generated_at = datetime.now(timezone.utc)
     contract_rows = snapshot.get("contract_klines") or []
     last_close_ms = (
@@ -215,6 +230,7 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         "funding_flip_stress": funding_stress,
         "liquidity_stress": liquidity_stress,
         "maintenance_margin_stress": maintenance_margin_stress,
+        "liquidation_fee_stress": liquidation_fee_stress,
     }
     if output:
         os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
@@ -241,6 +257,14 @@ def main(argv=None):
     parser.add_argument("--max-slippage-rate", type=float, default=0.01)
     parser.add_argument("--maintenance-margin-rate", type=float, default=0.005)
     parser.add_argument("--liquidation-fee-rate", type=float, default=0.0)
+    parser.add_argument(
+        "--liquidation-fee-stress-rate", type=float, default=0.005,
+        help="保守强平费用压力基准，默认 0.5%%",
+    )
+    parser.add_argument(
+        "--liquidation-extreme-slippage-multiplier", type=float, default=2.0,
+        help="极端强平场景的滑点与冲击倍数",
+    )
     parser.add_argument("--max-total-open-risk", type=float, default=0.04)
     parser.add_argument(
         "--maintenance-margin-tiers-json", default="",
@@ -258,7 +282,8 @@ def main(argv=None):
             args.leverage, args.fee_rate, args.slippage_rate, args.system,
             args.slippage_model, args.slippage_impact_coefficient, args.max_slippage_rate,
             args.maintenance_margin_rate, args.liquidation_fee_rate, maintenance_tiers,
-            args.max_total_open_risk,
+            args.max_total_open_risk, args.liquidation_fee_stress_rate,
+            args.liquidation_extreme_slippage_multiplier,
         )
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
@@ -281,6 +306,14 @@ def main(argv=None):
         )
     else:
         print("维持保证金对照：未配置已核验分层档位，未启用")
+    liquidation_stress = report["liquidation_fee_stress"]
+    print(
+        "强平费用压力："
+        f"配置 {liquidation_stress['summary']['configured']['return_pct']:.4f}% / "
+        f"正常费用 {liquidation_stress['summary']['normal_fee']['return_pct']:.4f}% / "
+        f"双倍费用 {liquidation_stress['summary']['double_fee']['return_pct']:.4f}% / "
+        f"极端费用与滑点 {liquidation_stress['summary']['extreme_fee_slippage']['return_pct']:.4f}%"
+    )
     if args.output:
         print(f"报告：{os.path.abspath(args.output)}")
     return 0

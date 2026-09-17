@@ -2355,6 +2355,68 @@ class TurtleCoreTests(unittest.TestCase):
             liquidity["summary"],
         )
 
+    def test_backtest_liquidation_fee_is_deducted_and_reported(self):
+        interval_ms = 4 * 60 * 60 * 1000
+        bars = [
+            {"time": 1_700_000_000_000 + index * interval_ms,
+             "open": 100, "high": 101, "low": 99, "close": 100, "volume": 100}
+            for index in range(360)
+        ]
+        bars[-1].update({"open": 100, "high": 101, "low": 1, "close": 1})
+        snapshot = {
+            "market_type": "linear_perpetual", "interval": "4h",
+            "contract_klines": bars,
+            "mark_price_klines": [dict(row) for row in bars],
+            "index_price_klines": [dict(row) for row in bars],
+            "funding_rates": [],
+        }
+        signal_calls = {"count": 0}
+
+        def signal_once(*_args, **_kwargs):
+            signal_calls["count"] += 1
+            if signal_calls["count"] == 1:
+                return "long", [], {"entry": 100, "n": 5, "stop": 90, "exit_level": 0}
+            return None, [], None
+
+        with mock.patch.object(
+            perp_backtest.sw, "build_turtle_signal", side_effect=signal_once
+        ), mock.patch.object(
+            perp_backtest.sw, "turtle_levels",
+            return_value={"exit_low": 0, "exit_high": 10000},
+        ):
+            result = perp_backtest.backtest_perpetual(
+                snapshot, leverage=2, fee_rate=0, slippage_rate=0,
+                liquidation_fee_rate=0.01,
+            )
+        self.assertEqual(result["liquidation_count"], 1)
+        self.assertGreater(result["liquidation_fee_total"], 0)
+        self.assertEqual(
+            result["liquidation_fee_total"],
+            result["trades"][0]["liquidation_fee"],
+        )
+        self.assertEqual(result["trades"][0]["fees"], result["liquidation_fee_total"])
+
+    def test_shadow_liquidation_charges_configured_liquidation_fee(self):
+        trade = {
+            "direction": "long", "quantity": 2.0, "avg_entry": 100.0,
+            "entry_time": 1_000, "fees": 1.0, "funding_cashflow": 0.0,
+        }
+        settings = {
+            "fee_rate": 0.001, "liquidation_fee_rate": 0.01,
+            "slippage_rate": 0.0, "slippage_model": "fixed",
+            "slippage_impact_coefficient": 0.0, "max_slippage_rate": 0.0,
+            "account_value": 1000.0,
+        }
+        state = {"equity": 1000.0}
+        perp_shadow._close_trade(
+            trade, 50.0, "liquidation", 2_000, 50.0, settings,
+            {"price_tick": 0.1}, state,
+        )
+        self.assertAlmostEqual(trade["liquidation_fee"], 1.0)
+        self.assertAlmostEqual(trade["fees"], 2.1)
+        self.assertAlmostEqual(trade["net_pnl"], -102.1)
+        self.assertAlmostEqual(state["equity"], 898.9)
+
     def test_stress_helpers_reuse_precomputed_baseline(self):
         baseline = {
             "return_pct": 1.0, "trade_count": 2, "liquidation_count": 0,
@@ -2395,6 +2457,43 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(
             liquidity["summary"]["volume_20pct_max_effective_slippage_delta_pct"],
             0.3,
+        )
+
+    def test_liquidation_fee_stress_reuses_baseline_and_amplifies_execution(self):
+        baseline = {
+            "return_pct": 1.0, "ending_equity": 10100.0,
+            "max_drawdown_pct": 3.0, "liquidation_count": 0,
+            "liquidation_fee_total": 0.0, "max_effective_slippage_pct": 0.1,
+        }
+        normal = {**baseline, "return_pct": 0.5, "liquidation_count": 1,
+                  "liquidation_fee_total": 5.0}
+        doubled = {**baseline, "return_pct": 0.0, "liquidation_count": 1,
+                   "liquidation_fee_total": 10.0}
+        extreme = {**baseline, "return_pct": -1.0, "liquidation_count": 2,
+                   "liquidation_fee_total": 20.0,
+                   "max_effective_slippage_pct": 0.4}
+        with mock.patch.object(
+            perp_backtest, "backtest_perpetual",
+            side_effect=[normal, doubled, extreme],
+        ) as backtest:
+            result = perp_backtest.run_liquidation_fee_stress(
+                {}, baseline_result=baseline, liquidation_fee_rate=0.0,
+                stress_liquidation_fee_rate=0.005,
+                extreme_slippage_multiplier=2.0,
+                slippage_rate=0.001, slippage_impact_coefficient=0.002,
+                max_slippage_rate=0.01,
+            )
+        self.assertIs(result["configured"], baseline)
+        self.assertEqual(backtest.call_count, 3)
+        self.assertEqual(backtest.call_args_list[0].kwargs["liquidation_fee_rate"], 0.005)
+        self.assertEqual(backtest.call_args_list[1].kwargs["liquidation_fee_rate"], 0.01)
+        self.assertEqual(backtest.call_args_list[2].kwargs["slippage_rate"], 0.002)
+        self.assertEqual(
+            backtest.call_args_list[2].kwargs["slippage_impact_coefficient"], 0.004
+        )
+        self.assertEqual(result["summary"]["extreme_return_delta_pct"], -2.0)
+        self.assertEqual(
+            result["summary"]["extreme_fee_slippage"]["liquidation_fee_total"], 20.0
         )
 
     def test_maintenance_margin_stress_requires_configured_tiers(self):
@@ -2801,6 +2900,14 @@ class TurtleCoreTests(unittest.TestCase):
             )
             self.assertIs(
                 report["liquidity_stress"]["baseline"],
+                report["cost_stress"]["baseline"],
+            )
+            self.assertEqual(
+                report["liquidation_fee_stress"]["model"],
+                "liquidation_fee_and_execution_stress_v1",
+            )
+            self.assertIs(
+                report["liquidation_fee_stress"]["configured"],
                 report["cost_stress"]["baseline"],
             )
             self.assertFalse(report["maintenance_margin_stress"]["enabled"])

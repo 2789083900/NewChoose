@@ -63,6 +63,8 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
         raise ValueError("invalid perpetual snapshot: " + "; ".join(errors))
     if leverage <= 0 or leverage > 20:
         raise ValueError("leverage must be between 0 and 20")
+    if not 0 <= float(liquidation_fee_rate) < 1:
+        raise ValueError("liquidation_fee_rate must satisfy 0 <= rate < 1")
     if not 0 < float(risk_fraction) <= float(max_total_open_risk) <= 1:
         raise ValueError(
             "risk_fraction and max_total_open_risk must satisfy "
@@ -92,6 +94,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
     funding_mark_estimated_count = 0
     funding_mark_unavailable_count = 0
     liquidation_count = 0
+    liquidation_fee_total = 0.0
     constraint_rejections = 0
 
     def mark_equity(mark_price):
@@ -229,10 +232,15 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                     )
                 gross = ((fill - position["avg_entry"]) if direction == "long" else (position["avg_entry"] - fill)) * position["quantity"]
                 exit_fee = abs(fill * position["quantity"]) * fee_rate
-                equity += gross - exit_fee
-                position["fees"] += exit_fee
+                liquidation_fee = (
+                    abs(fill * position["quantity"]) * liquidation_fee_rate
+                    if reason == "liquidation" else 0.0
+                )
+                equity += gross - exit_fee - liquidation_fee
+                position["fees"] += exit_fee + liquidation_fee
                 if reason == "liquidation":
                     liquidation_count += 1
+                    liquidation_fee_total += liquidation_fee
                 trades.append({"direction": direction, "entry_time": position["entry_time"],
                                "exit_time": bar_time, "entry": position["entry"],
                                "avg_entry": position["avg_entry"],
@@ -240,6 +248,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
                                "units": position["units"],
                                "exit": fill, "reason": reason,
                                "gross_pnl": gross, "fees": position["fees"],
+                               "liquidation_fee": liquidation_fee,
                                "funding": position["funding"],
                                "funding_settlement_count": position.get("funding_settlement_count", 0),
                                "funding_mark_estimated_count": position.get("funding_mark_estimated_count", 0),
@@ -407,6 +416,7 @@ def backtest_perpetual(snapshot, account_value=10000.0, risk_fraction=0.005,
             "liquidation_fee_rate": float(liquidation_fee_rate),
         },
         "liquidation_count": liquidation_count,
+        "liquidation_fee_total": round(liquidation_fee_total, 8),
         "constraint_rejections": constraint_rejections,
         "contract_constraints_bound": bool(specs),
         "fee_rate": fee_rate, "slippage_rate": slippage_rate, "leverage": leverage,
@@ -594,4 +604,77 @@ def run_maintenance_margin_stress(snapshot, maintenance_margin_tiers=None,
         "flat": summary(flat),
         "tiered": summary(tiered),
         "differences": differences,
+    }
+
+
+def run_liquidation_fee_stress(snapshot, baseline_result=None,
+                                liquidation_fee_rate=0.0,
+                                stress_liquidation_fee_rate=0.005,
+                                extreme_slippage_multiplier=2.0, **kwargs):
+    """Stress explicit liquidation charges and adverse liquidation execution."""
+    configured_rate = float(liquidation_fee_rate)
+    normal_rate = max(configured_rate, float(stress_liquidation_fee_rate))
+    multiplier = float(extreme_slippage_multiplier)
+    if not 0 <= configured_rate < 1 or not 0 <= normal_rate < 1:
+        raise ValueError("liquidation fee stress rates must satisfy 0 <= rate < 1")
+    if not math.isfinite(multiplier) or multiplier < 1:
+        raise ValueError("extreme_slippage_multiplier must be finite and >= 1")
+    double_rate = min(normal_rate * 2, 0.999999)
+    baseline = (
+        baseline_result if baseline_result is not None else backtest_perpetual(
+            snapshot, liquidation_fee_rate=configured_rate, **kwargs
+        )
+    )
+    normal = backtest_perpetual(
+        snapshot, liquidation_fee_rate=normal_rate, **kwargs
+    )
+    doubled = backtest_perpetual(
+        snapshot, liquidation_fee_rate=double_rate, **kwargs
+    )
+    extreme_kwargs = dict(kwargs)
+    extreme_kwargs["slippage_rate"] = float(
+        extreme_kwargs.get("slippage_rate", 0.0005)
+    ) * multiplier
+    extreme_kwargs["slippage_impact_coefficient"] = float(
+        extreme_kwargs.get("slippage_impact_coefficient", 0.001)
+    ) * multiplier
+    extreme_kwargs["max_slippage_rate"] = min(
+        0.25, float(extreme_kwargs.get("max_slippage_rate", 0.01)) * multiplier
+    )
+    extreme = backtest_perpetual(
+        snapshot, liquidation_fee_rate=double_rate, **extreme_kwargs
+    )
+
+    def summary(result):
+        return {
+            "return_pct": result["return_pct"],
+            "ending_equity": result["ending_equity"],
+            "max_drawdown_pct": result["max_drawdown_pct"],
+            "liquidation_count": result["liquidation_count"],
+            "liquidation_fee_total": result.get("liquidation_fee_total", 0.0),
+            "max_effective_slippage_pct": result["max_effective_slippage_pct"],
+        }
+
+    return {
+        "model": "liquidation_fee_and_execution_stress_v1",
+        "difference_definition": "scenario_minus_configured",
+        "assumptions": {
+            "configured_liquidation_fee_rate": configured_rate,
+            "normal_liquidation_fee_rate": normal_rate,
+            "double_liquidation_fee_rate": double_rate,
+            "extreme_slippage_multiplier": multiplier,
+        },
+        "configured": baseline,
+        "normal_fee": normal,
+        "double_fee": doubled,
+        "extreme_fee_slippage": extreme,
+        "summary": {
+            "configured": summary(baseline),
+            "normal_fee": summary(normal),
+            "double_fee": summary(doubled),
+            "extreme_fee_slippage": summary(extreme),
+            "normal_return_delta_pct": round(normal["return_pct"] - baseline["return_pct"], 4),
+            "double_return_delta_pct": round(doubled["return_pct"] - baseline["return_pct"], 4),
+            "extreme_return_delta_pct": round(extreme["return_pct"] - baseline["return_pct"], 4),
+        },
     }

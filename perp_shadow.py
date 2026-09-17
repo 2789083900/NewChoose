@@ -916,14 +916,19 @@ def _close_trade(trade, raw_exit, reason, exit_time, mark_open, settings, specs,
     gross = ((fill - trade["avg_entry"]) if trade["direction"] == "long"
              else (trade["avg_entry"] - fill)) * trade["quantity"]
     exit_fee = abs(fill * trade["quantity"]) * settings["fee_rate"]
-    state["equity"] += gross - exit_fee
-    trade["fees"] += exit_fee
+    liquidation_fee = (
+        abs(fill * trade["quantity"]) * settings["liquidation_fee_rate"]
+        if reason == "liquidation" else 0.0
+    )
+    state["equity"] += gross - exit_fee - liquidation_fee
+    trade["fees"] += exit_fee + liquidation_fee
     trade.update({
         "status": "closed",
         "exit_time": int(exit_time),
         "exit": fill,
         "exit_reason": reason,
         "gross_pnl": gross,
+        "liquidation_fee": liquidation_fee,
         "net_pnl": gross - trade["fees"] + trade["funding_cashflow"],
         "holding_hours": round((int(exit_time) - int(trade["entry_time"])) / 3600000, 4),
         "exit_market_context": market_context or {},
@@ -2165,6 +2170,9 @@ def build_stats(state, settings=None):
         "avg_mae_pct": round(sum(float(item.get("mae_pct") or 0) for item in closed) / len(closed), 4) if closed else 0,
         "avg_holding_hours": round(sum(float(item.get("holding_hours") or 0) for item in closed) / len(closed), 4) if closed else 0,
         "liquidations": sum(item.get("exit_reason") == "liquidation" for item in closed),
+        "liquidation_fee_total": round(sum(
+            float(item.get("liquidation_fee") or 0) for item in closed
+        ), 8),
     }
 
 

@@ -3,6 +3,7 @@
 """Run a reproducible perpetual backtest against a saved local snapshot."""
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -22,13 +23,44 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         max_slippage_rate=0.01, maintenance_margin_rate=0.005,
         liquidation_fee_rate=0.0, maintenance_margin_tiers=None,
         max_total_open_risk=0.04):
-    maintenance_margin_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+    manual_tiers_provided = maintenance_margin_tiers is not None
+    manual_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
         maintenance_margin_tiers
     )
     loaded = derivatives_snapshots.find_latest(data_dir, symbol, interval)
     if not loaded:
         raise RuntimeError(f"没有找到有效永续快照：{symbol} {interval}")
     snapshot = loaded["snapshot"]
+    snapshot_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+        snapshot.get("maintenance_margin_tiers") or []
+    )
+    snapshot_tier_metadata = dict(snapshot.get("maintenance_margin_tier_metadata") or {})
+    snapshot_tier_checksum = None
+    if snapshot_tiers:
+        canonical_tiers = json.dumps(
+            snapshot_tiers, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        )
+        snapshot_tier_checksum = hashlib.sha256(canonical_tiers.encode("utf-8")).hexdigest()
+        recorded_checksum = snapshot_tier_metadata.get("tier_checksum")
+        recorded_version = snapshot_tier_metadata.get("tier_version")
+        if recorded_checksum and recorded_checksum != snapshot_tier_checksum:
+            raise RuntimeError("历史快照风险档位校验和不匹配")
+        if recorded_version and recorded_version != snapshot_tier_checksum[:16]:
+            raise RuntimeError("历史快照风险档位版本不匹配")
+        snapshot_tier_metadata["tier_checksum"] = snapshot_tier_checksum
+        snapshot_tier_metadata.setdefault("tier_version", snapshot_tier_checksum[:16])
+    if manual_tiers_provided:
+        maintenance_margin_tiers = manual_tiers
+        margin_source = "manual_tiers_override" if manual_tiers else "manual_flat_rate_override"
+        effective_tier_metadata = {}
+    elif snapshot_tiers:
+        maintenance_margin_tiers = snapshot_tiers
+        margin_source = "snapshot_official_tiers"
+        effective_tier_metadata = snapshot_tier_metadata
+    else:
+        maintenance_margin_tiers = []
+        margin_source = "snapshot_flat_rate"
+        effective_tier_metadata = {}
     scenarios = perp_backtest.run_cost_stress_tests(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
         leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
@@ -123,8 +155,10 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         "risk_model": {
             "contract_constraints_bound": bool(snapshot.get("contract_specs")),
             "liquidation_model": scenarios["baseline"]["liquidation_model"]["model_version"],
-            "maintenance_margin_source": (
-                "manual_notional_tiers" if maintenance_margin_tiers else "manual_flat_rate"
+            "maintenance_margin_source": margin_source,
+            "maintenance_margin_tier_metadata": effective_tier_metadata,
+            "maintenance_margin_tier_checksum": (
+                snapshot_tier_checksum if margin_source == "snapshot_official_tiers" else None
             ),
             "slippage_model": slippage_model,
             "liquidity_proxy": "contract_kline_base_volume",

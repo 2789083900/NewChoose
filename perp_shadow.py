@@ -357,6 +357,15 @@ def shadow_settings(config):
             _number(raw, "risk_tier_cache_ttl_minutes", 360.0, 0.0),
             _number(raw, "risk_tier_cache_max_stale_minutes", 1440.0, 0.0),
         ),
+        "block_new_entries_on_risk_tier_unavailable": bool(
+            raw.get("block_new_entries_on_risk_tier_unavailable", True)
+        ),
+        "allow_new_entries_on_stale_tier_cache": bool(
+            raw.get("allow_new_entries_on_stale_tier_cache", True)
+        ),
+        "minimum_risk_tier_remaining_minutes_for_entry": _number(
+            raw, "minimum_risk_tier_remaining_minutes_for_entry", 120.0, 0.0
+        ),
         "market_data_max_lag_intervals": _number(
             raw, "market_data_max_lag_intervals", 1.05, 1.0
         ),
@@ -535,6 +544,9 @@ def cohort_parameter_snapshot(settings):
         "account_value", "risk_fraction", "leverage", "maintenance_margin_rate",
         "maintenance_margin_tiers", "maintenance_margin_tiers_by_provider",
         "maintenance_margin_tiers_by_provider_symbol", "liquidation_fee_rate",
+        "block_new_entries_on_risk_tier_unavailable",
+        "allow_new_entries_on_stale_tier_cache",
+        "minimum_risk_tier_remaining_minutes_for_entry",
         "fee_rate", "slippage_rate", "slippage_model", "slippage_impact_coefficient",
         "max_slippage_rate", "max_total_open_risk", "market_state_enabled",
         "extreme_basis_pct", "extreme_funding_rate", "extreme_oi_change_pct",
@@ -1068,7 +1080,7 @@ SIGNAL_FUNNEL_COUNTERS = (
     "evaluated_bars", "insufficient_history", "no_breakout",
     "raw_breakout_candidates", "filter_rejections",
     "market_state_rejections", "risk_budget_rejections",
-    "duplicate_signals", "cohort_rejections", "final_entries",
+    "duplicate_signals", "cohort_rejections", "risk_tier_rejections", "final_entries",
     "contract_constraint_rejections",
 )
 
@@ -1181,11 +1193,19 @@ def create_signal(snapshot, settings, state):
             "short_breakout_threshold": float(levels["entry_low"]) - buffer_value,
         })
     if not settings.get("new_entries_enabled", True):
+        rejection_reason = str(
+            settings.get("new_entry_block_reason") or "cohort_parameter_mismatch"
+        )
+        counter = (
+            "risk_tier_rejections"
+            if rejection_reason.startswith("risk_tier_")
+            else "cohort_rejections"
+        )
         diagnostic = _breakout_diagnostic(
-            snapshot, market_state, plan, reasons, "cohort_parameter_mismatch"
+            snapshot, market_state, plan, reasons, rejection_reason
         )
         _record_signal_evaluation(
-            state, diagnostic, "cohort_rejections", "cohort_parameter_mismatch"
+            state, diagnostic, counter, rejection_reason
         )
         return None
     signal_time = int(bars[-1]["time"])
@@ -1263,6 +1283,9 @@ def create_signal(snapshot, settings, state):
         "signal_reasons": reasons, "contract_specs": snapshot["contract_specs"],
         "parameter_snapshot": parameters,
         "parameter_sha256": parameter_checksum(parameters),
+        "risk_tier_health_at_signal": copy.deepcopy(
+            (state.get("risk_tier_health_by_symbol") or {}).get(snapshot["symbol"]) or {}
+        ),
     }
     state["open_trades"].append(trade)
     diagnostic = _breakout_diagnostic(snapshot, market_state, plan, reasons, "signal_created")
@@ -1442,7 +1465,7 @@ def send_perpetual_test_notification(config):
     )
 
 
-def process_snapshot(snapshot, settings, state):
+def process_snapshot(snapshot, settings, state, component_errors=None, now_ms=None):
     settings = _provider_settings(
         settings, snapshot.get("venue"), snapshot.get("symbol"), snapshot=snapshot
     )
@@ -1459,6 +1482,16 @@ def process_snapshot(snapshot, settings, state):
     state.setdefault("risk_tier_metadata_by_symbol", {})[symbol] = copy.deepcopy(
         settings.get("maintenance_margin_tier_metadata") or {}
     )
+    effective_component_errors = dict(
+        component_errors
+        if component_errors is not None
+        else ((snapshot.get("data_health") or {}).get("component_errors") or {})
+    )
+    risk_tier_health = _update_risk_tier_health(
+        state, symbol, snapshot, settings, effective_component_errors,
+        int(time.time() * 1000) if now_ms is None else int(now_ms),
+    )
+    settings = _apply_risk_tier_entry_policy(settings, risk_tier_health)
     snapshot_provider = snapshot.get("venue")
     open_for_symbol = [item for item in state["open_trades"] if item["symbol"] == symbol]
     bound_providers = {
@@ -1647,6 +1680,42 @@ def _update_risk_tier_health(state, symbol, snapshot, settings, component_errors
     return health
 
 
+def _apply_risk_tier_entry_policy(settings, health):
+    """Block only new entries when the bound OKX risk model is unsafe."""
+    bound = dict(settings)
+    status = str((health or {}).get("status") or "not_applicable")
+    remaining = (health or {}).get("remaining_stale_minutes")
+    block_reason = None
+    if status in {"official_unavailable", "fixed_fallback"}:
+        if settings.get("block_new_entries_on_risk_tier_unavailable", True):
+            block_reason = f"risk_tier_{status}"
+    elif status == "stale_fallback":
+        if not settings.get("allow_new_entries_on_stale_tier_cache", True):
+            block_reason = "risk_tier_stale_fallback_disabled"
+        else:
+            minimum = float(
+                settings.get("minimum_risk_tier_remaining_minutes_for_entry", 120.0)
+            )
+            if remaining is None:
+                block_reason = "risk_tier_stale_remaining_unknown"
+            elif float(remaining) < minimum:
+                block_reason = "risk_tier_stale_near_expiry"
+    tier_entries_allowed = block_reason is None
+    health["new_entries_allowed"] = tier_entries_allowed
+    health["new_entry_block_reason"] = block_reason
+    health["minimum_remaining_minutes_for_entry"] = float(
+        settings.get("minimum_risk_tier_remaining_minutes_for_entry", 120.0)
+    )
+    if block_reason:
+        bound["new_entries_enabled"] = False
+        bound["new_entry_block_reason"] = block_reason
+    elif not bound.get("new_entries_enabled", True):
+        bound.setdefault("new_entry_block_reason", "cohort_parameter_mismatch")
+    else:
+        bound.pop("new_entry_block_reason", None)
+    return bound
+
+
 def _risk_tier_health_summary(state, now_ms=None):
     current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
     by_symbol = copy.deepcopy(state.get("risk_tier_health_by_symbol") or {})
@@ -1676,6 +1745,10 @@ def _risk_tier_health_summary(state, now_ms=None):
         symbol for symbol, health in official.items()
         if health.get("status") in {"official_unavailable", "fixed_fallback"}
     )
+    entry_blocked = sorted(
+        symbol for symbol, health in by_symbol.items()
+        if health.get("new_entries_allowed") is False
+    )
     in_use = [health for health in official.values() if health.get("cache_status")]
     overall = (
         "not_in_use" if not official
@@ -1693,6 +1766,7 @@ def _risk_tier_health_summary(state, now_ms=None):
         "official_symbols": sorted(official),
         "degraded_symbols": degraded,
         "unavailable_symbols": unavailable,
+        "entry_blocked_symbols": entry_blocked,
         "max_consecutive_refresh_failures": max((
             int(health.get("consecutive_refresh_failures") or 0) for health in official.values()
         ), default=0),
@@ -2164,10 +2238,13 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 if had_data_hold else None
             )
             candidate_state = copy.deepcopy(state)
-            signal = process_snapshot(snapshot, settings, candidate_state)
-            risk_tier_health = _update_risk_tier_health(
-                candidate_state, symbol, snapshot, settings, component_errors,
-                int(time.time() * 1000),
+            processing_now_ms = int(time.time() * 1000)
+            signal = process_snapshot(
+                snapshot, settings, candidate_state,
+                component_errors=component_errors, now_ms=processing_now_ms,
+            )
+            risk_tier_health = copy.deepcopy(
+                (candidate_state.get("risk_tier_health_by_symbol") or {}).get(symbol) or {}
             )
             _save_snapshot_cache(settings["cache_dir"], snapshot)
             pending_notifications = _collect_notification_events(
@@ -2229,6 +2306,14 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                     reconciliation and reconciliation["reconciliation_uncertain"]
                 ),
                 "risk_tier_health": copy.deepcopy(risk_tier_health),
+                "new_entries_enabled": bool(
+                    risk_tier_health.get("new_entries_allowed", True)
+                    and settings.get("new_entries_enabled", True)
+                ),
+                "new_entry_block_reason": (
+                    risk_tier_health.get("new_entry_block_reason")
+                    or settings.get("new_entry_block_reason")
+                ),
             }
             if any(item.get("status") == "error" for item in provider_attempts):
                 next_symbol_health["provider_switch_reason"] = (

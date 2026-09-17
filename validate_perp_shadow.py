@@ -336,6 +336,16 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
             failures = health.get("consecutive_refresh_failures")
             if not isinstance(failures, int) or failures < 0:
                 errors.append(f"risk tier health for {symbol} has invalid failure count")
+            entries_allowed = health.get("new_entries_allowed")
+            if entries_allowed is not None and not isinstance(entries_allowed, bool):
+                errors.append(f"risk tier health for {symbol} has invalid entry gate")
+            block_reason = health.get("new_entry_block_reason")
+            if block_reason is not None and not isinstance(block_reason, str):
+                errors.append(f"risk tier health for {symbol} has invalid entry block reason")
+            minimum_remaining = health.get("minimum_remaining_minutes_for_entry")
+            if minimum_remaining is not None and (
+                    not _finite(minimum_remaining) or float(minimum_remaining) < 0):
+                errors.append(f"risk tier health for {symbol} has invalid entry minimum")
         official = {
             symbol: health for symbol, health in by_symbol.items()
             if isinstance(health, dict) and health.get("provider") == "okx"
@@ -353,6 +363,13 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
             errors.append("stats risk tier degraded_symbols is inconsistent")
         if tier_summary.get("unavailable_symbols") != expected_unavailable:
             errors.append("stats risk tier unavailable_symbols is inconsistent")
+        expected_entry_blocked = sorted(
+            symbol for symbol, health in by_symbol.items()
+            if isinstance(health, dict) and health.get("new_entries_allowed") is False
+        )
+        entry_blocked = tier_summary.get("entry_blocked_symbols")
+        if entry_blocked is not None and entry_blocked != expected_entry_blocked:
+            errors.append("stats risk tier entry_blocked_symbols is inconsistent")
     if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
         errors.append("stats max_data_lag_minutes is invalid")
     if stats.get("max_market_data_lag_minutes") is not None and (
@@ -395,25 +412,28 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
             "evaluated_bars", "insufficient_history", "no_breakout",
             "raw_breakout_candidates", "filter_rejections",
             "market_state_rejections", "risk_budget_rejections",
-            "duplicate_signals", "cohort_rejections", "final_entries",
+            "duplicate_signals", "cohort_rejections", "risk_tier_rejections", "final_entries",
             "contract_constraint_rejections",
         )
         if not isinstance(funnel, dict):
             errors.append("stats signal_funnel must be an object")
         else:
             for key in counters:
+                if key == "risk_tier_rejections" and key not in funnel:
+                    # Backward-compatible with state generated before the entry gate existed.
+                    continue
                 if not isinstance(funnel.get(key), int) or funnel.get(key, 0) < 0:
                     errors.append(f"stats signal_funnel {key} is invalid")
             terminal_total = sum(int(funnel.get(key) or 0) for key in (
                 "insufficient_history", "no_breakout", "filter_rejections",
                 "market_state_rejections", "risk_budget_rejections",
-                "duplicate_signals", "cohort_rejections", "final_entries",
+                "duplicate_signals", "cohort_rejections", "risk_tier_rejections", "final_entries",
             ))
             if int(funnel.get("evaluated_bars") or 0) != terminal_total:
                 errors.append("stats signal_funnel terminal counts do not match evaluated_bars")
             candidate_total = sum(int(funnel.get(key) or 0) for key in (
                 "filter_rejections", "market_state_rejections", "risk_budget_rejections",
-                "duplicate_signals", "cohort_rejections", "final_entries",
+                "duplicate_signals", "cohort_rejections", "risk_tier_rejections", "final_entries",
             ))
             if int(funnel.get("raw_breakout_candidates") or 0) != candidate_total:
                 errors.append("stats signal_funnel candidate counts are inconsistent")

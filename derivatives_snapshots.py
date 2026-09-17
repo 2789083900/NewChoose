@@ -66,6 +66,8 @@ def save_snapshot(cache_dir, snapshot, source="binance-public"):
         "interval": interval,
         "fetched_at_epoch_ms": snapshot.get("fetched_at_epoch_ms"),
         "contract_specs": snapshot.get("contract_specs"),
+        "maintenance_margin_tiers": snapshot.get("maintenance_margin_tiers") or [],
+        "maintenance_margin_tier_metadata": snapshot.get("maintenance_margin_tier_metadata") or {},
         "collection": snapshot.get("collection") or {},
         **{name: snapshot.get(name) or [] for name in SERIES},
         "funding_rates": snapshot.get("funding_rates") or [],

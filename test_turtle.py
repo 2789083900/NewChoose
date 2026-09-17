@@ -647,6 +647,60 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(result["cache_status"], "live_refresh")
         refreshed.assert_called_once()
 
+    def test_okx_position_tier_cache_reads_v1_with_recomputed_checksum(self):
+        rows = {"code": "0", "data": [
+            {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+        ]}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(okx_data.time, "time", return_value=1000):
+            live = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, mock.Mock(return_value=rows),
+                cache_dir=directory, now_ms=1_000_000,
+            )
+            cache_path = okx_data._tier_cache_path(directory, "BTCUSDT")
+            with open(cache_path, encoding="utf-8") as file:
+                payload = json.load(file)
+            payload["schema_version"] = 1
+            payload["binding"].pop("tier_checksum", None)
+            with open(cache_path, "w", encoding="utf-8") as file:
+                json.dump(payload, file)
+            blocked = mock.Mock(side_effect=RuntimeError("network should not be used"))
+            cached = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, blocked,
+                cache_dir=directory, cache_ttl_minutes=360,
+                now_ms=1_000_000 + 30 * 60 * 1000,
+            )
+        self.assertEqual(cached["cache_status"], "fresh_cache")
+        self.assertEqual(cached["tier_checksum"], live["tier_checksum"])
+        self.assertEqual(cached["cache_schema_migrated_from"], 1)
+        blocked.assert_not_called()
+
+    def test_okx_position_tier_cache_rejects_invalid_full_checksum(self):
+        rows = {"code": "0", "data": [
+            {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+        ]}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(okx_data.time, "time", return_value=1000):
+            live = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, mock.Mock(return_value=rows),
+                cache_dir=directory, now_ms=1_000_000,
+            )
+            self.assertEqual(len(live["tier_checksum"]), 64)
+            cache_path = okx_data._tier_cache_path(directory, "BTCUSDT")
+            with open(cache_path, encoding="utf-8") as file:
+                payload = json.load(file)
+            self.assertEqual(payload["schema_version"], 2)
+            payload["binding"]["tier_checksum"] = "0" * 64
+            with open(cache_path, "w", encoding="utf-8") as file:
+                json.dump(payload, file)
+            refreshed = mock.Mock(return_value=rows)
+            result = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, refreshed,
+                cache_dir=directory, now_ms=1_000_000 + 30 * 60 * 1000,
+            )
+        self.assertEqual(result["cache_status"], "live_refresh")
+        refreshed.assert_called_once()
+
     def test_okx_position_tier_cache_marks_bounded_stale_fallback(self):
         rows = {"code": "0", "data": [
             {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
@@ -1104,6 +1158,90 @@ class TurtleCoreTests(unittest.TestCase):
             perp_shadow.shadow_settings({"derivatives": {"max_leverage": 21}})
         with self.assertRaises(ValueError):
             perp_shadow.shadow_settings({"derivatives": {"risk_fraction": 1.1}})
+
+    def test_perpetual_risk_tier_entry_policy_blocks_only_unsafe_new_entries(self):
+        settings = {
+            "new_entries_enabled": True,
+            "block_new_entries_on_risk_tier_unavailable": True,
+            "allow_new_entries_on_stale_tier_cache": True,
+            "minimum_risk_tier_remaining_minutes_for_entry": 120.0,
+        }
+        unavailable = {"status": "official_unavailable", "remaining_stale_minutes": 0}
+        blocked = perp_shadow._apply_risk_tier_entry_policy(settings, unavailable)
+        self.assertFalse(blocked["new_entries_enabled"])
+        self.assertEqual(blocked["new_entry_block_reason"], "risk_tier_official_unavailable")
+        self.assertFalse(unavailable["new_entries_allowed"])
+
+        near_expiry = {"status": "stale_fallback", "remaining_stale_minutes": 119.99}
+        blocked = perp_shadow._apply_risk_tier_entry_policy(settings, near_expiry)
+        self.assertFalse(blocked["new_entries_enabled"])
+        self.assertEqual(blocked["new_entry_block_reason"], "risk_tier_stale_near_expiry")
+
+        usable_stale = {"status": "stale_fallback", "remaining_stale_minutes": 120.0}
+        allowed = perp_shadow._apply_risk_tier_entry_policy(settings, usable_stale)
+        self.assertTrue(allowed["new_entries_enabled"])
+        self.assertTrue(usable_stale["new_entries_allowed"])
+        self.assertIsNone(usable_stale["new_entry_block_reason"])
+
+    def test_perpetual_risk_tier_entry_policy_preserves_cohort_gate(self):
+        settings = {
+            "new_entries_enabled": False,
+            "block_new_entries_on_risk_tier_unavailable": True,
+            "allow_new_entries_on_stale_tier_cache": True,
+            "minimum_risk_tier_remaining_minutes_for_entry": 120.0,
+        }
+        healthy = {"status": "live_refresh", "remaining_stale_minutes": 1440.0}
+        bound = perp_shadow._apply_risk_tier_entry_policy(settings, healthy)
+        self.assertFalse(bound["new_entries_enabled"])
+        self.assertEqual(bound["new_entry_block_reason"], "cohort_parameter_mismatch")
+        self.assertTrue(healthy["new_entries_allowed"])
+
+    def test_perpetual_shadow_settings_enable_safe_risk_tier_entry_defaults(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h",
+        }})
+        self.assertTrue(settings["block_new_entries_on_risk_tier_unavailable"])
+        self.assertTrue(settings["allow_new_entries_on_stale_tier_cache"])
+        self.assertEqual(settings["minimum_risk_tier_remaining_minutes_for_entry"], 120.0)
+
+    def test_perpetual_process_keeps_position_management_while_entry_gate_is_blocked(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "provider": "okx",
+            "symbols": ["BTCUSDT"], "interval": "4h",
+        }})
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "okx",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": [{"time": 1, "open": 100, "high": 101,
+                                  "low": 99, "close": 100, "volume": 1}],
+            "mark_price_klines": [], "index_price_klines": [],
+            "funding_rates": [], "open_interest": [],
+            "contract_specs": {"symbol": "BTCUSDT", "status": "live"},
+            "data_health": {"component_errors": {
+                "maintenance_margin_tiers": "official tier fetch failed",
+            }},
+        }
+        state = perp_shadow.empty_state(10000)
+        existing = {"symbol": "BTCUSDT", "provider": "okx", "status": "open"}
+        state["open_trades"].append(existing)
+        with mock.patch.object(derivatives_data, "validate_perpetual_snapshot", return_value=[]), \
+             mock.patch.object(perp_shadow, "classify_market_state", return_value={
+                 "state": "trend", "risk_multiplier": 1.0, "flags": [], "metrics": {},
+             }), \
+             mock.patch.object(perp_shadow, "update_trade", return_value="open") as update, \
+             mock.patch.object(perp_shadow, "create_signal") as create:
+            result = perp_shadow.process_snapshot(
+                snapshot, settings, state,
+                component_errors=snapshot["data_health"]["component_errors"],
+                now_ms=1_000_000,
+            )
+        self.assertIsNone(result)
+        update.assert_called_once()
+        create.assert_not_called()
+        health = state["risk_tier_health_by_symbol"]["BTCUSDT"]
+        self.assertEqual(health["status"], "official_unavailable")
+        self.assertFalse(health["new_entries_allowed"])
 
     def test_perpetual_risk_tiers_are_bound_to_snapshot_provider(self):
         settings = perp_shadow.shadow_settings({"derivatives": {
@@ -2536,6 +2674,64 @@ class TurtleCoreTests(unittest.TestCase):
                 "maintenance_margin_tiers_not_configured",
             )
             self.assertTrue(os.path.isfile(output))
+
+    def test_perpetual_backtest_uses_official_tiers_frozen_in_snapshot(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100 + index * 0.1, "high": 101 + index * 0.1,
+                 "low": 99 + index * 0.1, "close": 100 + index * 0.1,
+                 "volume": 100} for index in range(360)]
+        tiers = [{"max_quantity": 10.0, "maintenance_margin_rate": 0.004}]
+        checksum = perp_shadow._tier_checksum(tiers)
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "okx",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": tiers,
+            "maintenance_margin_tier_metadata": {
+                "provider": "okx", "scope": "provider_symbol_official_snapshot",
+                "tier_version": checksum[:16], "tier_checksum": checksum,
+                "cache_status": "live_refresh",
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            report = run_perp_backtest.run("BTCUSDT", "4h", directory)
+            loaded = derivatives_snapshots.find_latest(directory, "BTCUSDT", "4h")
+        self.assertEqual(loaded["snapshot"]["maintenance_margin_tiers"], tiers)
+        self.assertEqual(
+            report["risk_model"]["maintenance_margin_source"],
+            "snapshot_official_tiers",
+        )
+        self.assertEqual(
+            report["risk_model"]["maintenance_margin_tier_checksum"], checksum
+        )
+        self.assertEqual(report["parameters"]["maintenance_margin_tiers"], tiers)
+        self.assertEqual(
+            report["risk_model"]["liquidation_model"], "isolated_linear_tiered_v1"
+        )
+        self.assertTrue(report["maintenance_margin_stress"]["enabled"])
+
+    def test_perpetual_backtest_rejects_mismatched_snapshot_tier_metadata(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(360)]
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "okx",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": [
+                {"max_quantity": 10.0, "maintenance_margin_rate": 0.004}
+            ],
+            "maintenance_margin_tier_metadata": {
+                "tier_version": "bad-version", "tier_checksum": "0" * 64,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            with self.assertRaisesRegex(RuntimeError, "风险档位校验和不匹配"):
+                run_perp_backtest.run("BTCUSDT", "4h", directory)
 
     def test_shadow_tracking_calculates_long_mfe_mae_and_return(self):
         hour = 60 * 60 * 1000

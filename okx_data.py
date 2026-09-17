@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import tempfile
 import time
 import urllib.parse
 
@@ -170,6 +171,7 @@ def _position_tiers(inst_id, contract_value, getter):
     if not normalized:
         raise RuntimeError(f"OKX position tiers not found: {inst_id}")
     canonical = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
     return {
         "tiers": normalized,
         "source": f"{BASE_URL}{endpoint}",
@@ -177,7 +179,8 @@ def _position_tiers(inst_id, contract_value, getter):
             "instType": "SWAP", "tdMode": "isolated", "instFamily": family,
         },
         "retrieved_at_epoch_ms": int(time.time() * 1000),
-        "tier_version": hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16],
+        "tier_version": checksum[:16],
+        "tier_checksum": checksum,
         "native_cap_unit": "contracts",
         "normalized_cap_unit": "base_asset",
         "contract_value": float(contract_value),
@@ -197,7 +200,10 @@ def _load_position_tier_cache(path, inst_id, contract_value, now_ms):
     try:
         with open(path, encoding="utf-8") as file:
             cached = json.load(file)
-        if not isinstance(cached, dict) or int(cached.get("schema_version") or 0) != 1:
+        if not isinstance(cached, dict):
+            return None
+        schema_version = int(cached.get("schema_version") or 0)
+        if schema_version not in {1, 2}:
             return None
         binding = cached.get("binding")
         if not isinstance(binding, dict):
@@ -218,9 +224,14 @@ def _load_position_tier_cache(path, inst_id, contract_value, now_ms):
             return None
         tiers = derivatives_risk.normalize_maintenance_margin_tiers(binding.get("tiers") or [])
         canonical = json.dumps(tiers, sort_keys=True, separators=(",", ":"))
-        expected_version = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
-        if metadata.get("tier_version") != expected_version:
+        expected_checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        if metadata.get("tier_version") != expected_checksum[:16]:
             return None
+        if schema_version >= 2 and metadata.get("tier_checksum") != expected_checksum:
+            return None
+        metadata["tier_checksum"] = expected_checksum
+        if schema_version == 1:
+            metadata["cache_schema_migrated_from"] = 1
         return {"tiers": tiers, **metadata,
                 "cache_age_minutes": round((int(now_ms) - retrieved) / 60000, 2)}
     except (OSError, ValueError, TypeError):
@@ -232,12 +243,23 @@ def _save_position_tier_cache(path, binding):
         return
     directory = os.path.dirname(os.path.abspath(path))
     os.makedirs(directory, exist_ok=True)
-    temporary = path + ".tmp"
-    payload = {"schema_version": 1, "binding": binding}
-    with open(temporary, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
-        file.write("\n")
-    os.replace(temporary, path)
+    payload = {"schema_version": 2, "binding": binding}
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=os.path.basename(path) + ".", suffix=".tmp", dir=directory
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(payload, file, ensure_ascii=False, indent=2)
+            file.write("\n")
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temporary, path)
+    finally:
+        try:
+            if os.path.exists(temporary):
+                os.remove(temporary)
+        except OSError:
+            pass
 
 
 def _resolve_position_tiers(inst_id, symbol, contract_value, getter, cache_dir=None,

@@ -13,6 +13,7 @@ from datetime import datetime
 
 import console_output
 import derivatives_data
+import derivatives_risk
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -167,6 +168,34 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                             if (metadata.get("cache_status") == "stale_fallback"
                                     and not metadata.get("refresh_error_category")):
                                 errors.append(f"{trade_id} stale tier fallback lacks refresh diagnostics")
+                identity = trade.get("risk_model_identity")
+                frozen_identity = parameters.get("risk_model_identity") if isinstance(parameters, dict) else None
+                if identity is not None or frozen_identity is not None:
+                    if not isinstance(identity, dict) or identity != frozen_identity:
+                        errors.append(f"{trade_id} risk model identity does not match frozen parameters")
+                    else:
+                        digest = str(trade.get("risk_model_sha256") or "")
+                        identity_digest = str(identity.get("identity_sha256") or "")
+                        unsigned_identity = {key: value for key, value in identity.items()
+                                             if key != "identity_sha256"}
+                        expected_digest = _parameter_checksum(unsigned_identity)
+                        if digest != identity_digest or identity_digest != expected_digest:
+                            errors.append(f"{trade_id} risk model identity checksum mismatch")
+                        metadata = parameters.get("maintenance_margin_tier_metadata") or {}
+                        tiers = parameters.get("maintenance_margin_tiers") or []
+                        expected_identity = {
+                            "provider": str(parameters.get("risk_parameter_provider") or "unknown").lower(),
+                            "symbol": str(parameters.get("risk_parameter_symbol") or "unknown"),
+                            "liquidation_model_version": derivatives_risk.liquidation_model_version(tiers),
+                            "tier_scope": str(metadata.get("scope") or "global_flat_or_legacy"),
+                            "tier_version": str(metadata.get("tier_version") or "unversioned"),
+                            "tier_checksum": str(
+                                metadata.get("tier_checksum") or _parameter_checksum(tiers)
+                            ),
+                            "cache_status": str(metadata.get("cache_status") or "not_applicable"),
+                        }
+                        if unsigned_identity != expected_identity:
+                            errors.append(f"{trade_id} risk model identity disagrees with parameters")
                 if trade.get("cohort_id"):
                     cohort = cohort_registry.get(trade["cohort_id"])
                     if not isinstance(cohort, dict):
@@ -484,9 +513,17 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
         if not isinstance(breakdown, dict):
             errors.append("stats sample_breakdown must be an object")
         else:
-            for dimension in (
-                    "provider", "symbol", "strategy_version", "cohort_id",
-                    "market_state", "funding_mark_quality"):
+            dimensions = [
+                "provider", "symbol", "strategy_version", "cohort_id",
+                "market_state", "funding_mark_quality",
+            ]
+            if any(isinstance(trade.get("risk_model_identity"), dict)
+                   for trade in all_trades):
+                dimensions.extend([
+                    "liquidation_model_version", "risk_tier_version",
+                    "risk_tier_checksum", "risk_tier_cache_status", "risk_model_identity",
+                ])
+            for dimension in dimensions:
                 buckets = breakdown.get(dimension)
                 if not isinstance(buckets, dict):
                     errors.append(f"stats sample_breakdown {dimension} is missing")

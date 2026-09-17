@@ -1,4 +1,5 @@
 import unittest
+import copy
 import json
 import os
 import tempfile
@@ -1195,6 +1196,47 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(
             stats["configured_symbol_sample_coverage"]["SOLUSDT"]["remaining_to_minimum"], 3
         )
+
+    def test_perpetual_shadow_freezes_and_groups_risk_model_identity(self):
+        base = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h",
+        }})
+        live = perp_shadow._provider_settings(base, "okx", "BTCUSDT", {
+            "maintenance_margin_tiers": [
+                {"max_quantity": 10.0, "maintenance_margin_rate": 0.004,
+                 "maintenance_amount": 1.0},
+            ],
+            "maintenance_margin_tier_metadata": {
+                "source": "okx_public_api", "retrieved_at_epoch_ms": 1_700_000_000_000,
+                "tier_version": "okx-v2", "cache_status": "live_refresh",
+            },
+        })
+        stale = copy.deepcopy(live)
+        stale["maintenance_margin_tier_metadata"]["cache_status"] = "stale_fallback"
+        live_identity = perp_shadow.parameter_snapshot(live)["risk_model_identity"]
+        stale_identity = perp_shadow.parameter_snapshot(stale)["risk_model_identity"]
+        self.assertEqual(
+            live_identity["liquidation_model_version"],
+            derivatives_risk.LIQUIDATION_MODEL_VERSION_TIERED_DEDUCTION,
+        )
+        self.assertNotEqual(live_identity["identity_sha256"], stale_identity["identity_sha256"])
+        state = perp_shadow.empty_state(10000)
+        state["closed_trades"] = [
+            {"provider": "okx", "symbol": "BTCUSDT", "net_pnl": 10,
+             "return_pct": 1.0, "risk_model_identity": live_identity},
+            {"provider": "okx", "symbol": "BTCUSDT", "net_pnl": -5,
+             "return_pct": -0.5, "risk_model_identity": stale_identity},
+        ]
+        breakdown = perp_shadow.build_stats(state, {
+            "sample_group_goal_min_trades": 3, "symbols": ["BTCUSDT"],
+        })["sample_breakdown"]
+        self.assertEqual(breakdown["liquidation_model_version"][
+            derivatives_risk.LIQUIDATION_MODEL_VERSION_TIERED_DEDUCTION]["count"], 2)
+        self.assertEqual(breakdown["risk_tier_version"]["okx-v2"]["count"], 2)
+        self.assertEqual(breakdown["risk_tier_cache_status"]["live_refresh"]["count"], 1)
+        self.assertEqual(breakdown["risk_tier_cache_status"]["stale_fallback"]["count"], 1)
+        self.assertEqual(len(breakdown["risk_model_identity"]), 2)
 
     def test_perpetual_notification_contains_execution_parameters(self):
         trade = {

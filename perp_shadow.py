@@ -509,8 +509,26 @@ def _signal_id(symbol, interval, bar_time, direction, system, cohort_id="legacy"
     return f"perp|{cohort_id}|{symbol}|{interval}|{int(bar_time)}|{direction}|{system}"
 
 
+def risk_model_identity(settings):
+    """Return the immutable risk-model identity used by one shadow sample."""
+    tiers = copy.deepcopy(settings.get("maintenance_margin_tiers") or [])
+    metadata = copy.deepcopy(settings.get("maintenance_margin_tier_metadata") or {})
+    checksum = str(metadata.get("tier_checksum") or _tier_checksum(tiers))
+    identity = {
+        "provider": str(settings.get("risk_parameter_provider") or "unknown").lower(),
+        "symbol": str(settings.get("risk_parameter_symbol") or "unknown"),
+        "liquidation_model_version": derivatives_risk.liquidation_model_version(tiers),
+        "tier_scope": str(metadata.get("scope") or "global_flat_or_legacy"),
+        "tier_version": str(metadata.get("tier_version") or "unversioned"),
+        "tier_checksum": checksum,
+        "cache_status": str(metadata.get("cache_status") or "not_applicable"),
+    }
+    identity["identity_sha256"] = parameter_checksum(identity)
+    return identity
+
+
 def parameter_snapshot(settings):
-    return {
+    snapshot = {
         key: settings[key] for key in (
             "account_value", "risk_fraction", "leverage",
             "maintenance_margin_rate", "liquidation_fee_rate",
@@ -543,6 +561,8 @@ def parameter_snapshot(settings):
         ),
         "sample_collection_phase": "phase_1_btc_eth_shadow_only",
     }
+    snapshot["risk_model_identity"] = risk_model_identity(settings)
+    return snapshot
 
 
 def cohort_parameter_snapshot(settings):
@@ -1290,6 +1310,8 @@ def create_signal(snapshot, settings, state):
         "signal_reasons": reasons, "contract_specs": snapshot["contract_specs"],
         "parameter_snapshot": parameters,
         "parameter_sha256": parameter_checksum(parameters),
+        "risk_model_identity": copy.deepcopy(parameters["risk_model_identity"]),
+        "risk_model_sha256": parameters["risk_model_identity"]["identity_sha256"],
         "risk_tier_health_at_signal": copy.deepcopy(
             (state.get("risk_tier_health_by_symbol") or {}).get(snapshot["symbol"]) or {}
         ),
@@ -1560,6 +1582,17 @@ def _market_state_label(trade):
     return str(value or "unknown")
 
 
+def _trade_risk_model_identity(trade):
+    identity = trade.get("risk_model_identity")
+    if not isinstance(identity, dict):
+        identity = (trade.get("parameter_snapshot") or {}).get("risk_model_identity")
+    return identity if isinstance(identity, dict) else {}
+
+
+def _risk_model_dimension(field, default="legacy_unknown"):
+    return lambda trade: str(_trade_risk_model_identity(trade).get(field) or default)
+
+
 def _sample_breakdown(closed, group_goal):
     dimensions = {
         "provider": lambda trade: str(trade.get("provider") or "unknown"),
@@ -1568,6 +1601,11 @@ def _sample_breakdown(closed, group_goal):
         "cohort_id": lambda trade: str(trade.get("cohort_id") or "legacy_unknown"),
         "market_state": _market_state_label,
         "funding_mark_quality": _funding_quality,
+        "liquidation_model_version": _risk_model_dimension("liquidation_model_version"),
+        "risk_tier_version": _risk_model_dimension("tier_version", "unversioned"),
+        "risk_tier_checksum": _risk_model_dimension("tier_checksum", "missing"),
+        "risk_tier_cache_status": _risk_model_dimension("cache_status", "not_applicable"),
+        "risk_model_identity": _risk_model_dimension("identity_sha256", "legacy_unknown"),
     }
     result = {}
     for dimension, key_fn in dimensions.items():

@@ -15,6 +15,74 @@ import derivatives_risk
 import perp_backtest
 import signal_watch as sw
 
+OKX_POSITION_TIERS_SOURCE = "https://www.okx.com/api/v5/public/position-tiers"
+CONFIGURED_TIER_SCOPES = {"provider_symbol", "provider", "global"}
+
+
+def _snapshot_tier_binding(snapshot):
+    tiers = derivatives_risk.normalize_maintenance_margin_tiers(
+        snapshot.get("maintenance_margin_tiers") or []
+    )
+    if not tiers:
+        return [], "snapshot_flat_rate", {}, None
+    raw_metadata = snapshot.get("maintenance_margin_tier_metadata") or {}
+    if not isinstance(raw_metadata, dict):
+        raise RuntimeError("历史快照风险档位元数据格式无效")
+    metadata = dict(raw_metadata)
+    canonical = json.dumps(
+        tiers, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    )
+    checksum = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    recorded_checksum = metadata.get("tier_checksum")
+    if not recorded_checksum or recorded_checksum != checksum:
+        raise RuntimeError("历史快照风险档位校验和不匹配")
+
+    venue = str(snapshot.get("venue") or "").lower()
+    symbol = str(snapshot.get("symbol") or "").upper()
+    source_parameters = metadata.get("source_parameters") or {}
+    expected_family = f"{symbol[:-4]}-USDT" if symbol.endswith("USDT") else ""
+    official_okx = (
+        venue == "okx"
+        and metadata.get("source") == OKX_POSITION_TIERS_SOURCE
+        and metadata.get("provider") in (None, "", "okx")
+        and metadata.get("scope") in (None, "", "provider_symbol_official_snapshot")
+        and metadata.get("symbol") in (None, "", symbol)
+        and source_parameters.get("instType") == "SWAP"
+        and source_parameters.get("tdMode") == "isolated"
+        and source_parameters.get("instFamily") == expected_family
+    )
+    if official_okx:
+        try:
+            retrieved = int(metadata.get("retrieved_at_epoch_ms") or 0)
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("历史快照官方风险档位获取时间无效") from exc
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        if retrieved <= 0 or retrieved > now_ms:
+            raise RuntimeError("历史快照官方风险档位获取时间无效")
+        if metadata.get("tier_version") != checksum[:16]:
+            raise RuntimeError("历史快照风险档位版本不匹配")
+        metadata.update({
+            "provider": "okx",
+            "scope": "provider_symbol_official_snapshot",
+            "symbol": symbol,
+            "tier_checksum": checksum,
+        })
+        return tiers, "snapshot_official_tiers", metadata, checksum
+
+    scope = metadata.get("scope")
+    if scope in CONFIGURED_TIER_SCOPES:
+        configured_provider = str(metadata.get("provider") or "").lower()
+        configured_symbol = str(metadata.get("symbol") or "").upper()
+        if configured_provider and configured_provider != venue:
+            raise RuntimeError("历史快照配置风险档位 provider 绑定不匹配")
+        if scope == "provider_symbol" and configured_symbol != symbol:
+            raise RuntimeError("历史快照配置风险档位 symbol 绑定不匹配")
+        if configured_symbol and configured_symbol != symbol:
+            raise RuntimeError("历史快照配置风险档位 symbol 绑定不匹配")
+        metadata["tier_checksum"] = checksum
+        return tiers, "snapshot_configured_tiers", metadata, checksum
+    raise RuntimeError("历史快照风险档位来源未经验证")
+
 
 def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
         account_value=10000.0, risk_fraction=0.005, leverage=2.0,
@@ -31,36 +99,14 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
     if not loaded:
         raise RuntimeError(f"没有找到有效永续快照：{symbol} {interval}")
     snapshot = loaded["snapshot"]
-    snapshot_tiers = derivatives_risk.normalize_maintenance_margin_tiers(
-        snapshot.get("maintenance_margin_tiers") or []
-    )
-    snapshot_tier_metadata = dict(snapshot.get("maintenance_margin_tier_metadata") or {})
     snapshot_tier_checksum = None
-    if snapshot_tiers:
-        canonical_tiers = json.dumps(
-            snapshot_tiers, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-        )
-        snapshot_tier_checksum = hashlib.sha256(canonical_tiers.encode("utf-8")).hexdigest()
-        recorded_checksum = snapshot_tier_metadata.get("tier_checksum")
-        recorded_version = snapshot_tier_metadata.get("tier_version")
-        if recorded_checksum and recorded_checksum != snapshot_tier_checksum:
-            raise RuntimeError("历史快照风险档位校验和不匹配")
-        if recorded_version and recorded_version != snapshot_tier_checksum[:16]:
-            raise RuntimeError("历史快照风险档位版本不匹配")
-        snapshot_tier_metadata["tier_checksum"] = snapshot_tier_checksum
-        snapshot_tier_metadata.setdefault("tier_version", snapshot_tier_checksum[:16])
     if manual_tiers_provided:
         maintenance_margin_tiers = manual_tiers
         margin_source = "manual_tiers_override" if manual_tiers else "manual_flat_rate_override"
         effective_tier_metadata = {}
-    elif snapshot_tiers:
-        maintenance_margin_tiers = snapshot_tiers
-        margin_source = "snapshot_official_tiers"
-        effective_tier_metadata = snapshot_tier_metadata
     else:
-        maintenance_margin_tiers = []
-        margin_source = "snapshot_flat_rate"
-        effective_tier_metadata = {}
+        (maintenance_margin_tiers, margin_source, effective_tier_metadata,
+         snapshot_tier_checksum) = _snapshot_tier_binding(snapshot)
     scenarios = perp_backtest.run_cost_stress_tests(
         snapshot, account_value=account_value, risk_fraction=risk_fraction,
         leverage=leverage, fee_rate=fee_rate, slippage_rate=slippage_rate,
@@ -158,7 +204,9 @@ def run(symbol, interval="4h", data_dir="derivatives_data", output=None,
             "maintenance_margin_source": margin_source,
             "maintenance_margin_tier_metadata": effective_tier_metadata,
             "maintenance_margin_tier_checksum": (
-                snapshot_tier_checksum if margin_source == "snapshot_official_tiers" else None
+                snapshot_tier_checksum
+                if margin_source in {"snapshot_official_tiers", "snapshot_configured_tiers"}
+                else None
             ),
             "slippage_model": slippage_model,
             "liquidity_proxy": "contract_kline_base_volume",

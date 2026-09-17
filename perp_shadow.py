@@ -210,6 +210,13 @@ def _number(config, key, default, minimum=0.0):
     return max(minimum, value)
 
 
+def _boolean(config, key, default):
+    value = config.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"derivatives.{key} must be boolean")
+    return value
+
+
 def _version_identifier(config, key, default):
     value = str(config.get(key) or default).strip()
     allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.:")
@@ -357,11 +364,11 @@ def shadow_settings(config):
             _number(raw, "risk_tier_cache_ttl_minutes", 360.0, 0.0),
             _number(raw, "risk_tier_cache_max_stale_minutes", 1440.0, 0.0),
         ),
-        "block_new_entries_on_risk_tier_unavailable": bool(
-            raw.get("block_new_entries_on_risk_tier_unavailable", True)
+        "block_new_entries_on_risk_tier_unavailable": _boolean(
+            raw, "block_new_entries_on_risk_tier_unavailable", True
         ),
-        "allow_new_entries_on_stale_tier_cache": bool(
-            raw.get("allow_new_entries_on_stale_tier_cache", True)
+        "allow_new_entries_on_stale_tier_cache": _boolean(
+            raw, "allow_new_entries_on_stale_tier_cache", True
         ),
         "minimum_risk_tier_remaining_minutes_for_entry": _number(
             raw, "minimum_risk_tier_remaining_minutes_for_entry", 120.0, 0.0

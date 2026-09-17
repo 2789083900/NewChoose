@@ -1205,6 +1205,22 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertTrue(settings["allow_new_entries_on_stale_tier_cache"])
         self.assertEqual(settings["minimum_risk_tier_remaining_minutes_for_entry"], 120.0)
 
+    def test_perpetual_shadow_settings_reject_non_boolean_entry_gate_values(self):
+        with self.assertRaisesRegex(
+                ValueError, "block_new_entries_on_risk_tier_unavailable must be boolean"):
+            perp_shadow.shadow_settings({"derivatives": {
+                "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+                "interval": "4h",
+                "block_new_entries_on_risk_tier_unavailable": "false",
+            }})
+        with self.assertRaisesRegex(
+                ValueError, "allow_new_entries_on_stale_tier_cache must be boolean"):
+            perp_shadow.shadow_settings({"derivatives": {
+                "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+                "interval": "4h",
+                "allow_new_entries_on_stale_tier_cache": 1,
+            }})
+
     def test_perpetual_process_keeps_position_management_while_entry_gate_is_blocked(self):
         settings = perp_shadow.shadow_settings({"derivatives": {
             "enabled": True, "research_only": True, "provider": "okx",
@@ -2690,6 +2706,13 @@ class TurtleCoreTests(unittest.TestCase):
             "maintenance_margin_tiers": tiers,
             "maintenance_margin_tier_metadata": {
                 "provider": "okx", "scope": "provider_symbol_official_snapshot",
+                "symbol": "BTCUSDT",
+                "source": "https://www.okx.com/api/v5/public/position-tiers",
+                "source_parameters": {
+                    "instType": "SWAP", "tdMode": "isolated",
+                    "instFamily": "BTC-USDT",
+                },
+                "retrieved_at_epoch_ms": int(time.time() * 1000) - 1000,
                 "tier_version": checksum[:16], "tier_checksum": checksum,
                 "cache_status": "live_refresh",
             },
@@ -2711,6 +2734,99 @@ class TurtleCoreTests(unittest.TestCase):
             report["risk_model"]["liquidation_model"], "isolated_linear_tiered_v1"
         )
         self.assertTrue(report["maintenance_margin_stress"]["enabled"])
+
+    def test_perpetual_backtest_distinguishes_configured_snapshot_tiers(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(360)]
+        tiers = [{"max_notional": 50000.0, "maintenance_margin_rate": 0.006}]
+        checksum = perp_shadow._tier_checksum(tiers)
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": tiers,
+            "maintenance_margin_tier_metadata": {
+                "provider": "binance", "scope": "provider_symbol",
+                "symbol": "BTCUSDT", "tier_checksum": checksum,
+                "tier_version": "configured-v1",
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            report = run_perp_backtest.run("BTCUSDT", "4h", directory)
+        self.assertEqual(
+            report["risk_model"]["maintenance_margin_source"],
+            "snapshot_configured_tiers",
+        )
+        self.assertEqual(report["risk_model"]["maintenance_margin_tier_checksum"], checksum)
+
+    def test_perpetual_backtest_rejects_mismatched_configured_tier_binding(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(360)]
+        tiers = [{"max_notional": 50000.0, "maintenance_margin_rate": 0.006}]
+        checksum = perp_shadow._tier_checksum(tiers)
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "binance",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": tiers,
+            "maintenance_margin_tier_metadata": {
+                "provider": "okx", "scope": "provider_symbol",
+                "symbol": "ETHUSDT", "tier_checksum": checksum,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            with self.assertRaisesRegex(RuntimeError, "provider 绑定不匹配"):
+                run_perp_backtest.run("BTCUSDT", "4h", directory)
+
+    def test_perpetual_backtest_rejects_unverified_snapshot_tiers(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(360)]
+        tiers = [{"max_quantity": 10.0, "maintenance_margin_rate": 0.004}]
+        checksum = perp_shadow._tier_checksum(tiers)
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "okx",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": tiers,
+            "maintenance_margin_tier_metadata": {"tier_checksum": checksum},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            with self.assertRaisesRegex(RuntimeError, "来源未经验证"):
+                run_perp_backtest.run("BTCUSDT", "4h", directory)
+
+    def test_perpetual_backtest_manual_tiers_override_unverified_snapshot_tiers(self):
+        bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,
+                 "open": 100, "high": 101, "low": 99, "close": 100,
+                 "volume": 100} for index in range(360)]
+        snapshot = {
+            "market_type": "linear_perpetual", "venue": "okx",
+            "symbol": "BTCUSDT", "interval": "4h",
+            "contract_klines": bars, "mark_price_klines": bars,
+            "index_price_klines": bars, "funding_rates": [], "open_interest": [],
+            "maintenance_margin_tiers": [
+                {"max_quantity": 10.0, "maintenance_margin_rate": 0.004}
+            ],
+            "maintenance_margin_tier_metadata": {},
+        }
+        manual = [{"max_notional": 50000.0, "maintenance_margin_rate": 0.01}]
+        with tempfile.TemporaryDirectory() as directory:
+            derivatives_snapshots.save_snapshot(directory, snapshot)
+            report = run_perp_backtest.run(
+                "BTCUSDT", "4h", directory, maintenance_margin_tiers=manual
+            )
+        self.assertEqual(
+            report["risk_model"]["maintenance_margin_source"], "manual_tiers_override"
+        )
+        self.assertEqual(report["parameters"]["maintenance_margin_tiers"], manual)
 
     def test_perpetual_backtest_rejects_mismatched_snapshot_tier_metadata(self):
         bars = [{"time": 1_700_000_000_000 + index * 4 * 60 * 60 * 1000,

@@ -1935,6 +1935,27 @@ def build_stats(state, settings=None):
         isinstance(metadata, dict) and metadata.get("scope") == "provider_symbol_official_snapshot"
         for metadata in active_tier_metadata.values()
     )
+    tier_collections = [list(settings.get("maintenance_margin_tiers") or [])]
+    tier_collections.extend(
+        list(tiers or [])
+        for tiers in (settings.get("maintenance_margin_tiers_by_provider") or {}).values()
+    )
+    tier_collections.extend(
+        list(binding.get("tiers") or [])
+        for symbols in symbol_tier_bindings.values() for binding in symbols.values()
+    )
+    tier_collections.extend(
+        list((trade.get("parameter_snapshot") or {}).get("maintenance_margin_tiers") or [])
+        for trade in closed + state["open_trades"]
+    )
+    deduction_tiers = next((
+        tiers for tiers in tier_collections
+        if any(float(item.get("maintenance_amount") or 0) > 0 for item in tiers)
+    ), None)
+    liquidation_version_input = (
+        deduction_tiers if deduction_tiers is not None
+        else [{}] if has_tiered_margins else []
+    )
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1998,8 +2019,9 @@ def build_stats(state, settings=None):
         },
         "liquidation_model": {
             "model_version": derivatives_risk.liquidation_model_version(
-                [{}] if has_tiered_margins else []
+                liquidation_version_input
             ),
+            "maintenance_amount_supported": True,
             "maintenance_margin_rate": float(settings.get("maintenance_margin_rate", 0.005)),
             "maintenance_margin_tiers": list(settings.get("maintenance_margin_tiers") or []),
             "maintenance_margin_tiers_by_provider": copy.deepcopy(

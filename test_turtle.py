@@ -456,6 +456,67 @@ class TurtleCoreTests(unittest.TestCase):
                 {"max_notional": float("nan"), "rate": 0.005},
             ])
 
+    def test_liquidation_model_supports_maintenance_amount_deduction(self):
+        legacy_long = derivatives_risk.liquidation_price(
+            100, "long", 2, quantity=10,
+            maintenance_margin_tiers=[
+                {"max_notional": 2000, "rate": 0.01},
+            ],
+        )
+        deduction_long = derivatives_risk.liquidation_price(
+            100, "long", 2, quantity=10,
+            maintenance_margin_tiers=[
+                {"max_notional": 2000, "rate": 0.01, "maintenance_amount": 5},
+            ],
+        )
+        deduction_short = derivatives_risk.liquidation_price(
+            100, "short", 2, quantity=10,
+            maintenance_margin_tiers=[
+                {"max_notional": 2000, "rate": 0.01, "maintenance_amount": 5},
+            ],
+        )
+        self.assertAlmostEqual(legacy_long, 51.0)
+        self.assertAlmostEqual(deduction_long, 50.0)
+        self.assertGreater(deduction_short, 149.0)
+        self.assertLess(deduction_long, legacy_long)
+
+        metadata = derivatives_risk.liquidation_model_metadata(
+            100, 10, "long", 2, maintenance_margin_tiers=[
+                {"max_notional": 2000, "rate": 0.01, "maintenance_amount": 5},
+            ],
+        )
+        self.assertEqual(
+            metadata["model_version"], "isolated_linear_tiered_deduction_v2"
+        )
+        self.assertEqual(metadata["maintenance_amount"], 5.0)
+        self.assertEqual(metadata["maintenance_margin_requirement_at_entry"], 5.0)
+
+    def test_maintenance_margin_tiers_normalize_deduction_aliases(self):
+        normalized = derivatives_risk.normalize_maintenance_margin_tiers([
+            {"max_notional": 1000, "rate": 0.005, "cum": 1.5},
+            {"max_notional": 5000, "rate": 0.01, "maintenance_deduction": 6},
+        ])
+        self.assertEqual(normalized[0]["maintenance_amount"], 1.5)
+        self.assertEqual(normalized[1]["maintenance_amount"], 6.0)
+        with self.assertRaisesRegex(ValueError, "outside supported bounds"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "rate": 0.005, "maintenance_amount": -1},
+            ])
+        with self.assertRaisesRegex(ValueError, "numeric cap"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "rate": 0.005, "maintenance_amount": "bad"},
+            ])
+
+        with self.assertRaisesRegex(ValueError, "exceeds maintenance margin"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "rate": 0.005, "maintenance_amount": 6},
+            ])
+        with self.assertRaisesRegex(ValueError, "must not decrease across tiers"):
+            derivatives_risk.normalize_maintenance_margin_tiers([
+                {"max_notional": 1000, "rate": 0.005, "maintenance_amount": 0},
+                {"max_notional": 5000, "rate": 0.01, "maintenance_amount": 6},
+            ])
+
     def test_liquidation_price_supports_quantity_maintenance_tiers(self):
         low_quantity = derivatives_risk.liquidation_model_metadata(
             100, 5, "long", 2, maintenance_margin_tiers=[
@@ -817,6 +878,22 @@ class TurtleCoreTests(unittest.TestCase):
         )
         self.assertEqual(health["status"], "official_unavailable")
         self.assertEqual(health["consecutive_refresh_failures"], 1)
+
+    def test_perpetual_stats_report_deduction_liquidation_model(self):
+        settings = perp_shadow.shadow_settings({"derivatives": {
+            "enabled": True, "research_only": True, "symbols": ["BTCUSDT"],
+            "interval": "4h",
+            "maintenance_margin_tiers": [
+                {"max_notional": 50000, "rate": 0.01, "maintenance_amount": 100}
+            ],
+        }})
+        state = perp_shadow.empty_state(10000)
+        stats = perp_shadow.build_stats(state, settings)
+        self.assertEqual(
+            stats["liquidation_model"]["model_version"],
+            "isolated_linear_tiered_deduction_v2",
+        )
+        self.assertTrue(stats["liquidation_model"]["maintenance_amount_supported"])
 
     def test_perpetual_stats_recognize_active_official_tier_model(self):
         state = perp_shadow.empty_state()

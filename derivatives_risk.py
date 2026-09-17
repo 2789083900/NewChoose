@@ -13,10 +13,17 @@ import math
 SUPPORTED_MARKET_TYPES = {"spot", "linear_perpetual", "delivery"}
 LIQUIDATION_MODEL_VERSION_FLAT = "isolated_linear_v1"
 LIQUIDATION_MODEL_VERSION_TIERED = "isolated_linear_tiered_v1"
+LIQUIDATION_MODEL_VERSION_TIERED_DEDUCTION = "isolated_linear_tiered_deduction_v2"
 
 
 def liquidation_model_version(tiers=None):
-    return LIQUIDATION_MODEL_VERSION_TIERED if tiers else LIQUIDATION_MODEL_VERSION_FLAT
+    # build_stats historically passes [{}] as an explicit tiered-model sentinel.
+    if tiers == [{}]:
+        return LIQUIDATION_MODEL_VERSION_TIERED
+    normalized = normalize_maintenance_margin_tiers(tiers) if tiers else []
+    if any(float(item.get("maintenance_amount") or 0) > 0 for item in normalized):
+        return LIQUIDATION_MODEL_VERSION_TIERED_DEDUCTION
+    return LIQUIDATION_MODEL_VERSION_TIERED if normalized else LIQUIDATION_MODEL_VERSION_FLAT
 
 
 def validate_market_type(market_type):
@@ -104,43 +111,84 @@ def normalize_maintenance_margin_tiers(tiers):
         dimension = tier_dimension
         cap = notional_cap if tier_dimension == "notional" else quantity_cap
         rate = tier.get("maintenance_margin_rate", tier.get("rate"))
+        raw_amount = tier.get(
+            "maintenance_amount",
+            tier.get("maintenance_deduction", tier.get("deduction", tier.get("cum"))),
+        )
         try:
             cap_value, rate_value = float(cap), float(rate)
+            amount_value = 0.0 if raw_amount in (None, "") else float(raw_amount)
         except (TypeError, ValueError) as exc:
-            raise ValueError("maintenance margin tiers require numeric max_notional and rate") from exc
+            raise ValueError(
+                "maintenance margin tiers require numeric cap, rate and maintenance amount"
+            ) from exc
         if (not math.isfinite(cap_value) or not math.isfinite(rate_value)
-                or cap_value <= 0 or not 0 <= rate_value < 1):
+                or not math.isfinite(amount_value) or cap_value <= 0
+                or not 0 <= rate_value < 1 or amount_value < 0):
             raise ValueError("maintenance margin tier values are outside supported bounds")
-        normalized.append((cap_value, rate_value))
+        normalized.append((cap_value, rate_value, amount_value, raw_amount is not None))
     normalized.sort()
-    caps = [cap for cap, _rate in normalized]
+    caps = [cap for cap, _rate, _amount, _has_amount in normalized]
     if len(caps) != len(set(caps)):
         raise ValueError("maintenance margin tier max_notional values must be unique")
-    rates = [rate for _cap, rate in normalized]
+    rates = [rate for _cap, rate, _amount, _has_amount in normalized]
     if any(rates[index] < rates[index - 1] for index in range(1, len(rates))):
         raise ValueError("maintenance margin tier rates must not decrease")
-    return [
-        {f"max_{dimension}": cap, "maintenance_margin_rate": rate}
-        for cap, rate in normalized
-    ]
+    if dimension == "notional":
+        for cap, rate, amount, _has_amount in normalized:
+            if amount > cap * rate:
+                raise ValueError(
+                    "maintenance amount exceeds maintenance margin at tier cap"
+                )
+        for previous, current in zip(normalized, normalized[1:]):
+            previous_cap, previous_rate, previous_amount, _ = previous
+            _current_cap, current_rate, current_amount, _ = current
+            previous_requirement = previous_cap * previous_rate - previous_amount
+            next_requirement = previous_cap * current_rate - current_amount
+            if next_requirement + 1e-12 < previous_requirement:
+                raise ValueError(
+                    "maintenance margin requirement must not decrease across tiers"
+                )
+    result = []
+    for cap, rate, amount, has_amount in normalized:
+        item = {f"max_{dimension}": cap, "maintenance_margin_rate": rate}
+        if has_amount or amount > 0:
+            item["maintenance_amount"] = amount
+        result.append(item)
+    return result
 
 
-def _tier_maintenance_rate(notional, tiers, default_rate, quantity=None):
-    """Select the first rate whose notional or quantity cap contains a position."""
+def _tier_maintenance_terms(notional, tiers, default_rate, quantity=None):
+    """Select rate and quote-currency maintenance deduction for a position."""
     normalized = normalize_maintenance_margin_tiers(tiers)
     if not normalized:
-        return float(default_rate), "flat"
+        return float(default_rate), 0.0, "flat"
     dimension = "quantity" if "max_quantity" in normalized[0] else "notional"
     if dimension == "quantity" and quantity is None:
         raise ValueError("quantity is required for quantity-based maintenance tiers")
     value = float(quantity if dimension == "quantity" else notional)
     cap_key = f"max_{dimension}"
     for item in normalized:
-        cap, rate = item[cap_key], item["maintenance_margin_rate"]
+        cap = item[cap_key]
         if value <= cap:
-            return rate, f"{dimension}_tier_{cap:g}"
+            return (
+                item["maintenance_margin_rate"],
+                float(item.get("maintenance_amount") or 0),
+                f"{dimension}_tier_{cap:g}",
+            )
     last = normalized[-1]
-    return last["maintenance_margin_rate"], f"{dimension}_tier_{last[cap_key]:g}_plus"
+    return (
+        last["maintenance_margin_rate"],
+        float(last.get("maintenance_amount") or 0),
+        f"{dimension}_tier_{last[cap_key]:g}_plus",
+    )
+
+
+def _tier_maintenance_rate(notional, tiers, default_rate, quantity=None):
+    rate, _amount, label = _tier_maintenance_terms(
+        notional, tiers, default_rate, quantity=quantity
+    )
+    return rate, label
 
 
 def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=0.005,
@@ -165,21 +213,35 @@ def liquidation_price(entry_price, direction, leverage, maintenance_margin_rate=
     if side not in {"long", "short"}:
         raise ValueError("direction must be 'long' or 'short'")
     tier_label = "flat"
+    maintenance_amount = 0.0
+    position_quantity = None
     if maintenance_margin_tiers:
         if quantity is None:
             raise ValueError("quantity is required when maintenance margin tiers are configured")
-        notional = position_notional(entry, quantity)
-        mmr, tier_label = _tier_maintenance_rate(
-            notional, maintenance_margin_tiers, mmr, quantity=quantity
+        position_quantity = float(quantity)
+        notional = position_notional(entry, position_quantity)
+        mmr, maintenance_amount, tier_label = _tier_maintenance_terms(
+            notional, maintenance_margin_tiers, mmr, quantity=position_quantity
         )
-    # Isolated linear approximation: equity is exhausted at 1/leverage loss
-    # after reserving maintenance margin and liquidation fee allowance.
+    if maintenance_amount > 0:
+        # Isolated linear research approximation with a quote-currency
+        # maintenance deduction: equity equals mark-notional maintenance plus
+        # liquidation fee allowance at the estimated liquidation price.
+        deduction_per_unit = maintenance_amount / position_quantity
+        if side == "long":
+            denominator = 1.0 - mmr - liq_fee
+            numerator = entry * (1.0 - 1.0 / lev) - deduction_per_unit
+        else:
+            denominator = 1.0 + mmr + liq_fee
+            numerator = entry * (1.0 + 1.0 / lev) + deduction_per_unit
+        if denominator <= 0 or numerator <= 0:
+            raise ValueError("maintenance amount produces an invalid liquidation estimate")
+        return numerator / denominator
+    # Preserve the established v1 approximation when no deduction is supplied.
     loss_allowance = (1.0 / lev) - mmr - liq_fee
     if side == "long":
-        value = entry * (1.0 - loss_allowance)
-    else:
-        value = entry * (1.0 + loss_allowance)
-    return value
+        return entry * (1.0 - loss_allowance)
+    return entry * (1.0 + loss_allowance)
 
 
 def liquidation_model_metadata(entry_price, quantity, direction, leverage,
@@ -189,7 +251,7 @@ def liquidation_model_metadata(entry_price, quantity, direction, leverage,
     """Return auditable parameters used by the research liquidation model."""
     normalized = normalize_maintenance_margin_tiers(maintenance_margin_tiers)
     notional = position_notional(entry_price, quantity)
-    mmr, tier = _tier_maintenance_rate(
+    mmr, maintenance_amount, tier = _tier_maintenance_terms(
         notional, normalized,
         maintenance_margin_rate, quantity=quantity,
     )
@@ -204,6 +266,10 @@ def liquidation_model_metadata(entry_price, quantity, direction, leverage,
         "leverage": float(leverage),
         "liquidation_price": price,
         "maintenance_margin_rate": mmr,
+        "maintenance_amount": maintenance_amount,
+        "maintenance_margin_requirement_at_entry": max(
+            0.0, notional * mmr - maintenance_amount
+        ),
         "liquidation_fee_rate": float(liquidation_fee_rate),
         "notional": notional,
         "maintenance_tier": tier,

@@ -69,6 +69,7 @@ def empty_state(account_value=10000.0):
         "provider_redundancy_status": "unknown",
         "provider_redundancy_events": [],
         "risk_tier_metadata_by_symbol": {},
+        "risk_tier_health_by_symbol": {},
         "strategy_cohorts": {},
         "active_cohort": {},
     }
@@ -138,6 +139,8 @@ def load_state(path, account_value=10000.0):
         state["provider_redundancy_events"] = []
     if not isinstance(state.get("risk_tier_metadata_by_symbol"), dict):
         state["risk_tier_metadata_by_symbol"] = {}
+    if not isinstance(state.get("risk_tier_health_by_symbol"), dict):
+        state["risk_tier_health_by_symbol"] = {}
     state.setdefault("provider_redundancy_status", "unknown")
     if not isinstance(state.get("strategy_cohorts"), dict):
         state["strategy_cohorts"] = {}
@@ -347,6 +350,13 @@ def shadow_settings(config):
         "provider_cooldown_seconds": _number(raw, "provider_cooldown_seconds", 900.0, 0.0),
         "provider_failure_threshold": int(_number(raw, "provider_failure_threshold", 1, 1)),
         "cache_max_stale_minutes": _number(raw, "cache_max_stale_minutes", 720.0, 0.0),
+        "risk_tier_cache_ttl_minutes": _number(
+            raw, "risk_tier_cache_ttl_minutes", 360.0, 0.0
+        ),
+        "risk_tier_cache_max_stale_minutes": max(
+            _number(raw, "risk_tier_cache_ttl_minutes", 360.0, 0.0),
+            _number(raw, "risk_tier_cache_max_stale_minutes", 1440.0, 0.0),
+        ),
         "market_data_max_lag_intervals": _number(
             raw, "market_data_max_lag_intervals", 1.05, 1.0
         ),
@@ -1556,6 +1566,140 @@ def _configured_sample_coverage(closed, settings, group_goal):
     return coverage
 
 
+def _update_risk_tier_health(state, symbol, snapshot, settings, component_errors, now_ms):
+    """Persist secret-free official-tier freshness and fallback diagnostics."""
+    provider = str(snapshot.get("venue") or "unknown").lower()
+    metadata = copy.deepcopy(
+        (state.get("risk_tier_metadata_by_symbol") or {}).get(symbol) or {}
+    )
+    previous = copy.deepcopy((state.get("risk_tier_health_by_symbol") or {}).get(symbol) or {})
+    ttl = float(settings.get("risk_tier_cache_ttl_minutes", 360.0))
+    max_stale = float(settings.get("risk_tier_cache_max_stale_minutes", 1440.0))
+    scope = metadata.get("scope") or (
+        "provider_symbol_official_snapshot" if metadata.get("source_parameters") else None
+    )
+    symbol_bindings = settings.get("maintenance_margin_tiers_by_provider_symbol") or {}
+    configured_override = bool(
+        (symbol_bindings.get(provider, {}).get(symbol) or {}).get("tiers")
+        or (settings.get("maintenance_margin_tiers_by_provider") or {}).get(provider)
+        or settings.get("maintenance_margin_tiers")
+    )
+    cache_status = metadata.get("cache_status")
+    age = metadata.get("cache_age_minutes")
+    try:
+        age = max(0.0, float(age)) if age is not None else None
+    except (TypeError, ValueError):
+        age = None
+    remaining = max(0.0, max_stale - age) if age is not None else None
+    warning_window = max(60.0, max_stale * 0.1)
+    refresh_failed = bool(
+        cache_status == "stale_fallback"
+        or "maintenance_margin_tiers" in component_errors
+        or "maintenance_margin_tiers_refresh" in component_errors
+    )
+    if scope in {"provider_symbol", "provider", "global"} and configured_override:
+        status = "configured_override"
+        consecutive = 0
+        expiry_risk = "not_applicable"
+    elif scope == "provider_symbol_official_snapshot" and cache_status in {
+            "live_refresh", "fresh_cache", "stale_fallback"}:
+        status = cache_status
+        consecutive = int(previous.get("consecutive_refresh_failures") or 0) + 1 if refresh_failed else 0
+        expiry_risk = "warning" if remaining is not None and remaining <= warning_window else "normal"
+    elif provider == "okx" and refresh_failed:
+        status = "official_unavailable"
+        consecutive = int(previous.get("consecutive_refresh_failures") or 0) + 1
+        expiry_risk = "expired_or_missing"
+    else:
+        status = "fixed_fallback" if provider == "okx" else "not_applicable"
+        consecutive = int(previous.get("consecutive_refresh_failures") or 0) if provider == "okx" else 0
+        expiry_risk = "expired_or_missing" if provider == "okx" else "not_applicable"
+    tracked_refresh_failure = refresh_failed and status in {
+        "stale_fallback", "official_unavailable",
+    }
+    refresh_error_category = metadata.get("refresh_error_category")
+    if tracked_refresh_failure and not refresh_error_category:
+        refresh_error_category = "official_tier_fetch_failed"
+    if not tracked_refresh_failure and status not in {"stale_fallback", "official_unavailable"}:
+        refresh_error_category = None
+    health = {
+        "provider": provider,
+        "scope": scope or "flat",
+        "status": status,
+        "cache_status": cache_status,
+        "cache_age_minutes": round(age, 2) if age is not None else None,
+        "cache_ttl_minutes": ttl,
+        "cache_max_stale_minutes": max_stale,
+        "remaining_stale_minutes": round(remaining, 2) if remaining is not None else None,
+        "expiry_risk": expiry_risk,
+        "consecutive_refresh_failures": consecutive,
+        "last_checked_at_epoch_ms": int(now_ms),
+        "last_refresh_failure_at_epoch_ms": (
+            int(now_ms) if tracked_refresh_failure
+            else previous.get("last_refresh_failure_at_epoch_ms")
+        ),
+        "retrieved_at_epoch_ms": metadata.get("retrieved_at_epoch_ms"),
+        "tier_version": metadata.get("tier_version"),
+        "tier_checksum": metadata.get("tier_checksum"),
+        "refresh_error_category": refresh_error_category,
+    }
+    state.setdefault("risk_tier_health_by_symbol", {})[symbol] = health
+    return health
+
+
+def _risk_tier_health_summary(state, now_ms=None):
+    current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    by_symbol = copy.deepcopy(state.get("risk_tier_health_by_symbol") or {})
+    for health in by_symbol.values():
+        if not isinstance(health, dict) or not health.get("cache_status"):
+            continue
+        try:
+            retrieved = int(health.get("retrieved_at_epoch_ms") or 0)
+            max_stale = float(health.get("cache_max_stale_minutes") or 0)
+        except (TypeError, ValueError):
+            continue
+        if retrieved <= 0 or current_ms < retrieved or max_stale <= 0:
+            continue
+        age = round((current_ms - retrieved) / 60000, 2)
+        remaining = round(max(0.0, max_stale - age), 2)
+        health["cache_age_minutes"] = age
+        health["remaining_stale_minutes"] = remaining
+        warning_window = max(60.0, max_stale * 0.1)
+        health["expiry_risk"] = "warning" if remaining <= warning_window else "normal"
+    official = {symbol: health for symbol, health in by_symbol.items() if health.get("provider") == "okx"}
+    degraded = sorted(
+        symbol for symbol, health in official.items()
+        if health.get("status") in {"stale_fallback", "official_unavailable", "fixed_fallback"}
+        or health.get("expiry_risk") in {"warning", "expired_or_missing"}
+    )
+    unavailable = sorted(
+        symbol for symbol, health in official.items()
+        if health.get("status") in {"official_unavailable", "fixed_fallback"}
+    )
+    in_use = [health for health in official.values() if health.get("cache_status")]
+    overall = (
+        "not_in_use" if not official
+        else "unavailable" if unavailable and len(unavailable) == len(official)
+        else "degraded" if degraded
+        else "healthy"
+    )
+    remaining_values = [
+        float(health["remaining_stale_minutes"]) for health in in_use
+        if health.get("remaining_stale_minutes") is not None
+    ]
+    return {
+        "status": overall,
+        "by_symbol": by_symbol,
+        "official_symbols": sorted(official),
+        "degraded_symbols": degraded,
+        "unavailable_symbols": unavailable,
+        "max_consecutive_refresh_failures": max((
+            int(health.get("consecutive_refresh_failures") or 0) for health in official.values()
+        ), default=0),
+        "minimum_remaining_stale_minutes": round(min(remaining_values), 2) if remaining_values else None,
+    }
+
+
 def _provider_redundancy_summary(settings, symbol_health):
     configured = list(settings.get("providers") or [])
     if len(configured) < 2:
@@ -1700,11 +1844,15 @@ def build_stats(state, settings=None):
                 slippage_samples.append(detail)
     symbol_tier_bindings = settings.get("maintenance_margin_tiers_by_provider_symbol") or {}
     symbol_tier_binding_count = sum(len(symbols) for symbols in symbol_tier_bindings.values())
+    active_tier_metadata = state.get("risk_tier_metadata_by_symbol") or {}
     has_tiered_margins = bool(settings.get("maintenance_margin_tiers")) or any(
         bool(tiers) for tiers in (settings.get("maintenance_margin_tiers_by_provider") or {}).values()
     ) or any(
         bool(binding.get("tiers"))
         for symbols in symbol_tier_bindings.values() for binding in symbols.values()
+    ) or any(
+        isinstance(metadata, dict) and metadata.get("scope") == "provider_symbol_official_snapshot"
+        for metadata in active_tier_metadata.values()
     )
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1780,9 +1928,13 @@ def build_stats(state, settings=None):
                 symbol_tier_bindings
             ),
             "provider_symbol_binding_count": symbol_tier_binding_count,
-            "active_tier_metadata_by_symbol": copy.deepcopy(
-                state.get("risk_tier_metadata_by_symbol") or {}
-            ),
+            "active_tier_metadata_by_symbol": copy.deepcopy(active_tier_metadata),
+            "official_tier_cache_policy": {
+                "ttl_minutes": float(settings.get("risk_tier_cache_ttl_minutes", 360.0)),
+                "max_stale_minutes": float(
+                    settings.get("risk_tier_cache_max_stale_minutes", 1440.0)
+                ),
+            },
             "liquidation_fee_rate": float(settings.get("liquidation_fee_rate", 0.0)),
             "limitations": [
                 "isolated_margin_approximation",
@@ -1812,6 +1964,7 @@ def build_stats(state, settings=None):
         "last_successful_symbols": list(state.get("last_successful_symbols") or []),
         "symbol_health": dict(state.get("symbol_health") or {}),
         "provider_health": dict(state.get("provider_health") or {}),
+        "risk_tier_health": _risk_tier_health_summary(state),
         "provider_redundancy": copy.deepcopy(state.get("provider_redundancy") or {
             "status": state.get("provider_redundancy_status", "unknown"),
             "configured_providers": list(settings.get("providers") or []),
@@ -1936,6 +2089,13 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                         if settings["research_data_mode"] == "full_perpetual_research"
                         else 2
                     )
+                    fetch_kwargs["risk_tier_cache_dir"] = settings["cache_dir"]
+                    fetch_kwargs["risk_tier_cache_ttl_minutes"] = (
+                        settings["risk_tier_cache_ttl_minutes"]
+                    )
+                    fetch_kwargs["risk_tier_cache_max_stale_minutes"] = (
+                        settings["risk_tier_cache_max_stale_minutes"]
+                    )
             snapshot = fetch(symbol, settings["interval"], **fetch_kwargs)
             latency_ms = round((time.perf_counter() - started) * 1000, 2)
             health = snapshot.get("data_health") or {}
@@ -2005,6 +2165,10 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
             )
             candidate_state = copy.deepcopy(state)
             signal = process_snapshot(snapshot, settings, candidate_state)
+            risk_tier_health = _update_risk_tier_health(
+                candidate_state, symbol, snapshot, settings, component_errors,
+                int(time.time() * 1000),
+            )
             _save_snapshot_cache(settings["cache_dir"], snapshot)
             pending_notifications = _collect_notification_events(
                 state_before_symbol, candidate_state, signal, snapshot
@@ -2064,6 +2228,7 @@ def run(config, state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH, fe
                 "reconciliation_uncertain": bool(
                     reconciliation and reconciliation["reconciliation_uncertain"]
                 ),
+                "risk_tier_health": copy.deepcopy(risk_tier_health),
             }
             if any(item.get("status") == "error" for item in provider_attempts):
                 next_symbol_health["provider_switch_reason"] = (

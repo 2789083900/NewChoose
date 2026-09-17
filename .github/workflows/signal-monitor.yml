@@ -110,6 +110,7 @@ jobs:
               print("perpetual shadow active cohort:", {"strategy_version": stats.get("strategy_version"), "cohort_id": stats.get("cohort_id"), "status": stats.get("cohort_status"), "new_entries_enabled": stats.get("new_entries_enabled"), "closed_count": stats.get("active_cohort_closed_count")})
               print("perpetual shadow uncertain reconciliations:", stats.get("reconciliation_uncertain_count", 0))
               print("perpetual shadow risk tiers:", (stats.get("liquidation_model") or {}).get("active_tier_metadata_by_symbol", {}))
+              print("perpetual shadow risk tier health:", stats.get("risk_tier_health", {}))
               if stats.get("cached_symbols"):
                   print("perpetual shadow cached symbols (health only):", stats["cached_symbols"])
               if stats.get("errors"):

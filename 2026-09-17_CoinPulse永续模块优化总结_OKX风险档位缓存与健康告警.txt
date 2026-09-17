@@ -1,0 +1,233 @@
+2026-09-17 CoinPulse 永续模块优化总结
+主题：OKX 官方风险档位缓存、降级健康诊断与状态转换告警
+
+一、工作目标
+
+在 2026-09-16 已完成的“OKX 官方 position-tiers 数量风险档位绑定”和“外部监控心跳”基础上，继续解决以下生产可靠性问题：
+
+1. OKX 官方风险档位接口短暂失败时，系统不应立即退回固定维持保证金率。
+2. 官方档位缓存必须有明确的新鲜期、最大降级使用期和来源校验，避免无限期使用旧数据。
+3. 永续影子交易状态需要持续记录每个币种的档位来源、缓存年龄、刷新失败次数和过期风险。
+4. 独立健康检查需要对档位降级、即将过期、完全不可用和恢复进行去重告警。
+5. 档位告警属于风险提示，不应因为进入降级状态就错误地中断整个监控工作流。
+
+二、实施基线与隔离方式
+
+本轮正式修改在独立工作树和分支中完成：
+
+- 工作树：D:\桌面\NewChoose\.worktrees\perp-tier-cache-20260917
+- 分支：codex/perp-tier-cache-20260917
+- 基线：origin/master（检查时为 7b28840）
+
+使用独立工作树的原因：主目录 D:\桌面\NewChoose 中存在历史未提交代码、运行态 JSON、缓存和 IDE 文件。为避免把运行数据或无关改动混入发布，本轮只提交独立工作树中的明确代码、配置、测试和文档变更。
+
+三、完成内容
+
+（一）OKX 官方 position-tiers 本地缓存与有界降级
+
+修改文件：okx_data.py
+
+1. 新增按币种保存的风险档位缓存文件。
+2. 缓存读取时重新验证关键绑定信息，包括：
+   - provider 必须为 okx；
+   - scope 必须为 official_position_tiers；
+   - 合约 instId 必须与当前请求一致；
+   - 合约价值 contract_value 必须一致；
+   - 官方来源、档位版本和档位校验和必须有效；
+   - 缓存时间必须可解析且不能来自未来。
+3. 新增两级时间边界：
+   - risk_tier_cache_ttl_minutes：新鲜缓存有效期，默认 360 分钟；
+   - risk_tier_cache_max_stale_minutes：刷新失败后允许继续使用旧缓存的最大期限，默认 1440 分钟。
+4. 新增档位来源状态：
+   - live_refresh：本轮从 OKX 官方接口成功刷新；
+   - fresh_cache：缓存仍处于新鲜期，直接使用且不访问网络；
+   - stale_fallback：官方刷新失败，但缓存仍处于最大降级期限内；
+   - official_unavailable：没有可用的官方档位或缓存已超过最大期限。
+5. stale_fallback 会记录安全的 refresh_error_category，只保存异常类别，不保存 URL、响应正文或可能包含敏感信息的异常文本。
+6. 缓存超过最大降级期限后不再继续使用，防止旧档位无限期参与强平和维持保证金计算。
+7. 成功获取官方档位后写入缓存；缓存内容保留档位来源、版本、校验和、获取时间和合约价值等可审计字段。
+
+（二）永续影子交易风险档位健康状态
+
+修改文件：perp_shadow.py
+
+1. 在状态文件中新增 risk_tier_health_by_symbol，按币种保存最近档位健康状态。
+2. 新增 _update_risk_tier_health()，每轮处理币种时更新：
+   - provider 和 scope；
+   - cache_status；
+   - cache_age_minutes；
+   - cache_ttl_minutes；
+   - cache_max_stale_minutes；
+   - remaining_stale_minutes；
+   - expiry_risk；
+   - consecutive_refresh_failures；
+   - refresh_error_category；
+   - tier_version 和 tier_checksum；
+   - 更新时间。
+3. 连续刷新失败只在官方刷新失败时累加；恢复 live_refresh 后归零。
+4. 配置覆盖档位优先于自动官方档位，并标记为 configured_override，避免错误地报告成官方档位降级。
+5. 空的全局档位配置不会被误识别为有效覆盖。
+6. 固定维持保证金率回退会标记为 fixed_fallback；官方档位完全不可用时标记为 official_unavailable。
+7. 新增 risk_tier_health 汇总，输出：
+   - 总体状态 healthy、degraded 或 unavailable；
+   - degraded_symbols；
+   - unavailable_symbols；
+   - max_consecutive_refresh_failures；
+   - minimum_remaining_stale_minutes；
+   - 每个币种的详细健康信息。
+8. 每笔新影子交易继续冻结实际使用的档位来源和缓存元数据，后续刷新不会改写历史交易的风险模型。
+
+（三）风险档位状态转换告警
+
+修改文件：check_monitor_health.py
+
+1. 新增 risk_tier_alert_state() 和 risk_tier_alert_detail()。
+2. 独立健康检查现在读取 perp_shadow_stats.json 中的 risk_tier_health。
+3. 以下情况会形成风险档位告警：
+   - 官方档位刷新失败并使用 stale_fallback；
+   - 缓存接近最大降级期限；
+   - 官方档位完全不可用；
+   - 已回退到固定维持保证金率；
+   - 降级币种或不可用币种集合发生变化。
+4. 连续刷新失败采用分级桶，只在严重程度跨档时再次提醒：
+   - 1～2 次；
+   - 3～5 次；
+   - 6～11 次；
+   - 12 次及以上。
+5. 缓存剩余有效时间采用 120、60、0 分钟严重程度边界，避免每分钟变化导致重复通知。
+6. 告警签名使用状态、币种集合、失败等级和过期等级，不包含持续变化但不影响严重程度的原始数值。
+7. 从降级恢复到健康后只发送一次恢复通知。
+8. 如果其他监控组件仍异常，恢复消息会保留剩余异常说明，避免误报“系统完全恢复”。
+9. 风险档位降级属于 advisory：会发送告警并写入状态，但不会单独让健康检查进程返回失败。
+10. 对畸形统计字段进行了防御处理：无法转换的失败次数降级为 0，无法转换的剩余时间降级为 unknown，健康检查本身不会因此崩溃。
+11. 告警只输出安全诊断字段，不输出完整 URL、响应正文、凭证或原始异常文本。
+
+（四）配置、工作流、校验和文档
+
+1. signal_watch.config.template.json
+   - 新增 risk_tier_cache_ttl_minutes = 360；
+   - 新增 risk_tier_cache_max_stale_minutes = 1440。
+
+2. .github/workflows/signal-monitor.yml
+   - 扫描日志新增 perpetual shadow risk tier health 输出，便于 Actions 日志排障。
+
+3. validate_perp_shadow.py
+   - 验证 state.risk_tier_health_by_symbol 的结构；
+   - 验证 stats.risk_tier_health 与状态文件一致；
+   - 验证状态枚举、过期风险枚举、缓存时间和连续失败次数；
+   - 验证 degraded_symbols 和 unavailable_symbols 汇总一致性；
+   - 验证 stale_fallback 交易具有缓存年龄和刷新错误类别。
+
+4. README.md
+   - 补充风险档位缓存时间边界、状态含义和固定费率回退规则；
+   - 补充档位健康汇总和独立告警说明；
+   - 说明连续失败 1/3/6/12 级别和剩余 120/60/0 分钟提醒策略。
+
+（五）自动化测试
+
+修改文件：test_turtle.py
+
+新增或强化的测试覆盖：
+
+1. 新鲜官方档位缓存不访问网络。
+2. 非官方来源缓存被拒绝。
+3. 官方刷新失败时，在允许期限内使用 stale_fallback。
+4. 缓存超过最大降级期限后不再使用。
+5. 连续失败累加及官方刷新恢复后归零。
+6. 配置覆盖优先级。
+7. 空全局档位不被误判为配置覆盖。
+8. 永续统计识别真实启用的官方档位模型。
+9. 首次风险档位降级发送告警。
+10. 相同等级的连续失败不会重复告警。
+11. 失败次数跨越 1/3/6/12 等级时再次提醒。
+12. 恢复后只通知一次。
+13. 恢复消息保留其他仍存在的异常。
+14. 畸形失败次数和剩余时间不会使健康检查崩溃。
+15. advisory 档位告警不会错误地让整个工作流失败。
+
+四、实际变更文件
+
+本轮准备提交的文件共 9 个（8 个项目文件加本总结）：
+
+1. .github/workflows/signal-monitor.yml
+2. README.md
+3. check_monitor_health.py
+4. okx_data.py
+5. perp_shadow.py
+6. signal_watch.config.template.json
+7. test_turtle.py
+8. validate_perp_shadow.py
+9. 2026-09-17_CoinPulse永续模块优化总结_OKX风险档位缓存与健康告警.txt
+
+项目代码差异（不含本总结）为：
+
+- 8 个文件；
+- 新增 823 行；
+- 删除 20 行。
+
+五、验证结果
+
+在独立工作树中实际执行并通过：
+
+1. 完整单元测试
+
+   python -B -m unittest test_turtle.py
+
+   结果：Ran 165 tests in 0.936s，OK。
+
+2. 永续状态结构校验
+
+   python -B validate_perp_shadow.py
+
+   结果：永续影子交易状态校验通过。
+
+3. Python 编译检查
+
+   python -B -m py_compile check_monitor_health.py okx_data.py perp_shadow.py validate_perp_shadow.py test_turtle.py
+
+   结果：通过。
+
+4. 配置模板 JSON 解析
+
+   结果：通过。
+
+5. Git 空白和补丁格式检查
+
+   git diff --check
+
+   结果：通过。
+
+六、未纳入提交的内容
+
+为保证提交边界清晰，本轮不提交主工作区中的以下内容：
+
+1. monitor_health.json、signal_tracking_stats.json、signal_watch.state.json、trade_stats.json 等运行态 JSON。
+2. perp_runtime_cache 运行缓存。
+3. .idea IDE 配置。
+4. .runtime-backups 本地备份。
+5. 主工作区中与本轮风险档位健康优化无关的历史未提交代码。
+
+主工作区检查时仍存在 tracking.total_signals=3、signal_records=4 的历史运行数据数量不一致。该问题与本轮代码无关，为避免篡改历史运行记录，本轮未自动修改或提交这些 JSON。
+
+七、发布说明
+
+本轮发布建立在已经位于 origin/master 的以下能力之上：
+
+- OKX 官方 position-tiers 数量维度风险档位绑定；
+- external_heartbeat.py 外部心跳与无敏感信息诊断；
+- 永续影子交易和普通信号的既有运行状态。
+
+本轮新增的是官方档位缓存、有界降级、健康汇总、状态转换告警、验证和测试，不重复提交已经在远端的 2026-09-16 基础功能。
+
+建议发布后重点观察：
+
+1. perp_shadow_stats.json 中 risk_tier_health 的总体状态和币种明细。
+2. stale_fallback 是否能在交易所接口短暂异常时维持风险模型连续性。
+3. 连续失败跨越 1/3/6/12 等级时是否按预期提醒。
+4. 剩余缓存有效时间跨越 120/60/0 分钟时是否按预期提醒。
+5. live_refresh 恢复后是否仅发送一次恢复通知。
+6. 是否出现 official_unavailable 或 fixed_fallback；出现时应优先排查 OKX 接口、缓存目录权限和合约元数据一致性。
+
+八、结论
+
+本轮已完成从“能够获取官方风险档位”到“能够缓存、降级、诊断、告警、恢复和验证”的可靠性闭环。官方接口短暂异常不再立即破坏风险模型连续性，同时旧缓存被严格限制在最大有效期限内；监控能够区分新鲜缓存、旧缓存降级、官方不可用和固定费率回退，并通过分级、去重和恢复通知降低重复告警。

@@ -105,6 +105,100 @@ def combined_alert_detail(health, health_age, perp_stats, perp_age, failed_compo
     return "".join(parts)
 
 
+def _failure_severity_bucket(count):
+    value = max(0, int(count or 0))
+    if value >= 12:
+        return "12_plus"
+    if value >= 6:
+        return "6_to_11"
+    if value >= 3:
+        return "3_to_5"
+    if value >= 1:
+        return "1_to_2"
+    return "zero"
+
+
+def _expiry_severity_bucket(minutes):
+    if minutes is None:
+        return "unknown"
+    value = max(0.0, float(minutes))
+    if value <= 0:
+        return "expired"
+    if value <= 60:
+        return "within_60m"
+    if value <= 120:
+        return "within_120m"
+    return "warning_window"
+
+
+def risk_tier_alert_state(perp_stats):
+    """Return a stable alert signature without notifying on every failed refresh."""
+    summary = perp_stats.get("risk_tier_health")
+    if not isinstance(summary, dict):
+        return {
+            "active": False, "status": "not_monitored", "signature": "not_monitored",
+            "degraded_symbols": [], "unavailable_symbols": [],
+        }
+    status = str(summary.get("status") or "unknown")
+    degraded = sorted(str(item) for item in (summary.get("degraded_symbols") or []))
+    unavailable = sorted(str(item) for item in (summary.get("unavailable_symbols") or []))
+    try:
+        failures = max(0, int(summary.get("max_consecutive_refresh_failures") or 0))
+    except (TypeError, ValueError):
+        failures = 0
+    try:
+        remaining = summary.get("minimum_remaining_stale_minutes")
+        remaining = max(0.0, float(remaining)) if remaining is not None else None
+    except (TypeError, ValueError):
+        remaining = None
+    active = status in {"degraded", "unavailable"} or bool(degraded or unavailable)
+    signature_parts = [status, ",".join(degraded), ",".join(unavailable)]
+    if active:
+        signature_parts.extend([
+            _failure_severity_bucket(failures),
+            _expiry_severity_bucket(remaining),
+        ])
+    return {
+        "active": active,
+        "status": status,
+        "signature": "|".join(signature_parts),
+        "degraded_symbols": degraded,
+        "unavailable_symbols": unavailable,
+        "max_consecutive_refresh_failures": failures,
+        "minimum_remaining_stale_minutes": remaining,
+        "by_symbol": summary.get("by_symbol") if isinstance(summary.get("by_symbol"), dict) else {},
+    }
+
+
+def risk_tier_alert_detail(tier_state):
+    parts = [f"OKX 官方风险档位状态：{tier_state.get('status') or 'unknown'}。"]
+    degraded = tier_state.get("degraded_symbols") or []
+    unavailable = tier_state.get("unavailable_symbols") or []
+    if degraded:
+        parts.append("降级币种：" + "、".join(degraded) + "。")
+    if unavailable:
+        parts.append("不可用币种：" + "、".join(unavailable) + "。")
+    failures = int(tier_state.get("max_consecutive_refresh_failures") or 0)
+    if failures:
+        parts.append(f"最大连续刷新失败：{failures} 次。")
+    remaining = tier_state.get("minimum_remaining_stale_minutes")
+    if remaining is not None:
+        parts.append(f"最短剩余缓存有效时间约 {round(float(remaining), 1)} 分钟。")
+    details = []
+    for symbol in degraded[:4]:
+        health = (tier_state.get("by_symbol") or {}).get(symbol) or {}
+        details.append(
+            f"{symbol}={health.get('status', 'unknown')}"
+            f"/age={health.get('cache_age_minutes', '--')}m"
+            f"/remaining={health.get('remaining_stale_minutes', '--')}m"
+            f"/error={health.get('refresh_error_category') or '--'}"
+        )
+    if details:
+        parts.append("档位诊断：" + "；".join(details) + "。")
+    parts.append("该告警仅表示研究强平档位降级，不代表行情扫描或影子仓位处理已经失败。")
+    return "".join(parts)
+
+
 def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
     health = load_json(HEALTH_PATH, {})
     perp_stats = load_json(PERP_STATS_PATH, {})
@@ -116,11 +210,26 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
         failed_components.append("ordinary_monitor")
     if perp_age is None or perp_age > max_perp_age_minutes * 60:
         failed_components.append("perpetual_shadow")
-    current = "stale" if failed_components else "healthy"
+    tier_state = risk_tier_alert_state(perp_stats)
+    advisory_components = ["risk_tiers"] if tier_state["active"] else []
+    current = "stale" if failed_components else (
+        "degraded" if advisory_components else "healthy"
+    )
+    current_signature = {
+        "status": current,
+        "failed_components": sorted(failed_components),
+        "advisory_components": sorted(advisory_components),
+        "risk_tier_signature": tier_state["signature"],
+    }
     previous = load_json(ALERT_STATE_PATH, {})
-    previous_status = previous.get("status")
-    previous_components = sorted(previous.get("failed_components") or [])
-    notify = (current != previous_status or sorted(failed_components) != previous_components) and bool(sendkey)
+    previous_signature = {
+        "status": previous.get("status"),
+        "failed_components": sorted(previous.get("failed_components") or []),
+        "advisory_components": sorted(previous.get("advisory_components") or []),
+        "risk_tier_signature": previous.get("risk_tier_signature", "not_monitored"),
+    }
+    transition = current_signature != previous_signature
+    notify = transition and bool(sendkey)
     notification_error = None
     if notify:
         try:
@@ -128,9 +237,32 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
                 detail = combined_alert_detail(
                     health, age, perp_stats, perp_age, failed_components
                 )
+                if tier_state["active"]:
+                    detail += risk_tier_alert_detail(tier_state)
                 send_serverchan(sendkey, "CoinPulse 监控失联告警", detail)
+            elif previous.get("status") == "stale":
+                send_serverchan(
+                    sendkey,
+                    "CoinPulse 监控恢复（风险档位仍降级）"
+                    if tier_state["active"] else "CoinPulse 监控恢复",
+                    "监控健康记录已恢复更新，扫描任务重新可用。"
+                    + (risk_tier_alert_detail(tier_state) if tier_state["active"] else ""),
+                )
+            elif current == "degraded":
+                send_serverchan(
+                    sendkey, "CoinPulse 风险档位降级告警",
+                    risk_tier_alert_detail(tier_state),
+                )
+            elif previous.get("status") == "degraded":
+                send_serverchan(
+                    sendkey, "CoinPulse 风险档位恢复",
+                    "OKX 官方风险档位缓存已恢复健康，研究强平模型不再处于降级状态。",
+                )
             else:
-                send_serverchan(sendkey, "CoinPulse 监控恢复", "监控健康记录已恢复更新，扫描任务重新可用。")
+                send_serverchan(
+                    sendkey, "CoinPulse 监控恢复",
+                    "监控健康记录已初始化为正常状态。",
+                )
         except (OSError, ValueError, urllib.error.URLError) as exc:
             notification_error = str(exc)
     next_state = {
@@ -139,17 +271,24 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
         "health_age_seconds": age,
         "perpetual_age_seconds": perp_age,
         "failed_components": failed_components,
+        "advisory_components": advisory_components,
+        "risk_tier_status": tier_state["status"],
+        "risk_tier_signature": tier_state["signature"],
+        "risk_tier_degraded_symbols": tier_state["degraded_symbols"],
+        "risk_tier_unavailable_symbols": tier_state["unavailable_symbols"],
         "last_health_status": status,
     }
-    # Persist only transitions (or the initial state) so the health workflow
-    # does not create a commit every 15 minutes while nothing changed.
-    if (previous.get("status") != current
-            or previous.get("last_health_status") != status
-            or previous_components != sorted(failed_components) or not previous):
+    if transition or previous.get("last_health_status") != status or not previous:
         atomic_write(ALERT_STATE_PATH, next_state)
-    return {"status": current, "age_seconds": age, "perpetual_age_seconds": perp_age,
-            "failed_components": failed_components, "notified": notify,
-            "notification_error": notification_error}
+    return {
+        "status": current, "age_seconds": age,
+        "perpetual_age_seconds": perp_age,
+        "failed_components": failed_components,
+        "advisory_components": advisory_components,
+        "risk_tier_status": tier_state["status"],
+        "risk_tier_signature": tier_state["signature"],
+        "notified": notify, "notification_error": notification_error,
+    }
 
 
 def main():

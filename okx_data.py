@@ -9,6 +9,7 @@ It is public-data only and never accepts credentials.
 import hashlib
 import json
 import math
+import os
 import time
 import urllib.parse
 
@@ -183,6 +184,89 @@ def _position_tiers(inst_id, contract_value, getter):
     }
 
 
+def _tier_cache_path(cache_dir, symbol):
+    if not cache_dir:
+        return None
+    safe_symbol = binance.normalize_symbol(symbol).lower()
+    return os.path.join(cache_dir, f"okx-risk-tiers-{safe_symbol}.json")
+
+
+def _load_position_tier_cache(path, inst_id, contract_value, now_ms):
+    if not path:
+        return None
+    try:
+        with open(path, encoding="utf-8") as file:
+            cached = json.load(file)
+        if not isinstance(cached, dict) or int(cached.get("schema_version") or 0) != 1:
+            return None
+        binding = cached.get("binding")
+        if not isinstance(binding, dict):
+            return None
+        metadata = {key: value for key, value in binding.items() if key != "tiers"}
+        expected_family = inst_id.removesuffix("-SWAP")
+        source_parameters = metadata.get("source_parameters") or {}
+        retrieved = int(metadata.get("retrieved_at_epoch_ms") or 0)
+        cached_contract_value = float(metadata.get("contract_value") or 0)
+        if (metadata.get("source") != f"{BASE_URL}/api/v5/public/position-tiers"
+                or source_parameters.get("instType") != "SWAP"
+                or source_parameters.get("tdMode") != "isolated"
+                or source_parameters.get("instFamily") != expected_family
+                or metadata.get("native_cap_unit") != "contracts"
+                or metadata.get("normalized_cap_unit") != "base_asset"
+                or not math.isclose(cached_contract_value, float(contract_value), rel_tol=0, abs_tol=1e-12)
+                or retrieved <= 0 or retrieved > int(now_ms)):
+            return None
+        tiers = derivatives_risk.normalize_maintenance_margin_tiers(binding.get("tiers") or [])
+        canonical = json.dumps(tiers, sort_keys=True, separators=(",", ":"))
+        expected_version = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
+        if metadata.get("tier_version") != expected_version:
+            return None
+        return {"tiers": tiers, **metadata,
+                "cache_age_minutes": round((int(now_ms) - retrieved) / 60000, 2)}
+    except (OSError, ValueError, TypeError):
+        return None
+
+
+def _save_position_tier_cache(path, binding):
+    if not path:
+        return
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    temporary = path + ".tmp"
+    payload = {"schema_version": 1, "binding": binding}
+    with open(temporary, "w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, indent=2)
+        file.write("\n")
+    os.replace(temporary, path)
+
+
+def _resolve_position_tiers(inst_id, symbol, contract_value, getter, cache_dir=None,
+                            cache_ttl_minutes=360, cache_max_stale_minutes=1440,
+                            now_ms=None):
+    """Resolve official tiers with a validated fresh/stale last-known-good cache."""
+    current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    cache_path = _tier_cache_path(cache_dir, symbol)
+    cached = _load_position_tier_cache(cache_path, inst_id, contract_value, current_ms)
+    ttl = max(0.0, float(cache_ttl_minutes))
+    max_stale = max(ttl, float(cache_max_stale_minutes))
+    if cached and cached["cache_age_minutes"] <= ttl:
+        return {**cached, "cache_status": "fresh_cache", "refresh_error_category": None}
+    try:
+        live = _position_tiers(inst_id, contract_value, getter)
+        live = {**live, "cache_status": "live_refresh", "cache_age_minutes": 0.0,
+                "refresh_error_category": None}
+        _save_position_tier_cache(cache_path, {
+            key: value for key, value in live.items()
+            if key not in {"cache_status", "cache_age_minutes", "refresh_error_category"}
+        })
+        return live
+    except Exception as exc:
+        if cached and cached["cache_age_minutes"] <= max_stale:
+            return {**cached, "cache_status": "stale_fallback",
+                    "refresh_error_category": type(exc).__name__}
+        raise
+
+
 def _open_interest(inst_id, period, limit, getter):
     """Page OKX's official contract-level open-interest history."""
     target = min(1440, max(1, int(limit)))
@@ -229,7 +313,9 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                              closed_only=True, include_contract_specs=False,
                              allow_partial=False, request_timeout=None,
                              request_attempts=None, request_backoff_seconds=None,
-                             open_interest_limit=None):
+                             open_interest_limit=None, risk_tier_cache_dir=None,
+                             risk_tier_cache_ttl_minutes=360,
+                             risk_tier_cache_max_stale_minutes=1440):
     symbol_value = binance.normalize_symbol(symbol)
     interval_value = binance.validate_interval(interval)
     inst_id = instrument_id(symbol_value)
@@ -280,11 +366,20 @@ def fetch_perpetual_snapshot(symbol, interval="4h", limit=500, http_get=None,
                 url, min(float(request_timeout or binance.PERPETUAL_HTTP_TIMEOUT), 10.0),
                 1, 0.0,
             ))
-            tier_binding = _position_tiers(inst_id, contract_value, tier_getter)
+            tier_binding = _resolve_position_tiers(
+                inst_id, symbol_value, contract_value, tier_getter,
+                cache_dir=risk_tier_cache_dir,
+                cache_ttl_minutes=risk_tier_cache_ttl_minutes,
+                cache_max_stale_minutes=risk_tier_cache_max_stale_minutes,
+            )
             snapshot["maintenance_margin_tiers"] = tier_binding["tiers"]
             snapshot["maintenance_margin_tier_metadata"] = {
                 key: value for key, value in tier_binding.items() if key != "tiers"
             }
+            if tier_binding.get("cache_status") == "stale_fallback":
+                errors["maintenance_margin_tiers_refresh"] = (
+                    tier_binding.get("refresh_error_category") or "unknown_error"
+                )
         except Exception as exc:
             errors["maintenance_margin_tiers"] = str(exc)
     if contract_value > 0:

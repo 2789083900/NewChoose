@@ -68,6 +68,7 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIn("steps.validate_perpetual_shadow.outcome == 'success'", perpetual)
         self.assertIn("git config rebase.autoStash true", ordinary)
         self.assertIn("validate_perp_shadow.py --max-age-minutes 30", text)
+        self.assertIn("perpetual shadow risk tier health:", text)
 
     def test_workflow_sends_optional_external_heartbeat_after_state_writes(self):
         workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
@@ -600,6 +601,185 @@ class TurtleCoreTests(unittest.TestCase):
             "isolated",
         )
         self.assertEqual(snapshot["funding_rates"][0]["funding_rate"], 0.0001)
+
+    def test_okx_position_tier_cache_uses_fresh_snapshot_without_network(self):
+        rows = {"code": "0", "data": [
+            {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+        ]}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(okx_data.time, "time", return_value=1000):
+            live = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, mock.Mock(return_value=rows),
+                cache_dir=directory, now_ms=1_000_000,
+            )
+            blocked = mock.Mock(side_effect=RuntimeError("network should not be used"))
+            cached = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, blocked,
+                cache_dir=directory, cache_ttl_minutes=360,
+                now_ms=1_000_000 + 30 * 60 * 1000,
+            )
+        self.assertEqual(live["cache_status"], "live_refresh")
+        self.assertEqual(cached["cache_status"], "fresh_cache")
+        self.assertEqual(cached["tiers"], live["tiers"])
+        blocked.assert_not_called()
+
+    def test_okx_position_tier_cache_rejects_nonofficial_provenance(self):
+        rows = {"code": "0", "data": [
+            {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+        ]}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(okx_data.time, "time", return_value=1000):
+            okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, mock.Mock(return_value=rows),
+                cache_dir=directory, now_ms=1_000_000,
+            )
+            cache_path = okx_data._tier_cache_path(directory, "BTCUSDT")
+            with open(cache_path, encoding="utf-8") as file:
+                payload = json.load(file)
+            payload["binding"]["source"] = "https://untrusted.example/tiers"
+            with open(cache_path, "w", encoding="utf-8") as file:
+                json.dump(payload, file)
+            refreshed = mock.Mock(return_value=rows)
+            result = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, refreshed,
+                cache_dir=directory, now_ms=1_000_000 + 30 * 60 * 1000,
+            )
+        self.assertEqual(result["cache_status"], "live_refresh")
+        refreshed.assert_called_once()
+
+    def test_okx_position_tier_cache_marks_bounded_stale_fallback(self):
+        rows = {"code": "0", "data": [
+            {"instFamily": "BTC-USDT", "maxSz": "1000", "mmr": "0.004"},
+        ]}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(okx_data.time, "time", return_value=1000):
+            okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, mock.Mock(return_value=rows),
+                cache_dir=directory, now_ms=1_000_000,
+            )
+            failed = mock.Mock(side_effect=TimeoutError("temporary outage"))
+            stale = okx_data._resolve_position_tiers(
+                "BTC-USDT-SWAP", "BTCUSDT", 0.01, failed,
+                cache_dir=directory, cache_ttl_minutes=360,
+                cache_max_stale_minutes=1440,
+                now_ms=1_000_000 + 400 * 60 * 1000,
+            )
+            with self.assertRaises(TimeoutError):
+                okx_data._resolve_position_tiers(
+                    "BTC-USDT-SWAP", "BTCUSDT", 0.01, failed,
+                    cache_dir=directory, cache_ttl_minutes=360,
+                    cache_max_stale_minutes=1440,
+                    now_ms=1_000_000 + 1500 * 60 * 1000,
+                )
+        self.assertEqual(stale["cache_status"], "stale_fallback")
+        self.assertEqual(stale["cache_age_minutes"], 400.0)
+        self.assertEqual(stale["refresh_error_category"], "TimeoutError")
+
+    def test_risk_tier_health_tracks_stale_failures_and_recovery(self):
+        state = perp_shadow.empty_state()
+        settings = {
+            "risk_tier_cache_ttl_minutes": 360,
+            "risk_tier_cache_max_stale_minutes": 1440,
+        }
+        state["risk_tier_metadata_by_symbol"]["BTCUSDT"] = {
+            "scope": "provider_symbol_official_snapshot",
+            "cache_status": "stale_fallback",
+            "cache_age_minutes": 1400,
+            "retrieved_at_epoch_ms": 1_000_000,
+            "tier_version": "v1",
+            "tier_checksum": "a" * 64,
+            "refresh_error_category": "TimeoutError",
+        }
+        snapshot = {"venue": "okx"}
+        first = perp_shadow._update_risk_tier_health(
+            state, "BTCUSDT", snapshot, settings,
+            {"maintenance_margin_tiers_refresh": "TimeoutError"}, 1000,
+        )
+        second = perp_shadow._update_risk_tier_health(
+            state, "BTCUSDT", snapshot, settings,
+            {"maintenance_margin_tiers_refresh": "TimeoutError"}, 2000,
+        )
+        summary = perp_shadow._risk_tier_health_summary(
+            state, now_ms=1_000_000 + 1400 * 60 * 1000,
+        )
+        self.assertEqual(first["consecutive_refresh_failures"], 1)
+        self.assertEqual(second["consecutive_refresh_failures"], 2)
+        self.assertEqual(second["remaining_stale_minutes"], 40.0)
+        self.assertEqual(second["expiry_risk"], "warning")
+        self.assertEqual(summary["status"], "degraded")
+        self.assertEqual(summary["degraded_symbols"], ["BTCUSDT"])
+        self.assertEqual(summary["minimum_remaining_stale_minutes"], 40.0)
+
+        state["risk_tier_metadata_by_symbol"]["BTCUSDT"].update({
+            "cache_status": "live_refresh", "cache_age_minutes": 0,
+            "retrieved_at_epoch_ms": 3_000_000,
+            "refresh_error_category": None,
+        })
+        recovered = perp_shadow._update_risk_tier_health(
+            state, "BTCUSDT", snapshot, settings, {}, 3000,
+        )
+        self.assertEqual(recovered["consecutive_refresh_failures"], 0)
+        self.assertEqual(recovered["expiry_risk"], "normal")
+        self.assertEqual(
+            perp_shadow._risk_tier_health_summary(state, now_ms=3_000_000)["status"],
+            "healthy",
+        )
+
+    def test_risk_tier_health_respects_configured_override_precedence(self):
+        state = perp_shadow.empty_state()
+        state["risk_tier_metadata_by_symbol"]["BTCUSDT"] = {
+            "scope": "provider", "provider": "okx", "tier_checksum": "b" * 64,
+        }
+        snapshot = {
+            "venue": "okx",
+            "maintenance_margin_tier_metadata": {
+                "scope": "provider_symbol_official_snapshot",
+                "cache_status": "stale_fallback",
+            },
+        }
+        health = perp_shadow._update_risk_tier_health(
+            state, "BTCUSDT", snapshot, {
+                "maintenance_margin_tiers_by_provider": {
+                    "okx": [{"max_notional": 50000, "maintenance_margin_rate": 0.01}],
+                },
+            }, {"maintenance_margin_tiers_refresh": "TimeoutError"}, 1000,
+        )
+        self.assertEqual(health["status"], "configured_override")
+        self.assertEqual(health["scope"], "provider")
+        self.assertEqual(health["consecutive_refresh_failures"], 0)
+        self.assertIsNone(health["refresh_error_category"])
+
+    def test_risk_tier_health_does_not_treat_empty_global_tiers_as_override(self):
+        state = perp_shadow.empty_state()
+        state["risk_tier_metadata_by_symbol"]["BTCUSDT"] = {
+            "scope": "global", "tier_checksum": perp_shadow._tier_checksum([]),
+        }
+        health = perp_shadow._update_risk_tier_health(
+            state, "BTCUSDT", {"venue": "okx"}, {
+                "maintenance_margin_tiers": [],
+                "maintenance_margin_tiers_by_provider": {"okx": []},
+                "maintenance_margin_tiers_by_provider_symbol": {"okx": {}},
+            }, {"maintenance_margin_tiers": "TimeoutError"}, 1000,
+        )
+        self.assertEqual(health["status"], "official_unavailable")
+        self.assertEqual(health["consecutive_refresh_failures"], 1)
+
+    def test_perpetual_stats_recognize_active_official_tier_model(self):
+        state = perp_shadow.empty_state()
+        state["risk_tier_metadata_by_symbol"] = {
+            "BTCUSDT": {"scope": "provider_symbol_official_snapshot"},
+        }
+        stats = perp_shadow.build_stats(state, {
+            "risk_tier_cache_ttl_minutes": 120,
+            "risk_tier_cache_max_stale_minutes": 720,
+        })
+        self.assertEqual(
+            stats["liquidation_model"]["model_version"],
+            derivatives_risk.LIQUIDATION_MODEL_VERSION_TIERED,
+        )
+        self.assertEqual(stats["liquidation_model"]["official_tier_cache_policy"], {
+            "ttl_minutes": 120.0, "max_stale_minutes": 720.0,
+        })
 
     def test_okx_closed_only_flag_controls_current_candle_filter(self):
         interval_ms = sw.INTERVAL_MS["4h"]
@@ -2753,6 +2933,156 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertEqual(second["failed_components"], ["perpetual_shadow"])
         self.assertEqual(notify.call_count, 1)
         self.assertIn("perp_shadow_stats.json", notify.call_args.args[2])
+
+    def test_monitor_health_alerts_risk_tier_degradation_once(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 3590, "status": "ok"}, file)
+            stats = {
+                "generated_at_utc": "1970-01-01T00:59:50Z",
+                "risk_tier_health": {
+                    "status": "degraded",
+                    "degraded_symbols": ["BTCUSDT"],
+                    "unavailable_symbols": [],
+                    "max_consecutive_refresh_failures": 1,
+                    "minimum_remaining_stale_minutes": 100,
+                    "by_symbol": {"BTCUSDT": {
+                        "status": "stale_fallback", "cache_age_minutes": 1340,
+                        "remaining_stale_minutes": 100,
+                        "refresh_error_category": "TimeoutError",
+                    }},
+                },
+            }
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump(stats, file)
+            first = check_monitor_health.check(now=3600, sendkey="SCT-test")
+            second = check_monitor_health.check(now=3601, sendkey="SCT-test")
+        self.assertEqual(first["status"], "degraded")
+        self.assertEqual(first["advisory_components"], ["risk_tiers"])
+        self.assertEqual(second["status"], "degraded")
+        self.assertEqual(notify.call_count, 1)
+        self.assertIn("风险档位降级", notify.call_args.args[1])
+        self.assertIn("BTCUSDT", notify.call_args.args[2])
+
+    def test_monitor_health_risk_tier_failure_buckets_limit_repeat_alerts(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 3590, "status": "ok"}, file)
+            stats = {
+                "generated_at_utc": "1970-01-01T00:59:50Z",
+                "risk_tier_health": {
+                    "status": "degraded", "degraded_symbols": ["BTCUSDT"],
+                    "unavailable_symbols": [], "minimum_remaining_stale_minutes": 130,
+                    "by_symbol": {},
+                },
+            }
+            for failures, now in ((1, 3600), (2, 3601), (3, 3602)):
+                stats["risk_tier_health"]["max_consecutive_refresh_failures"] = failures
+                with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                    json.dump(stats, file)
+                check_monitor_health.check(now=now, sendkey="SCT-test")
+        self.assertEqual(notify.call_count, 2)
+
+    def test_monitor_health_alerts_risk_tier_recovery_once(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 3590, "status": "ok"}, file)
+            degraded = {
+                "generated_at_utc": "1970-01-01T00:59:50Z",
+                "risk_tier_health": {
+                    "status": "degraded", "degraded_symbols": ["BTCUSDT"],
+                    "unavailable_symbols": [], "max_consecutive_refresh_failures": 1,
+                    "minimum_remaining_stale_minutes": 100, "by_symbol": {},
+                },
+            }
+            healthy = {
+                "generated_at_utc": "1970-01-01T00:59:50Z",
+                "risk_tier_health": {
+                    "status": "healthy", "degraded_symbols": [],
+                    "unavailable_symbols": [], "max_consecutive_refresh_failures": 0,
+                    "minimum_remaining_stale_minutes": 1400, "by_symbol": {},
+                },
+            }
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump(degraded, file)
+            check_monitor_health.check(now=3600, sendkey="SCT-test")
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump(healthy, file)
+            recovered = check_monitor_health.check(now=3601, sendkey="SCT-test")
+            repeated = check_monitor_health.check(now=3602, sendkey="SCT-test")
+        self.assertEqual(recovered["status"], "healthy")
+        self.assertEqual(repeated["status"], "healthy")
+        self.assertEqual(notify.call_count, 2)
+        self.assertIn("风险档位恢复", notify.call_args.args[1])
+
+    def test_monitor_recovery_reports_remaining_risk_tier_degradation(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.ALERT_STATE_PATH, "w", encoding="utf-8") as file:
+                json.dump({
+                    "status": "stale", "failed_components": ["ordinary_monitor"],
+                    "advisory_components": [], "risk_tier_signature": "not_monitored",
+                    "last_health_status": "stale",
+                }, file)
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 3590, "status": "ok"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({
+                    "generated_at_utc": "1970-01-01T00:59:50Z",
+                    "risk_tier_health": {
+                        "status": "degraded", "degraded_symbols": ["BTCUSDT"],
+                        "unavailable_symbols": [], "max_consecutive_refresh_failures": 1,
+                        "minimum_remaining_stale_minutes": 100, "by_symbol": {},
+                    },
+                }, file)
+            result = check_monitor_health.check(now=3600, sendkey="SCT-test")
+        self.assertEqual(result["status"], "degraded")
+        self.assertIn("监控恢复", notify.call_args.args[1])
+        self.assertIn("仍降级", notify.call_args.args[1])
+
+    def test_monitor_health_tolerates_malformed_risk_tier_counters(self):
+        tier_state = check_monitor_health.risk_tier_alert_state({
+            "risk_tier_health": {
+                "status": "degraded", "degraded_symbols": ["BTCUSDT"],
+                "unavailable_symbols": [],
+                "max_consecutive_refresh_failures": "invalid",
+                "minimum_remaining_stale_minutes": {"bad": "value"},
+                "by_symbol": {},
+            },
+        })
+        self.assertTrue(tier_state["active"])
+        self.assertEqual(tier_state["max_consecutive_refresh_failures"], 0)
+        self.assertIsNone(tier_state["minimum_remaining_stale_minutes"])
+        self.assertIn("unknown", tier_state["signature"])
+
+    def test_monitor_health_risk_tier_advisory_does_not_fail_workflow(self):
+        tier_state = check_monitor_health.risk_tier_alert_state({
+            "risk_tier_health": {
+                "status": "unavailable", "degraded_symbols": ["BTCUSDT"],
+                "unavailable_symbols": ["BTCUSDT"],
+                "max_consecutive_refresh_failures": 12,
+                "minimum_remaining_stale_minutes": 0,
+                "by_symbol": {},
+            },
+        })
+        self.assertTrue(tier_state["active"])
+        self.assertIn("12_plus", tier_state["signature"])
+        self.assertIn("expired", tier_state["signature"])
 
     def test_empty_portfolio_backtest_returns_a_valid_equity_curve(self):
         class Args:

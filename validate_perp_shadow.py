@@ -157,6 +157,16 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
                         )
                         if not all(metadata.get(field) for field in required):
                             errors.append(f"{trade_id} maintenance margin tier provenance is incomplete")
+                        if scope == "provider_symbol_official_snapshot" and metadata.get("cache_status"):
+                            if metadata.get("cache_status") not in {
+                                    "live_refresh", "fresh_cache", "stale_fallback"}:
+                                errors.append(f"{trade_id} maintenance margin tier cache status is invalid")
+                            if not _finite(metadata.get("cache_age_minutes")) or float(
+                                    metadata.get("cache_age_minutes", -1)) < 0:
+                                errors.append(f"{trade_id} maintenance margin tier cache age is invalid")
+                            if (metadata.get("cache_status") == "stale_fallback"
+                                    and not metadata.get("refresh_error_category")):
+                                errors.append(f"{trade_id} stale tier fallback lacks refresh diagnostics")
                 if trade.get("cohort_id"):
                     cohort = cohort_registry.get(trade["cohort_id"])
                     if not isinstance(cohort, dict):
@@ -282,6 +292,67 @@ def validate(state_path=DEFAULT_STATE_PATH, stats_path=DEFAULT_STATS_PATH,
         cached = stats.get("cached_symbols")
         if not isinstance(cached, list) or set(cached) != {s for s, h in symbol_health.items() if h.get("status") == "stale_cache"}:
             errors.append("stats cached_symbols does not match symbol_health")
+    state_tier_health = state.get("risk_tier_health_by_symbol", {})
+    if not isinstance(state_tier_health, dict):
+        errors.append("state risk_tier_health_by_symbol must be an object")
+        state_tier_health = {}
+    tier_summary = stats.get("risk_tier_health")
+    if tier_summary is None and "risk_tier_health_by_symbol" not in state:
+        pass
+    elif not isinstance(tier_summary, dict):
+        errors.append("stats risk_tier_health is missing")
+    else:
+        allowed_tier_statuses = {
+            "live_refresh", "fresh_cache", "stale_fallback", "official_unavailable",
+            "configured_override", "fixed_fallback", "not_applicable",
+        }
+        allowed_expiry_risks = {"normal", "warning", "expired_or_missing", "not_applicable"}
+        by_symbol = tier_summary.get("by_symbol")
+        if not isinstance(by_symbol, dict):
+            errors.append("stats risk_tier_health by_symbol must be an object")
+            by_symbol = state_tier_health
+        elif set(by_symbol) != set(state_tier_health):
+            errors.append("stats risk_tier_health symbols do not match state")
+        else:
+            for symbol, state_health in state_tier_health.items():
+                stats_health = by_symbol.get(symbol) or {}
+                for field in ("provider", "scope", "status", "cache_status",
+                              "consecutive_refresh_failures", "tier_version", "tier_checksum"):
+                    if stats_health.get(field) != state_health.get(field):
+                        errors.append(
+                            f"stats risk tier health for {symbol} disagrees on {field}"
+                        )
+        for symbol, health in by_symbol.items():
+            if not isinstance(health, dict) or health.get("status") not in allowed_tier_statuses:
+                errors.append(f"risk tier health for {symbol} has invalid status")
+                continue
+            if health.get("expiry_risk") not in allowed_expiry_risks:
+                errors.append(f"risk tier health for {symbol} has invalid expiry risk")
+            for field in ("cache_age_minutes", "cache_ttl_minutes", "cache_max_stale_minutes",
+                          "remaining_stale_minutes"):
+                value = health.get(field)
+                if value is not None and (not _finite(value) or float(value) < 0):
+                    errors.append(f"risk tier health for {symbol} has invalid {field}")
+            failures = health.get("consecutive_refresh_failures")
+            if not isinstance(failures, int) or failures < 0:
+                errors.append(f"risk tier health for {symbol} has invalid failure count")
+        official = {
+            symbol: health for symbol, health in by_symbol.items()
+            if isinstance(health, dict) and health.get("provider") == "okx"
+        }
+        expected_degraded = sorted(
+            symbol for symbol, health in official.items()
+            if health.get("status") in {"stale_fallback", "official_unavailable", "fixed_fallback"}
+            or health.get("expiry_risk") in {"warning", "expired_or_missing"}
+        )
+        expected_unavailable = sorted(
+            symbol for symbol, health in official.items()
+            if health.get("status") in {"official_unavailable", "fixed_fallback"}
+        )
+        if tier_summary.get("degraded_symbols") != expected_degraded:
+            errors.append("stats risk tier degraded_symbols is inconsistent")
+        if tier_summary.get("unavailable_symbols") != expected_unavailable:
+            errors.append("stats risk tier unavailable_symbols is inconsistent")
     if not _finite(stats.get("max_data_lag_minutes")) or float(stats.get("max_data_lag_minutes", 0)) < 0:
         errors.append("stats max_data_lag_minutes is invalid")
     if stats.get("max_market_data_lag_minutes") is not None and (

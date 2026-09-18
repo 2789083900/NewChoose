@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-18 13:39:02",
-  "total_signals": 0,
-  "pending_signals": 0,
+  "generated_at": "2026-09-18 17:12:52",
+  "total_signals": 1,
+  "pending_signals": 1,
   "horizons": {
     "24h": {
       "observed": 0,
@@ -24,5 +24,11 @@
       "avg_mae_pct": 0
     }
   },
-  "by_symbol": {}
+  "by_symbol": {
+    "SOLUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    }
+  }
 }

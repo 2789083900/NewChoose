@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "events": [
+    {
+      "event_id": "daily-health|2026-09-18",
+      "title": "CoinPulse 每日运行摘要 2026-09-18",
+      "content": "CoinPulse 每日运行摘要 2026-09-18\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\nS1快速研究：持仓 0，已结算 0，胜率 0%，待观察 0（仅研究，不计入正式样本）\n运行编号：c3269c95e2ff",
+      "metadata": {
+        "kind": "daily_health",
+        "date": "2026-09-18"
+      },
+      "created_epoch_ms": 1789738739765,
+      "expires_epoch_ms": 1789825139765,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789738741693,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789738741693
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-18 09:14:49",
+  "updated_at": "2026-09-18 13:39:01",
   "scan": {
-    "run_id": "fd8c1115fc79",
+    "run_id": "c3269c95e2ff",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789704000000,
-    "data_lag_minutes": 314.8,
+    "latest_bar_time": 1789718400000,
+    "data_lag_minutes": 339.0,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -25,12 +25,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 0,
+    "attempted": 1,
     "failed": 0,
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789722889,
+  "updated_at_epoch": 1789738741,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -47,5 +47,18 @@
     },
     "symbols": [],
     "risk_definition": "按已记录入场价、单位数量和当前止损位估算；不含跳空、流动性冲击或人工成交偏差。"
+  },
+  "research": {
+    "status": "research_only",
+    "strategy": "turtle_system1",
+    "open_trades": 0,
+    "closed_trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "win_rate": 0,
+    "total_pnl_pct": 0,
+    "pending_signals": 0,
+    "tracked_signals": 0,
+    "generated_at": null
   }
 }

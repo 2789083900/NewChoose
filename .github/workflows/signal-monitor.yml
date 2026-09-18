@@ -184,7 +184,7 @@ jobs:
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config rebase.autoStash true
-          for file in perp_shadow_state.json perp_shadow_stats.json; do
+          for file in perp_shadow_state.json perp_shadow_stats.json notification_outbox.json; do
             if [ -f "$file" ]; then
               git add -f "$file"
             fi

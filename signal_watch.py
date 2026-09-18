@@ -24,6 +24,10 @@ CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
 STATE_PATH = os.path.join(BASE_DIR, "signal_watch.state.json")
 LOG_PATH = os.path.join(BASE_DIR, "signal_watch.log")
 SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
+NOTIFICATION_OUTBOX_PATH = os.path.join(BASE_DIR, "notification_outbox.json")
+NOTIFICATION_OUTBOX_SCHEMA_VERSION = 1
+DEFAULT_NOTIFICATION_TTL_MINUTES = 10
+DEFAULT_NOTIFICATION_MAX_ATTEMPTS = 8
 HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
 STATE_SCHEMA_VERSION = 2
 MAX_REQUEST_ATTEMPTS = 3
@@ -1233,7 +1237,7 @@ def load_config():
         "refresh_seconds": 30,
         "max_staleness_intervals": 3,
         "minimum_scan_coverage_pct": 80,
-        "shadow_entry_grace_minutes": 5,
+        "shadow_entry_grace_minutes": 10,
         "dashboard_url": "http://192.168.10.13:5173",
         "strategy": {
             "mode": "turtle",
@@ -1257,7 +1261,16 @@ def load_config():
             "pushplus": {"token": ""},
             "bark": {"server": "https://api.day.app", "key": ""},
             "generic": {"webhook": ""}
-        }
+        },
+        "delivery": {
+            "mode": "primary_fallback",
+            "primary": "serverchan",
+            "fallback": ["pushplus"],
+            "signal_ttl_minutes": 10,
+            "max_attempts": 8,
+            "daily_digest_enabled": True,
+            "daily_digest_hour_beijing": 9,
+        },
     }
     if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w", encoding="utf-8") as file:
@@ -1408,14 +1421,16 @@ def record_signal_event(event, config=None):
             "filters": strategy.get("filters") or {},
             "execution_model": "signal_close_next_bar_open",
         },
-        "status": "pending",
+        "notification_status": event.get("notification_status", "queued"),
+        "notification_event_id": event.get("notification_event_id"),
+        "status": "diagnostic_expired" if event.get("notification_status") == "expired" else "pending",
         "horizons": {"24h": None, "48h": None}
     })
     save_signal_records(records)
     return True
 
 
-def post_json(url, payload, timeout=10):
+def post_json(url, payload, timeout=10, success_codes=(0, "0")):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1423,10 +1438,12 @@ def post_json(url, payload, timeout=10):
         headers={"Content-Type": "application/json", "User-Agent": "CoinPulse/1.0"}
     )
     with _urlopen_with_retry(req, timeout) as resp:
-        return resp.status
+        status = getattr(resp, "status", None) or resp.getcode()
+        body = resp.read()
+    return _validate_notification_response(status, body, success_codes)
 
 
-def post_form(url, payload, timeout=10):
+def post_form(url, payload, timeout=10, success_codes=(0, "0")):
     data = urllib.parse.urlencode(payload).encode("utf-8")
     req = urllib.request.Request(
         url,
@@ -1434,13 +1451,38 @@ def post_form(url, payload, timeout=10):
         headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": "CoinPulse/1.0"}
     )
     with _urlopen_with_retry(req, timeout) as resp:
-        return resp.status
+        status = getattr(resp, "status", None) or resp.getcode()
+        body = resp.read()
+    return _validate_notification_response(status, body, success_codes)
 
 
-def http_get(url, timeout=10):
+def http_get(url, timeout=10, success_codes=None):
     req = urllib.request.Request(url, headers={"User-Agent": "CoinPulse/1.0"})
     with _urlopen_with_retry(req, timeout) as resp:
-        return resp.status
+        status = getattr(resp, "status", None) or resp.getcode()
+        body = resp.read()
+    return _validate_notification_response(status, body, success_codes)
+
+
+def _validate_notification_response(status, body, success_codes=(0, "0")):
+    """Treat provider business errors as delivery failures, not HTTP success."""
+    if not 200 <= int(status) < 300:
+        raise RuntimeError(f"notification HTTP status {status}")
+    text = bytes(body or b"").decode("utf-8", errors="replace").strip()
+    if not text:
+        return {"status": int(status)}
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return {"status": int(status), "response_excerpt": _safe_response_excerpt(body)}
+    if isinstance(payload, dict):
+        code = payload.get("code", payload.get("errcode", payload.get("errno")))
+        accepted = tuple(success_codes or ()) + ("SUCCESS", "success")
+        if code is not None and success_codes is not None and code not in accepted:
+            raise RuntimeError(f"notification provider rejected request: code={code}")
+        if payload.get("success") is False or payload.get("status") in {"error", "failed"}:
+            raise RuntimeError("notification provider rejected request")
+    return {"status": int(status), "response": payload}
 
 
 def try_channel(name, callback):
@@ -1449,8 +1491,9 @@ def try_channel(name, callback):
         logging.info("%s 推送成功", name)
         return {"channel": name, "ok": True}
     except Exception as exc:
-        logging.error("%s 推送失败: %s", name, exc)
-        return {"channel": name, "ok": False, "error": str(exc)}
+        category = type(exc).__name__
+        logging.error("%s 推送失败: %s", name, category)
+        return {"channel": name, "ok": False, "error_category": category}
 
 
 def has_channel(config):
@@ -1491,7 +1534,8 @@ def send_notification(title, content, config):
     if pushplus.get("token"):
         dispatchers.append(("pushplus", lambda: post_json(
             "https://www.pushplus.plus/send",
-            {"token": pushplus["token"], "title": title, "content": content, "template": "txt"}
+            {"token": pushplus["token"], "title": title, "content": content, "template": "txt"},
+            success_codes=(200, "200")
         )))
 
     bark = channels.get("bark") or {}
@@ -1501,18 +1545,21 @@ def send_notification(title, content, config):
             f"{server}/{urllib.parse.quote(bark['key'])}/"
             f"{urllib.parse.quote(title)}/{urllib.parse.quote(content)}"
         )
-        dispatchers.append(("bark", lambda: http_get(url)))
+        dispatchers.append(("bark", lambda: http_get(url, success_codes=(200, "200"))))
 
     generic = channels.get("generic") or {}
     if generic.get("webhook"):
         dispatchers.append(("generic", lambda: post_json(
-            generic["webhook"], {"title": title, "content": content}
+            generic["webhook"], {"title": title, "content": content}, success_codes=None
         )))
 
     labels = {
         "dingtalk": "钉钉", "wecom": "企业微信", "serverchan": "Server酱",
         "pushplus": "PushPlus", "bark": "Bark", "generic": "通用Webhook",
     }
+    if not dispatchers:
+        return [{"channel": "none", "ok": False,
+                 "error_category": "NoConfiguredChannel"}]
     delivery = config.get("delivery") or {}
     mode = str(delivery.get("mode", "broadcast")).strip().lower()
     if mode != "primary_fallback":
@@ -1541,7 +1588,85 @@ def send_notification(title, content, config):
         results.append(result)
         if result.get("ok"):
             break
-    return results
+    return results or [{"channel": "none", "ok": False,
+                        "error_category": "NoRequestedChannel"}]
+
+
+def _load_outbox():
+    if not os.path.exists(NOTIFICATION_OUTBOX_PATH):
+        return {"schema_version": NOTIFICATION_OUTBOX_SCHEMA_VERSION, "events": []}
+    try:
+        with open(NOTIFICATION_OUTBOX_PATH, encoding="utf-8") as file:
+            data = json.load(file)
+        if not isinstance(data, dict) or not isinstance(data.get("events"), list):
+            raise ValueError("notification outbox must contain an events list")
+        data.setdefault("schema_version", NOTIFICATION_OUTBOX_SCHEMA_VERSION)
+        return data
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"notification outbox cannot be loaded: {exc}") from exc
+
+
+def _save_outbox(outbox):
+    outbox["schema_version"] = NOTIFICATION_OUTBOX_SCHEMA_VERSION
+    events = outbox.get("events", [])
+    active = [item for item in events if item.get("status") in {"pending", "exhausted"}]
+    terminal = [item for item in events if item.get("status") not in {"pending", "exhausted"}]
+    terminal_slots = max(0, 1000 - len(active))
+    outbox["events"] = active + (terminal[-terminal_slots:] if terminal_slots else [])
+    atomic_write_json(NOTIFICATION_OUTBOX_PATH, outbox)
+
+
+def _dispatch_outbox_event(item, config):
+    results = send_notification(item["title"], item["content"], config)
+    if not isinstance(results, list):
+        results = []
+    delivered = any(result.get("ok") for result in results)
+    item["attempts"] = int(item.get("attempts") or 0) + 1
+    item["last_attempt_epoch_ms"] = int(time.time() * 1000)
+    item["last_results"] = results
+    item["status"] = "delivered" if delivered else "pending"
+    if delivered:
+        item["delivered_epoch_ms"] = item["last_attempt_epoch_ms"]
+    return delivered, results
+
+
+def send_outbox_notification(event_id, title, content, config, metadata=None,
+                             ttl_minutes=None, max_attempts=None, expires_epoch_ms=None):
+    """Persist first, then attempt delivery; retries reuse the same event ID."""
+    outbox = _load_outbox()
+    now = int(time.time() * 1000)
+    ttl = max(1, int(ttl_minutes or (config.get("delivery") or {}).get(
+        "signal_ttl_minutes", DEFAULT_NOTIFICATION_TTL_MINUTES)))
+    item = next((entry for entry in outbox["events"] if entry.get("event_id") == event_id), None)
+    if item is None:
+        item = {
+            "event_id": event_id,
+            "title": title,
+            "content": content,
+            "metadata": metadata or {},
+            "created_epoch_ms": now,
+            "expires_epoch_ms": int(expires_epoch_ms or (now + ttl * 60 * 1000)),
+            "attempts": 0,
+            "status": "pending",
+        }
+        outbox["events"].append(item)
+        _save_outbox(outbox)
+    if item.get("status") == "delivered":
+        return {"event_id": event_id, "delivered": True, "results": item.get("last_results") or []}
+    if now > int(item.get("expires_epoch_ms") or now):
+        item["status"] = "expired"
+        _save_outbox(outbox)
+        return {"event_id": event_id, "delivered": False, "expired": True,
+                "results": item.get("last_results") or []}
+    limit = max_attempts or (config.get("delivery") or {}).get("max_attempts", DEFAULT_NOTIFICATION_MAX_ATTEMPTS)
+    if int(item.get("attempts") or 0) >= int(limit):
+        item["status"] = "exhausted"
+        _save_outbox(outbox)
+        return {"event_id": event_id, "delivered": False, "exhausted": True,
+                "results": item.get("last_results") or []}
+    delivered, results = _dispatch_outbox_event(item, config)
+    _save_outbox(outbox)
+    return {"event_id": event_id, "delivered": delivered, "results": results}
 
 
 def build_message(event, config):
@@ -2054,6 +2179,7 @@ def build_turtle_message(event, config):
 
 def process_events(events, config):
     deliveries = []
+    attempted_event_ids = set()
     for event in events:
         if event.get("turtle"):
             title = f"CoinPulse {event['symbol']} {event['label']}"
@@ -2067,16 +2193,81 @@ def process_events(events, config):
         else:
             title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_message(event, config)
+        timing = event.get("timing") or {}
+        if timing.get("shadow_entry_status") == "late":
+            event["notification_status"] = "expired"
+            record_signal_event(event, config)
+            deliveries.append({"symbol": event.get("symbol"), "delivered": False,
+                               "expired": True, "results": []})
+            logging.warning("过期信号仅记录诊断，不发送也不登记影子交易: %s %s",
+                            event.get("symbol"), event.get("interval"))
+            continue
+        event_id = "spot-signal|{}|{}|{}|{}".format(
+            event.get("symbol"), event.get("interval"), event.get("bar_time"),
+            event.get("direction"), (event.get("trade_plan") or {}).get("system", event.get("label"))
+        )
         dispatch_started = int(time.time() * 1000)
-        results = send_notification(title, content, config)
+        delivery = send_outbox_notification(
+            event_id, title, content, config,
+            metadata={"market_type": "spot", "symbol": event.get("symbol"),
+                      "bar_time": event.get("bar_time")},
+            expires_epoch_ms=(int(timing.get("bar_close_epoch"))
+                              + int(timing.get("grace_minutes", 10)) * 60 * 1000)
+            if timing.get("bar_close_epoch") else None,
+        )
+        attempted_event_ids.add(event_id)
+        results = delivery.get("results") or []
         dispatch_completed = int(time.time() * 1000)
         event["dispatch_started_epoch"] = dispatch_started
         event["dispatch_completed_epoch"] = dispatch_completed
+        event["notification_event_id"] = event_id
+        event["notification_status"] = "delivered" if delivery.get("delivered") else "queued"
         logging.info("发现信号: %s", content.replace("\n", " / "))
         record_signal_event(event, config)
         register_trade(event, config)
-        deliveries.append({"symbol": event.get("symbol"), "results": results})
+        deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
+                           "delivered": delivery.get("delivered", False),
+                           "results": results})
+    # Retry older pending lifecycle messages on every scan, including scans
+    # that discover no new signal.
+    outbox = _load_outbox()
+    for item in outbox.get("events", []):
+        if item.get("status") != "pending" or item.get("event_id") in attempted_event_ids:
+            continue
+        delivery = send_outbox_notification(
+            item["event_id"], item["title"], item["content"], config,
+            metadata=item.get("metadata"),
+        )
+        deliveries.append({"event_id": item["event_id"],
+                           "delivered": delivery.get("delivered", False),
+                           "results": delivery.get("results") or []})
     return deliveries
+
+
+def send_daily_status_digest(config, scan, portfolio, now=None):
+    delivery_config = config.get("delivery") or {}
+    if not delivery_config.get("daily_digest_enabled", True):
+        return None
+    instant = now or datetime.now(CHINA_TZ)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=CHINA_TZ)
+    hour = max(0, min(23, int(delivery_config.get("daily_digest_hour_beijing", 9))))
+    if instant.astimezone(CHINA_TZ).hour < hour:
+        return None
+    date_key = instant.astimezone(CHINA_TZ).strftime("%Y-%m-%d")
+    event_id = f"daily-health|{date_key}"
+    content = "\n".join([
+        f"CoinPulse 每日运行摘要 {date_key}",
+        f"现货扫描：{scan.get('successful_markets', 0)}/{scan.get('expected_markets', 0)}，覆盖率 {scan.get('coverage_pct', 0)}%",
+        f"数据源：{', '.join(scan.get('providers') or []) or '--'}",
+        f"候选信号：{scan.get('candidate_signals', 0)}",
+        f"现货影子仓位：{portfolio.get('open_trades', 0)}，待成交：{portfolio.get('awaiting_fill', 0)}",
+        f"运行编号：{scan.get('run_id', '--')}",
+    ])
+    return send_outbox_notification(
+        event_id, f"CoinPulse 每日运行摘要 {date_key}", content, config,
+        metadata={"kind": "daily_health", "date": date_key}, ttl_minutes=1440,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -2490,11 +2681,19 @@ def main():
             deliveries = process_events(events, config)
             state = load_state()
             settle_trades(state, config)
+            scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
+            portfolio = portfolio_risk_snapshot(state, config)
+            daily_delivery = send_daily_status_digest(config, scan_health, portfolio)
+            if daily_delivery:
+                deliveries.append({"event_id": daily_delivery["event_id"],
+                                   "delivered": daily_delivery["delivered"],
+                                   "results": daily_delivery.get("results") or []})
+            delivery_status = "ok" if all(item.get("delivered", True) for item in deliveries) else "degraded"
             write_monitor_health(
-                scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
+                scan=scan_health,
                 notifications=deliveries,
-                portfolio=portfolio_risk_snapshot(state, config),
-                status="ok",
+                portfolio=portfolio,
+                status=delivery_status,
             )
             return 0
         except Exception as exc:
@@ -2505,6 +2704,7 @@ def main():
             try:
                 state.clear()
                 state.update(state_before_scan)
+                save_state(state)
                 write_monitor_health(
                     scan=scan_health_payload(
                         run_id,
@@ -2551,14 +2751,25 @@ def main():
             # 结算未平仓交易（用最新行情）
             state = load_state()
             settle_trades(state, config)
+            scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
+            portfolio = portfolio_risk_snapshot(state, config)
+            daily_delivery = send_daily_status_digest(config, scan_health, portfolio)
+            if daily_delivery:
+                deliveries.append({"event_id": daily_delivery["event_id"],
+                                   "delivered": daily_delivery["delivered"],
+                                   "results": daily_delivery.get("results") or []})
+            delivery_status = "ok" if all(item.get("delivered", True) for item in deliveries) else "degraded"
             write_monitor_health(
-                scan=scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected"))),
+                scan=scan_health,
                 notifications=deliveries,
-                portfolio=portfolio_risk_snapshot(state, config),
-                status="ok",
+                portfolio=portfolio,
+                status=delivery_status,
             )
         except Exception as exc:
             logging.exception("扫描失败: %s", exc)
+            state.clear()
+            state.update(state_before_scan)
+            save_state(state)
             write_monitor_health(status="failed")
         time.sleep(max(10, float(config.get("refresh_seconds", 30))))
 

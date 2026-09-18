@@ -65,7 +65,16 @@ def send_serverchan(sendkey, title, content):
     payload = urllib.parse.urlencode({"title": title, "desp": content}).encode("utf-8")
     request = urllib.request.Request(url, data=payload, method="POST")
     with urllib.request.urlopen(request, timeout=10) as response:
-        return 200 <= response.status < 300
+        body = response.read()
+        if not 200 <= response.status < 300:
+            raise RuntimeError(f"ServerChan HTTP status {response.status}")
+    try:
+        result = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("ServerChan returned invalid JSON") from exc
+    if not isinstance(result, dict) or result.get("code") not in (0, "0"):
+        raise RuntimeError("ServerChan rejected health alert")
+    return True
 
 
 def health_alert_detail(health, age_seconds):
@@ -263,8 +272,8 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
                     sendkey, "CoinPulse 监控恢复",
                     "监控健康记录已初始化为正常状态。",
                 )
-        except (OSError, ValueError, urllib.error.URLError) as exc:
-            notification_error = str(exc)
+        except (OSError, ValueError, RuntimeError, urllib.error.URLError) as exc:
+            notification_error = type(exc).__name__
     next_state = {
         "status": current,
         "checked_at_epoch": int(time.time() if now is None else now),
@@ -278,7 +287,9 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
         "risk_tier_unavailable_symbols": tier_state["unavailable_symbols"],
         "last_health_status": status,
     }
-    if transition or previous.get("last_health_status") != status or not previous:
+    # Do not acknowledge a transition whose alert was not delivered. Keeping
+    # the previous signature makes the next health run retry the notification.
+    if (transition or previous.get("last_health_status") != status or not previous) and not notification_error:
         atomic_write(ALERT_STATE_PATH, next_state)
     return {
         "status": current, "age_seconds": age,
@@ -287,7 +298,7 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
         "advisory_components": advisory_components,
         "risk_tier_status": tier_state["status"],
         "risk_tier_signature": tier_state["signature"],
-        "notified": notify, "notification_error": notification_error,
+        "notified": notify and not notification_error, "notification_error": notification_error,
     }
 
 

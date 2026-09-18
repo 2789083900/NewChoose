@@ -84,7 +84,7 @@
   "refresh_seconds": 300,
   "max_staleness_intervals": 3,
   "minimum_scan_coverage_pct": 80,
-  "shadow_entry_grace_minutes": 5,
+  "shadow_entry_grace_minutes": 10,
   "dashboard_url": "",
   "strategy": {
     "mode": "turtle",
@@ -149,8 +149,12 @@
     }
   },
   "delivery": {
-    "mode": "broadcast",
+    "mode": "primary_fallback",
     "primary": "serverchan",
-    "fallback": ["pushplus"]
+    "fallback": ["pushplus"],
+    "signal_ttl_minutes": 10,
+    "max_attempts": 8,
+    "daily_digest_enabled": true,
+    "daily_digest_hour_beijing": 9
   }
 }

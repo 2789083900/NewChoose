@@ -1393,8 +1393,6 @@ def dispatch_perpetual_notifications(events, state, config):
     """Send deduplicated lifecycle notifications through existing channels."""
     history = state.setdefault("notification_history", [])
     deliveries = []
-    if not sw.has_channel(config):
-        return deliveries
     sent_ids = {str(item.get("event_id")) for item in history if item.get("ok")}
     for event_type, trade, snapshot in events:
         event_id = _notification_event_id(event_type, trade)
@@ -1402,8 +1400,14 @@ def dispatch_perpetual_notifications(events, state, config):
             continue
         title = f"CoinPulse 永续 {trade.get('symbol', 'UNKNOWN')} {event_type}"
         content = _perpetual_notification_content(event_type, trade, snapshot)
-        results = sw.send_notification(title, content, config)
-        ok = any(item.get("ok") for item in results)
+        delivery = sw.send_outbox_notification(
+            event_id, title, content, config,
+            metadata={"market_type": "linear_perpetual", "event_type": event_type,
+                      "trade_id": trade.get("id"), "symbol": trade.get("symbol")},
+            ttl_minutes=10 if event_type == "signal_created" else 1440,
+        )
+        results = delivery.get("results") or []
+        ok = bool(delivery.get("delivered"))
         history.append({"event_id": event_id, "event_type": event_type,
                         "trade_id": trade.get("id"), "attempted_at_epoch_ms": int(time.time() * 1000),
                         "ok": ok, "results": results})

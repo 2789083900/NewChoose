@@ -22,6 +22,7 @@ import collect_perp_snapshot
 import run_perp_backtest
 import perp_shadow
 import validate_perp_shadow
+import validate_notification_outbox
 import check_monitor_health
 import console_output
 from track_signals import build_quality_report
@@ -1087,7 +1088,9 @@ class TurtleCoreTests(unittest.TestCase):
             "leverage": 3.0, "risk_fraction": 0.005,
         }
         config = {"channels": {"generic": {"webhook": "https://example.invalid"}}}
-        with mock.patch.object(sw, "has_channel", return_value=True), \
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", os.path.join(directory, "outbox.json")), \
+             mock.patch.object(sw, "has_channel", return_value=True), \
              mock.patch.object(sw, "send_notification", return_value=[{"channel": "mock", "ok": True}]) as notify:
             first = perp_shadow.dispatch_perpetual_notifications(
                 [("signal_created", trade, {})], state, config
@@ -2897,6 +2900,23 @@ class TurtleCoreTests(unittest.TestCase):
             self.assertEqual(second["status"], "stale")
             self.assertEqual(notify.call_count, 1)
 
+    def test_monitor_health_retries_failed_alert_transition(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", side_effect=RuntimeError("rejected")) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 100, "status": "ok"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:33:10Z"}, file)
+            first = check_monitor_health.check(max_age_minutes=20, now=2000, sendkey="SCT-test")
+            second = check_monitor_health.check(max_age_minutes=20, now=2001, sendkey="SCT-test")
+        self.assertFalse(first["notified"])
+        self.assertEqual(first["notification_error"], "RuntimeError")
+        self.assertEqual(notify.call_count, 2)
+        self.assertEqual(second["status"], "stale")
+
     def test_monitor_health_alert_includes_scan_diagnostics(self):
         health = {
             "updated_at": "2026-09-11 13:29:28",
@@ -3219,11 +3239,132 @@ class TurtleCoreTests(unittest.TestCase):
                             "next_add": 105, "unit_quantity": 1, "max_units": 4,
                             "exit_days": 20, "exit_level": 80},
         }
-        with mock.patch.object(sw, "send_notification") as notify, \
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", os.path.join(directory, "outbox.json")), \
+             mock.patch.object(sw, "send_notification") as notify, \
              mock.patch.object(sw, "record_signal_event"), \
              mock.patch.object(sw, "register_trade"):
             sw.process_events([event], {})
         self.assertEqual(notify.call_args.args[0], "CoinPulse BNBUSDT 海龟突破做多")
+
+
+class ReliableNotificationTests(unittest.TestCase):
+    def test_provider_business_error_is_not_treated_as_success(self):
+        with self.assertRaises(RuntimeError):
+            sw._validate_notification_response(200, b'{"code":500,"msg":"bad token"}')
+        result = sw._validate_notification_response(200, b'{"code":0,"msg":"success"}')
+        self.assertEqual(result["response"]["code"], 0)
+        pushplus = sw._validate_notification_response(
+            200, b'{"code":200,"msg":"success"}', (200, "200")
+        )
+        self.assertEqual(pushplus["response"]["code"], 200)
+
+    def test_primary_failure_uses_pushplus_fallback(self):
+        config = {
+            "channels": {
+                "serverchan": {"sendkey": "test"},
+                "pushplus": {"token": "test"},
+            },
+            "delivery": {"mode": "primary_fallback", "primary": "serverchan",
+                         "fallback": ["pushplus"]},
+        }
+        with mock.patch.object(sw, "post_form", side_effect=TimeoutError("timeout")), \
+             mock.patch.object(sw, "post_json", return_value={"status": 200}):
+            results = sw.send_notification("title", "body", config)
+        self.assertEqual([item["ok"] for item in results], [False, True])
+
+    def test_late_signal_is_diagnostic_only(self):
+        event = {
+            "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+            "label": "海龟突破做多", "turtle": True, "trade_plan": {"system": "system2"},
+            "timing": {"shadow_entry_status": "late"}, "price": "100", "change": 1,
+            "grade": "S2", "reason": "breakout", "strategy": "test", "time": "now",
+        }
+        with mock.patch.object(sw, "send_outbox_notification") as send, \
+             mock.patch.object(sw, "record_signal_event") as record, \
+             mock.patch.object(sw, "register_trade") as register, \
+             mock.patch.object(sw, "_load_outbox", return_value={"events": []}):
+            deliveries = sw.process_events([event], {})
+        send.assert_not_called()
+        record.assert_called_once()
+        register.assert_not_called()
+        self.assertTrue(deliveries[0]["expired"])
+
+    def test_outbox_retries_same_event_until_delivered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "notification_outbox.json")
+            with mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", path), \
+                 mock.patch.object(sw, "send_notification", side_effect=[
+                     [{"channel": "Server酱", "ok": False, "error": "timeout"}],
+                     [{"channel": "PushPlus", "ok": True}],
+                 ]):
+                first = sw.send_outbox_notification("event-1", "title", "body", {})
+                second = sw.send_outbox_notification("event-1", "title", "body", {})
+            self.assertFalse(first["delivered"])
+            self.assertTrue(second["delivered"])
+            with open(path, encoding="utf-8") as file:
+                outbox = json.load(file)
+            self.assertEqual(len(outbox["events"]), 1)
+            self.assertEqual(outbox["events"][0]["attempts"], 2)
+            self.assertEqual(outbox["events"][0]["status"], "delivered")
+
+    def test_outbox_validator_fails_for_pending_delivery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "notification_outbox.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump({"schema_version": 1, "events": [{
+                    "event_id": "pending-1", "status": "pending",
+                    "expires_epoch_ms": 2000,
+                }]}, file)
+            result = validate_notification_outbox.validate(path, now_ms=1000)
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["pending"], 1)
+
+    def test_outbox_validator_requires_primary_and_fallback_credentials(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outbox_path = os.path.join(directory, "outbox.json")
+            config_path = os.path.join(directory, "config.json")
+            with open(outbox_path, "w", encoding="utf-8") as file:
+                json.dump({"schema_version": 1, "events": []}, file)
+            with open(config_path, "w", encoding="utf-8") as file:
+                json.dump({
+                    "delivery": {"mode": "primary_fallback", "primary": "serverchan",
+                                 "fallback": ["pushplus"]},
+                    "channels": {"serverchan": {"sendkey": "configured"},
+                                 "pushplus": {"token": ""}},
+                }, file)
+            result = validate_notification_outbox.validate(
+                outbox_path, now_ms=1000, config_path=config_path
+            )
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["missing_delivery_channels"], ["pushplus"])
+
+    def test_workflow_persists_and_validates_notification_outbox(self):
+        workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        self.assertIn("notification_outbox.json", text)
+        self.assertIn("id: validate_notifications", text)
+        self.assertLess(text.index("id: validate_notifications"),
+                        text.index("name: Send external success heartbeat"))
+
+    def test_daily_digest_is_deduplicated_by_beijing_date(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "notification_outbox.json")
+            config = {"channels": {"serverchan": {"sendkey": "test"}},
+                      "delivery": {"daily_digest_enabled": True,
+                                   "daily_digest_hour_beijing": 9}}
+            scan = {"run_id": "run-1", "successful_markets": 2,
+                    "expected_markets": 2, "coverage_pct": 100,
+                    "providers": ["okx"], "candidate_signals": 0}
+            portfolio = {"open_trades": 0, "awaiting_fill": 0}
+            now = sw.datetime(2026, 9, 18, 9, 0, tzinfo=sw.CHINA_TZ)
+            with mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", path), \
+                 mock.patch.object(sw, "send_notification",
+                                   return_value=[{"channel": "Server酱", "ok": True}]) as send:
+                sw.send_daily_status_digest(config, scan, portfolio, now=now)
+                sw.send_daily_status_digest(config, scan, portfolio, now=now)
+            self.assertEqual(send.call_count, 1)
 
 
 if __name__ == "__main__":

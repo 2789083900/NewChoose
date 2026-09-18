@@ -93,11 +93,57 @@ def validate_backtest_report(path):
     return errors
 
 
+def validate_spot_research_comparison(path):
+    errors = []
+    try:
+        with open(path, encoding="utf-8") as file:
+            report = json.load(file)
+    except (OSError, ValueError) as exc:
+        return [f"无法读取快速研究报告：{exc}"]
+    if report.get("errors"):
+        errors.append("快速研究报告存在失败币种")
+    profiles = report.get("profiles") or {}
+    expected = {"formal_s2_4h": "system2", "fast_s1_4h": "system1"}
+    for name, system in expected.items():
+        profile = profiles.get(name) or {}
+        if profile.get("system") != system:
+            errors.append(f"{name} 系统身份错误")
+        if not profile.get("cohort_id") or not profile.get("strategy_version"):
+            errors.append(f"{name} 缺少独立策略身份")
+    if (profiles.get("formal_s2_4h") or {}).get("cohort_id") == (profiles.get("fast_s1_4h") or {}).get("cohort_id"):
+        errors.append("S1/S2 cohort 不得相同")
+    summary = report.get("summary") or {}
+    for name in expected:
+        for period in ("full", "out_of_sample"):
+            metrics = (summary.get(name) or {}).get(period) or {}
+            for field in ("candidates", "closed_trades", "candidates_per_symbol_year",
+                          "mean_symbol_return", "worst_symbol_drawdown",
+                          "worst_consecutive_losses", "sample_reliability"):
+                if field not in metrics:
+                    errors.append(f"{name}/{period} 缺少字段：{field}")
+        stress_summary = (summary.get(name) or {}).get("out_of_sample_cost_stress") or {}
+        for field in ("mean_baseline_return", "mean_double_cost_return", "mean_quadruple_cost_return"):
+            if field not in stress_summary:
+                errors.append(f"{name} 汇总成本压力缺少字段：{field}")
+    for symbol, result in (report.get("results") or {}).items():
+        for name in expected:
+            stress = ((result.get(name) or {}).get("out_of_sample_cost_stress") or {})
+            for field in ("baseline_return", "double_cost_return", "quadruple_cost_return"):
+                if field not in stress:
+                    errors.append(f"{symbol}/{name} 成本压力缺少字段：{field}")
+    if not report.get("results"):
+        errors.append("快速研究报告没有成功结果")
+    return errors
+
+
 def main():
     parser = argparse.ArgumentParser(description="CoinPulse 回测报告质量检查")
     parser.add_argument("--backtest", default="turtle_backtest_compare.json")
+    parser.add_argument("--spot-research")
     args = parser.parse_args()
     errors = validate_backtest_report(args.backtest)
+    if args.spot_research:
+        errors.extend(validate_spot_research_comparison(args.spot_research))
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)

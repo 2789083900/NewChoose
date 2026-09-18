@@ -25,6 +25,8 @@ STATE_PATH = os.path.join(BASE_DIR, "signal_watch.state.json")
 LOG_PATH = os.path.join(BASE_DIR, "signal_watch.log")
 SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
 RESEARCH_SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "research_signal_records.json")
+RESEARCH_TRADE_STATE_PATH = os.path.join(BASE_DIR, "research_trade_state.json")
+RESEARCH_TRADE_STATS_PATH = os.path.join(BASE_DIR, "research_trade_stats.json")
 NOTIFICATION_OUTBOX_PATH = os.path.join(BASE_DIR, "notification_outbox.json")
 NOTIFICATION_OUTBOX_SCHEMA_VERSION = 1
 DEFAULT_NOTIFICATION_TTL_MINUTES = 10
@@ -1351,6 +1353,29 @@ def save_state(state):
     atomic_write_json(STATE_PATH, state)
 
 
+def load_trade_state(path=STATE_PATH):
+    if path == STATE_PATH:
+        return load_state()
+    if not os.path.exists(path):
+        return {"schema_version": STATE_SCHEMA_VERSION, "open_trades": [], "closed_trades": []}
+    with open(path, encoding="utf-8") as file:
+        data = json.load(file)
+    if not isinstance(data, dict):
+        raise ValueError(f"invalid trade state: {path}")
+    data.setdefault("schema_version", STATE_SCHEMA_VERSION)
+    data.setdefault("open_trades", [])
+    data.setdefault("closed_trades", [])
+    return data
+
+
+def save_trade_state(state, path=STATE_PATH):
+    if path == STATE_PATH:
+        save_state(state)
+    else:
+        state["schema_version"] = STATE_SCHEMA_VERSION
+        atomic_write_json(path, state)
+
+
 def load_signal_records(path=SIGNAL_RECORDS_PATH):
     if not os.path.exists(path):
         return []
@@ -1975,7 +2000,7 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None, pr
             trade_plan = None
             grade = "回测年化+12%~+23%"
         early_warning = None
-        if mode == "turtle" and (config.get("early_warning") or {}).get("enabled", True) and not direction and trade_plan and trade_plan.get("wait"):
+        if mode == "turtle" and not profile.get("research_only") and (config.get("early_warning") or {}).get("enabled", True) and not direction and trade_plan and trade_plan.get("wait"):
             warning_n = max(0.0, float((config.get("early_warning") or {}).get("distance_n", 0.5)))
             price = float(trade_plan.get("price") or 0)
             n_value = float(trade_plan.get("n") or 0)
@@ -2109,13 +2134,15 @@ def scan_once(config, state, run_id=None, diagnostics=None):
         queue_symbols = queue.get("symbols") or symbols
         queue_intervals = queue.get("intervals") or ["4h"]
         queue_events = []
+        research_state = load_trade_state(RESEARCH_TRADE_STATE_PATH)
         for symbol in queue_symbols:
             if str(symbol).upper() in disabled_symbols:
                 continue
             for interval in queue_intervals:
-                ev = _scan_one(symbol, interval, state, config, None, run_id, profile)
+                ev = _scan_one(symbol, interval, research_state, config, None, run_id, profile)
                 if ev:
                     queue_events.append(ev)
+        save_trade_state(research_state, RESEARCH_TRADE_STATE_PATH)
         events.extend(queue_events)
     return events
 
@@ -2226,7 +2253,7 @@ def build_turtle_message(event, config):
     timing = event.get("timing") or {}
     status = "窗口已错过，禁止追价" if timing.get("shadow_entry_status") == "late" else "窗口内，可按下一根K线开盘观察"
     lines = [
-        f"海龟突破信号 {event['symbol']} {event['interval']}",
+        f"{'快速研究队列' if event.get('research_only') else '海龟突破信号'} {event['symbol']} {event['interval']}",
         f"{plan.get('system', event['grade'])} · {direction}",
         f"现价 {event['price']}（{event['change']:+.2f}%）",
         f"依据：{event['reason']}",
@@ -2238,6 +2265,11 @@ def build_turtle_message(event, config):
         "数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令",
         f"规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多{int(plan.get('max_units') or TURTLE_MAX_UNITS)}单位",
     ]
+    if event.get("research_only"):
+        lines.extend([
+            "性质：S1 4h 独立研究信号，不属于正式 S2 样本",
+            "动作：仅观察并积累完整影子交易，不据此自动升级策略",
+        ])
     dashboard_url = config.get("dashboard_url")
     if dashboard_url:
         lines.append(f"看板：{dashboard_url}")
@@ -2327,8 +2359,10 @@ def process_events(events, config):
         event["notification_status"] = "delivered" if delivery.get("delivered") else "queued"
         logging.info("发现信号: %s", content.replace("\n", " / "))
         record_signal_event(event, config)
-        if not event.get("research_only"):
-            register_trade(event, config)
+        register_trade(
+            event, config,
+            state_path=RESEARCH_TRADE_STATE_PATH if event.get("research_only") else STATE_PATH,
+        )
         deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
                            "delivered": delivery.get("delivered", False),
                            "results": results})
@@ -2381,9 +2415,9 @@ def send_daily_status_digest(config, scan, portfolio, now=None):
 TRADE_STATS_PATH = os.path.join(BASE_DIR, "trade_stats.json")
 
 
-def register_trade(event, config):
+def register_trade(event, config, state_path=STATE_PATH):
     """信号推送时登记一笔未平仓交易，优先使用结构化策略字段。"""
-    state = load_state()
+    state = load_trade_state(state_path)
     trades = state.setdefault("open_trades", [])
     # 提取价格：策略文本里已有，解析出来
     try:
@@ -2462,7 +2496,7 @@ def register_trade(event, config):
     # 避免重复登记同一信号
     if not any(t["id"] == trade["id"] for t in trades):
         trades.append(trade)
-        save_state(state)
+        save_trade_state(state, state_path)
 
 
 def manage_turtle_trade(trade, klines):
@@ -2566,7 +2600,7 @@ def manage_turtle_trade(trade, klines):
     return trade
 
 
-def settle_trades(state, config, trade_stats_path=None):
+def settle_trades(state, config, trade_stats_path=None, state_path=STATE_PATH):
     """用最新行情结算未平仓交易：触达止损=亏，触达目标=赚"""
     open_trades = state.get("open_trades", [])
     if not open_trades:
@@ -2673,9 +2707,20 @@ def settle_trades(state, config, trade_stats_path=None):
 
     state["open_trades"] = remaining
     if settled or state_changed:
-        save_state(state)
+        save_trade_state(state, state_path)
     if settled:
         write_trade_stats(state, output_path=trade_stats_path)
+    return settled
+
+
+def settle_research_trades(config):
+    state = load_trade_state(RESEARCH_TRADE_STATE_PATH)
+    settled = settle_trades(
+        state, config, trade_stats_path=RESEARCH_TRADE_STATS_PATH,
+        state_path=RESEARCH_TRADE_STATE_PATH,
+    )
+    # Preserve state-key changes made during scans even when no trade closes.
+    save_trade_state(state, RESEARCH_TRADE_STATE_PATH)
     return settled
 
 
@@ -2785,6 +2830,7 @@ def main():
             deliveries = process_events(events, config)
             state = load_state()
             settle_trades(state, config)
+            settle_research_trades(config)
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
             daily_delivery = send_daily_status_digest(config, scan_health, portfolio)
@@ -2855,6 +2901,7 @@ def main():
             # 结算未平仓交易（用最新行情）
             state = load_state()
             settle_trades(state, config)
+            settle_research_trades(config)
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
             daily_delivery = send_daily_status_digest(config, scan_health, portfolio)

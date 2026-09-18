@@ -248,7 +248,9 @@ python signal_watch.py --test
 
 现货和永续通知共用 `notification_outbox.json` 持久化发件箱。消息先按稳定事件 ID 落盘，再按 Server酱主通道、PushPlus 备用通道发送；只有平台业务返回码确认成功后才标记送达。失败消息会在后续扫描中重试，未送达积压会让工作流失败并阻止外部成功心跳。每天北京时间 09:00 后的首轮成功扫描还会发送一次运行摘要，作为推送链路的每日存活验证。
 
-现货扫描还提供独立的 S1 4h 快速研究队列和接近突破预警。快速队列记录到 `research_signal_records.json` / `research_signal_tracking_stats.json`，不登记正式影子持仓、不占用正式组合容量；预警只提醒距离突破线约 0.5N 或 0.2N 内的观察机会，不计入任何交易样本。
+现货扫描还提供独立的 S1 4h 快速研究队列和接近突破预警。快速队列的信号、完整影子持仓和统计分别记录到 `research_signal_records.json`、`research_trade_state.json`、`research_trade_stats.json` 与 `research_signal_tracking_stats.json`，不占用正式 S2 组合容量；S1 持仓结算后会正确维护“盈利后跳过下一次突破”状态。预警只提醒距离突破线约 0.5N 或 0.2N 内的观察机会，不计入任何交易样本。
+
+每周回测还会生成 `spot_fast_research_compare.json`，使用同一批历史快照对比 S2 正式基线和 S1 快速研究队列。报告分别展示全样本与后 30% 样本外的候选密度、完整交易数、胜率、平均币种收益、最差回撤、连续亏损及 2 倍/4 倍成本结果；该报告固定输出 `keep_research_only`，不会根据一次回测自动升级快速队列或修改线上参数。
 
 永续影子推送还会显示预定成交时间、信号有效期、预估保证金、预估最大亏损和组合剩余风险容量；成交/退出消息会显示实际成交时间。默认 `delivery.mode=primary_fallback` 使用 Server酱主通道和 PushPlus 备用通道；只有明确改为 `broadcast` 时才会同时发送到所有已配置渠道。GitHub Actions 的 `workflow_dispatch` 现提供 `test_perp_push`，只发送一条确定性的永续研究测试消息，不读取行情、不写入运行状态。
 

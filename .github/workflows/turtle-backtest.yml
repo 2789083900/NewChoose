@@ -68,15 +68,26 @@ jobs:
       - name: Run tests
         run: python -m unittest discover -v
 
+      - name: Compare S1 fast research with S2 baseline
+        env:
+          BARS: ${{ github.event.inputs.bars || '3600' }}
+          TEST_RATIO: ${{ github.event.inputs.test_ratio || '0.3' }}
+        run: >-
+          python compare_spot_research.py
+          --bars "$BARS"
+          --test-ratio "$TEST_RATIO"
+          --config signal_watch.config.template.json
+          --output spot_fast_research_compare.json
+
       - name: Validate report before publish
-        run: python validate_reports.py --backtest turtle_backtest_compare.json
+        run: python validate_reports.py --backtest turtle_backtest_compare.json --spot-research spot_fast_research_compare.json
 
       - name: Publish report
         shell: bash
         run: |
           git config user.name "coinpulse-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -f turtle_backtest_compare.json backtest_data
+          git add -f turtle_backtest_compare.json spot_fast_research_compare.json backtest_data
           if git diff --cached --quiet; then
             echo "backtest report unchanged"
           else

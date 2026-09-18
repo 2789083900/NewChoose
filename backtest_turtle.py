@@ -99,9 +99,10 @@ def higher_trend_lookup(daily, period=200):
 def simulate(
     klines, daily, filters, capital=CAPITAL,
     fee_rate=FEE_RATE, slippage_rate=SLIPPAGE_RATE,
-    start_index=None, end_index=None, risk_fraction=sw.TURTLE_RISK_FRACTION
+    start_index=None, end_index=None, risk_fraction=sw.TURTLE_RISK_FRACTION,
+    system=SYSTEM,
 ):
-    params = sw.turtle_params(SYSTEM, INTERVAL)
+    params = sw.turtle_params(system, INTERVAL)
     n_series = sw.calc_n_series(klines, params["n_period"])
     higher_at = higher_trend_lookup(daily)
     start = max(params["entry_bars"], params["n_period"])
@@ -114,9 +115,10 @@ def simulate(
     trades = []
     candidates = 0
     filtered = 0
+    system1_blocked = False
 
     def close_position(index, price, reason):
-        nonlocal equity, position
+        nonlocal equity, position, system1_blocked
         raw_exit = gap_adjusted_trigger(
             klines[index], position["direction"], "exit", price
         )
@@ -140,6 +142,8 @@ def simulate(
             "reason": reason,
             "units": len(position["units"]),
         })
+        if system == "system1":
+            system1_blocked = net > 0
         position = None
 
     first_index = start if start_index is None else max(start, int(start_index))
@@ -147,7 +151,7 @@ def simulate(
     for index in range(first_index, last_index):
         bar = klines[index]
         n = n_series[index]
-        levels = sw.turtle_levels(klines, index, SYSTEM, INTERVAL)
+        levels = sw.turtle_levels(klines, index, system, INTERVAL)
         if not levels or n is None or n <= 0:
             continue
 
@@ -195,10 +199,13 @@ def simulate(
         if not position and not exited and pending_entry is None and index + 1 < last_index:
             higher = higher_at(bar["time"])
             breakout = sw.build_turtle_signal(
-                klines[:index + 1], SYSTEM, equity, risk_fraction, INTERVAL,
+                klines[:index + 1], system, equity, risk_fraction, INTERVAL,
+                system1_blocked=system1_blocked,
                 filter_options=filters, higher_trend=higher
             )
             plan = breakout[2]
+            if plan and plan.get("blocked"):
+                system1_blocked = False
             if plan and plan.get("filtered"):
                 filtered += 1
             if breakout[0]:
@@ -275,6 +282,7 @@ def simulate(
         max_drawdown = min(max_drawdown, (liquidated_equity - peak) / peak)
     return {
         "bars": len(klines),
+        "evaluated_bars": max(0, last_index - first_index),
         "trades": closed,
         "sample_reliability": "insufficient_sample" if closed < MIN_RELIABLE_TRADES else "actionable_sample",
         "sample_reliability_note": f"交易数 {closed}，至少需要 {MIN_RELIABLE_TRADES} 笔才作统计判断" if closed < MIN_RELIABLE_TRADES else "交易样本达到最低统计门槛",

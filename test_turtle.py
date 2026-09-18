@@ -11,6 +11,7 @@ import track_signals
 import backtest_turtle
 import backtest_data
 import validate_reports
+import compare_spot_research
 import validate_runtime_state
 import repair_runtime_state
 import derivatives_risk
@@ -3406,6 +3407,98 @@ class ReliableNotificationTests(unittest.TestCase):
             text = file.read()
         self.assertIn("research_signal_records.json", text)
         self.assertIn("research_signal_tracking_stats.json", text)
+
+
+class SpotFastResearchComparisonTests(unittest.TestCase):
+    def test_system1_backtest_skips_breakout_after_winning_trade(self):
+        bars = [{"time": index * 14400000, "open": 110.0 if index >= 3 else 100.0, "high": 112.0,
+                 "low": 105.0, "close": 108.0, "volume": 1000.0}
+                for index in range(8)]
+        blocked_flags = []
+
+        def signal(*args, **kwargs):
+            blocked = kwargs.get("system1_blocked", False)
+            blocked_flags.append(blocked)
+            if len(blocked_flags) == 1:
+                return "long", ["breakout"], {"entry": 100.0, "n": 1.0}
+            if blocked:
+                return None, ["skip"], {"blocked": True}
+            return None, [], None
+
+        levels = {"entry_high": 100.0, "entry_low": 90.0,
+                  "exit_high": 120.0, "exit_low": 110.0}
+        with mock.patch.object(sw, "turtle_params", return_value={
+                "entry_bars": 1, "exit_bars": 1, "n_period": 1}), \
+             mock.patch.object(sw, "calc_n_series", return_value=[1.0] * len(bars)), \
+             mock.patch.object(sw, "turtle_levels", return_value=levels), \
+             mock.patch.object(backtest_turtle, "higher_trend_lookup", return_value=lambda _time: None), \
+             mock.patch.object(sw, "build_turtle_signal", side_effect=signal):
+            backtest_turtle.simulate(
+                bars, [], {"higher_timeframe": False}, system="system1",
+                fee_rate=0, slippage_rate=0,
+            )
+        self.assertIn(True, blocked_flags)
+
+    def test_profiles_keep_s1_and_s2_identity_separate(self):
+        config = {
+            "strategy": {"turtle_system": "system2", "filters": {}},
+            "research_queue": {
+                "turtle_system": "system1",
+                "strategy_version": "s1-v1", "cohort_id": "s1-cohort",
+                "filters": {"higher_timeframe": False},
+            },
+        }
+        profiles = {item["name"]: item for item in compare_spot_research.profiles(config)}
+        self.assertEqual(profiles["formal_s2_4h"]["system"], "system2")
+        self.assertEqual(profiles["fast_s1_4h"]["system"], "system1")
+        self.assertNotEqual(profiles["formal_s2_4h"]["cohort_id"],
+                            profiles["fast_s1_4h"]["cohort_id"])
+        self.assertTrue(profiles["fast_s1_4h"]["research_only"])
+
+    def test_research_report_validator_requires_cost_stress(self):
+        report = {
+            "profiles": {
+                "formal_s2_4h": {"system": "system2", "cohort_id": "s2", "strategy_version": "s2"},
+                "fast_s1_4h": {"system": "system1", "cohort_id": "s1", "strategy_version": "s1"},
+            },
+            "summary": {}, "results": {"BTCUSDT": {
+                "formal_s2_4h": {"out_of_sample_cost_stress": {}},
+                "fast_s1_4h": {"out_of_sample_cost_stress": {}},
+            }}, "errors": {},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "research.json")
+            with open(path, "w", encoding="utf-8") as file:
+                json.dump(report, file)
+            errors = validate_reports.validate_spot_research_comparison(path)
+        self.assertTrue(any("成本压力" in error for error in errors))
+
+    def test_weekly_workflow_publishes_research_comparison(self):
+        workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "turtle-backtest.yml")
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        self.assertIn("compare_spot_research.py", text)
+        self.assertIn("spot_fast_research_compare.json", text)
+
+    def test_research_trade_uses_separate_state_file(self):
+        event = {
+            "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+            "time": "2026-09-18 12:00:00", "bar_time": 1000, "price": "100",
+            "turtle": True, "strategy": "", "trade_plan": {
+                "system": "system1", "entry": 100, "stop": 98, "n": 1,
+                "next_add": 100.5, "exit_days": 10,
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            formal = os.path.join(directory, "formal.json")
+            research = os.path.join(directory, "research.json")
+            with mock.patch.object(sw, "STATE_PATH", formal):
+                sw.register_trade(event, {}, state_path=research)
+            self.assertTrue(os.path.exists(research))
+            self.assertFalse(os.path.exists(formal))
+            with open(research, encoding="utf-8") as file:
+                state = json.load(file)
+        self.assertEqual(state["open_trades"][0]["system"], "system1")
 
 
 if __name__ == "__main__":

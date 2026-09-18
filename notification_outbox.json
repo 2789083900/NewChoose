@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|AVAXUSDT|4h|1789747200000|long|接近突破",
+      "title": "CoinPulse 观察预警 AVAXUSDT 接近突破",
+      "content": "观察预警 AVAXUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.378N\n现价：8.28（+9.09%）\n依据：距上破阈值约0.38N\n当前价 8.28 · 突破阈值 8.33 · N=0.140461\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-18 20:00:00 UTC / 2026-09-19 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "AVAXUSDT",
+        "bar_time": 1789747200000
+      },
+      "created_epoch_ms": 1789768301444,
+      "expires_epoch_ms": 1789768901444,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789768303540,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789768303540
+    },
+    {
       "event_id": "daily-health|2026-09-18",
       "title": "CoinPulse 每日运行摘要 2026-09-18",
       "content": "CoinPulse 每日运行摘要 2026-09-18\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\nS1快速研究：持仓 0，已结算 0，胜率 0%，待观察 0（仅研究，不计入正式样本）\n运行编号：c3269c95e2ff",

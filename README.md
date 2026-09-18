@@ -248,6 +248,8 @@ python signal_watch.py --test
 
 现货和永续通知共用 `notification_outbox.json` 持久化发件箱。消息先按稳定事件 ID 落盘，再按 Server酱主通道、PushPlus 备用通道发送；只有平台业务返回码确认成功后才标记送达。失败消息会在后续扫描中重试，未送达积压会让工作流失败并阻止外部成功心跳。每天北京时间 09:00 后的首轮成功扫描还会发送一次运行摘要，作为推送链路的每日存活验证。
 
+现货扫描还提供独立的 S1 4h 快速研究队列和接近突破预警。快速队列记录到 `research_signal_records.json` / `research_signal_tracking_stats.json`，不登记正式影子持仓、不占用正式组合容量；预警只提醒距离突破线约 0.5N 或 0.2N 内的观察机会，不计入任何交易样本。
+
 永续影子推送还会显示预定成交时间、信号有效期、预估保证金、预估最大亏损和组合剩余风险容量；成交/退出消息会显示实际成交时间。默认 `delivery.mode=primary_fallback` 使用 Server酱主通道和 PushPlus 备用通道；只有明确改为 `broadcast` 时才会同时发送到所有已配置渠道。GitHub Actions 的 `workflow_dispatch` 现提供 `test_perp_push`，只发送一条确定性的永续研究测试消息，不读取行情、不写入运行状态。
 
 单次云端扫描即使因行情接口、配置或网络异常失败，也会先写入 `monitor_health.json` 的 `status=failed` 和运行诊断，再由工作流提交健康记录；这样失联告警会准确反映“扫描失败”，而不是停留在上一次成功时间。

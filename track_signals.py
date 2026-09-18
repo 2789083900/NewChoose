@@ -15,25 +15,26 @@ from signal_archive import archive_and_trim
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
+RESEARCH_SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "research_signal_records.json")
 HORIZONS = {"24h": 24 * 60 * 60 * 1000, "48h": 48 * 60 * 60 * 1000}
 
 
-def load_records():
-    if not os.path.exists(SIGNAL_RECORDS_PATH):
+def load_records(path=SIGNAL_RECORDS_PATH):
+    if not os.path.exists(path):
         return []
     try:
-        with open(SIGNAL_RECORDS_PATH, "r", encoding="utf-8") as file:
+        with open(path, "r", encoding="utf-8") as file:
             data = json.load(file)
         return data if isinstance(data, list) else []
     except (OSError, ValueError):
         return []
 
 
-def save_records(records):
+def save_records(records, path=SIGNAL_RECORDS_PATH):
     records, archived = archive_and_trim(
-        records, os.path.join(BASE_DIR, "signal_archive")
+        records, os.path.join(BASE_DIR, "research_signal_archive" if path == RESEARCH_SIGNAL_RECORDS_PATH else "signal_archive")
     )
-    sw.atomic_write_json(SIGNAL_RECORDS_PATH, records)
+    sw.atomic_write_json(path, records)
     if archived:
         logging.info("已归档 %s 条较早的影子信号记录", archived)
 
@@ -261,20 +262,18 @@ def build_quality_report(records, trade_stats=None):
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     records = load_records()
-    if not records:
-        logging.info("没有待追踪的信号记录")
-        stats = build_stats([])
-        sw.atomic_write_json(os.path.join(BASE_DIR, "signal_tracking_stats.json"), stats)
-        sw.atomic_write_json(
-            os.path.join(BASE_DIR, "signal_quality_report.json"),
-            build_quality_report([], {}),
-        )
-        return 0
-    updated, errors = track_records(records)
-    save_records(records)
+    research_records = load_records(RESEARCH_SIGNAL_RECORDS_PATH)
+    updated, errors = track_records(records) if records else (0, {})
+    research_updated, research_errors = track_records(research_records) if research_records else (0, {})
+    if records:
+        save_records(records)
+    if research_records:
+        save_records(research_records, RESEARCH_SIGNAL_RECORDS_PATH)
     stats_path = os.path.join(BASE_DIR, "signal_tracking_stats.json")
     stats = build_stats(records)
     sw.atomic_write_json(stats_path, stats)
+    sw.atomic_write_json(os.path.join(BASE_DIR, "research_signal_tracking_stats.json"),
+                         build_stats(research_records))
     trade_stats = {}
     trade_stats_path = os.path.join(BASE_DIR, "trade_stats.json")
     try:
@@ -286,8 +285,9 @@ def main():
         os.path.join(BASE_DIR, "signal_quality_report.json"),
         build_quality_report(records, trade_stats),
     )
-    logging.info("影子信号追踪完成：更新 %s 个观察窗口，记录数 %s", updated, len(records))
-    for key, message in errors.items():
+    logging.info("正式影子信号追踪完成：更新 %s 个观察窗口，记录数 %s；快速研究队列更新 %s，记录数 %s",
+                 updated, len(records), research_updated, len(research_records))
+    for key, message in {**errors, **{f"research:{k}": v for k, v in research_errors.items()}}.items():
         logging.warning("%s 获取失败：%s", key, message)
     return 0
 

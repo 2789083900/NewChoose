@@ -24,6 +24,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, "signal_watch.config.json")
 STATE_PATH = os.path.join(BASE_DIR, "signal_watch.state.json")
 LOG_PATH = os.path.join(BASE_DIR, "signal_watch.log")
 SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "signal_records.json")
+RESEARCH_SIGNAL_RECORDS_PATH = os.path.join(BASE_DIR, "research_signal_records.json")
 NOTIFICATION_OUTBOX_PATH = os.path.join(BASE_DIR, "notification_outbox.json")
 NOTIFICATION_OUTBOX_SCHEMA_VERSION = 1
 DEFAULT_NOTIFICATION_TTL_MINUTES = 10
@@ -1350,22 +1351,22 @@ def save_state(state):
     atomic_write_json(STATE_PATH, state)
 
 
-def load_signal_records():
-    if not os.path.exists(SIGNAL_RECORDS_PATH):
+def load_signal_records(path=SIGNAL_RECORDS_PATH):
+    if not os.path.exists(path):
         return []
     try:
-        with open(SIGNAL_RECORDS_PATH, "r", encoding="utf-8") as file:
+        with open(path, "r", encoding="utf-8") as file:
             data = json.load(file)
         return data if isinstance(data, list) else []
     except (OSError, ValueError):
         return []
 
 
-def save_signal_records(records):
+def save_signal_records(records, path=SIGNAL_RECORDS_PATH):
     records, archived = archive_and_trim(
-        records, os.path.join(BASE_DIR, "signal_archive")
+        records, os.path.join(BASE_DIR, "research_signal_archive" if path == RESEARCH_SIGNAL_RECORDS_PATH else "signal_archive")
     )
-    atomic_write_json(SIGNAL_RECORDS_PATH, records)
+    atomic_write_json(path, records)
     if archived:
         logging.info("已归档 %s 条较早的影子信号记录", archived)
 
@@ -1387,7 +1388,8 @@ def record_signal_event(event, config=None):
         str(event.get("direction") or ""),
         str(plan.get("system") or event.get("label") or "")
     ])
-    records = load_signal_records()
+    records_path = RESEARCH_SIGNAL_RECORDS_PATH if event.get("research_only") else SIGNAL_RECORDS_PATH
+    records = load_signal_records(records_path)
     if any(item.get("id") == signal_id for item in records):
         return False
     strategy = (config or {}).get("strategy") or {}
@@ -1410,7 +1412,8 @@ def record_signal_event(event, config=None):
         "system": plan.get("system"),
         "n": plan.get("n"),
         "provider": event.get("provider"),
-        "strategy_version": "turtle-baseline-v1",
+        "strategy_version": event.get("strategy_version", "turtle-baseline-v1"),
+        "cohort_id": event.get("cohort_id", "spot_formal_baseline_v1"),
         "parameter_snapshot": {
             "system": plan.get("system"),
             "n": plan.get("n"),
@@ -1426,7 +1429,7 @@ def record_signal_event(event, config=None):
         "status": "diagnostic_expired" if event.get("notification_status") == "expired" else "pending",
         "horizons": {"24h": None, "48h": None}
     })
-    save_signal_records(records)
+    save_signal_records(records, records_path)
     return True
 
 
@@ -1896,10 +1899,11 @@ def build_reversal_message(event, config):
     return "\n".join(lines)
 
 
-def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
+def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None, profile=None):
     """单个币/周期的扫描（供并发调用）"""
     try:
-        strategy_config = config.get("strategy") or {}
+        profile = profile or {}
+        strategy_config = profile.get("strategy_config") or config.get("strategy") or {}
         mode = strategy_config.get("mode", "turtle")
         turtle_system = strategy_config.get("turtle_system", "system2")
         filter_options = turtle_filter_options(strategy_config)
@@ -1970,8 +1974,43 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
             label = "背离做多" if direction == "long" else "背离做空"
             trade_plan = None
             grade = "回测年化+12%~+23%"
+        early_warning = None
+        if mode == "turtle" and (config.get("early_warning") or {}).get("enabled", True) and not direction and trade_plan and trade_plan.get("wait"):
+            warning_n = max(0.0, float((config.get("early_warning") or {}).get("distance_n", 0.5)))
+            price = float(trade_plan.get("price") or 0)
+            n_value = float(trade_plan.get("n") or 0)
+            long_threshold = float(trade_plan.get("long_breakout_threshold") or 0)
+            short_threshold = float(trade_plan.get("short_breakout_threshold") or 0)
+            distances = []
+            if price > 0 and n_value > 0:
+                distances = [("long", max(0.0, (long_threshold - price) / n_value)),
+                             ("short", max(0.0, (price - short_threshold) / n_value))]
+            if distances:
+                candidate_direction, distance_n = min(distances, key=lambda item: item[1])
+                if distance_n <= warning_n:
+                    warning_stage = "重点观察" if distance_n <= warning_n * 0.4 else "接近突破"
+                    warning_key = f"{symbol}|{interval}|early_warning|{candidate_direction}|{int(klines[-1]['time'])}"
+                    if not state.get(warning_key):
+                        early_warning = {
+                            "symbol": symbol, "interval": interval,
+                            "direction": candidate_direction, "label": warning_stage,
+                            "score": 0.0, "reason": f"距{('上破' if candidate_direction == 'long' else '下破')}阈值约{distance_n:.2f}N",
+                            "strategy": f"当前价 {format_price(price)} · 突破阈值 {format_price(long_threshold if candidate_direction == 'long' else short_threshold)} · N={format_price(n_value)}",
+                            "price": format_price(price), "change": get_change(klines, interval),
+                            "provider": provider, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "bar_time": klines[-1]["time"], "timing": signal_timing(
+                                klines[-1]["time"], interval, int(time.time() * 1000),
+                                max(0.0, float(config.get("shadow_entry_grace_minutes", 10)))),
+                            "early_warning": True, "research_only": True,
+                            "warning_distance_n": round(distance_n, 3),
+                            "turtle": True, "divergence": False,
+                            "trade_plan": trade_plan,
+                            "strategy_version": profile.get("strategy_version", "turtle-baseline-v1"),
+                            "cohort_id": profile.get("cohort_id", "spot_formal_baseline_v1"),
+                        }
+                        state[warning_key] = True
         prev_sig = state.get(st_key)
-        event = None
+        event = early_warning
         if direction is not None and prev_sig != direction:
             event = {
                 "symbol": symbol,
@@ -1996,6 +2035,9 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None):
                 "turtle": mode == "turtle",
                 "trade_plan": trade_plan
             }
+            event["strategy_version"] = profile.get("strategy_version", "turtle-baseline-v1")
+            event["cohort_id"] = profile.get("cohort_id", "spot_formal_baseline_v1")
+            event["research_only"] = bool(profile.get("research_only"))
             if run_id:
                 event["run_id"] = run_id
         state[st_key] = direction if direction is not None else "none"
@@ -2050,7 +2092,32 @@ def scan_once(config, state, run_id=None, diagnostics=None):
             ev = _scan_one(s, iv, state, config, diagnostics, run_id)
             if ev:
                 events.append(ev)
-    return allocate_turtle_capacity(events, state, config)
+    events = allocate_turtle_capacity(events, state, config)
+    queue = config.get("research_queue") or {}
+    if queue.get("enabled"):
+        queue_strategy = copy.deepcopy(config.get("strategy") or {})
+        queue_strategy["turtle_system"] = str(queue.get("turtle_system", "system1"))
+        queue_filters = dict(queue_strategy.get("filters") or {})
+        queue_filters.update(queue.get("filters") or {})
+        queue_strategy["filters"] = queue_filters
+        profile = {
+            "strategy_config": queue_strategy,
+            "strategy_version": str(queue.get("strategy_version", "turtle_s1_4h_research_v1")),
+            "cohort_id": str(queue.get("cohort_id", "spot_s1_4h_research_v1")),
+            "research_only": True,
+        }
+        queue_symbols = queue.get("symbols") or symbols
+        queue_intervals = queue.get("intervals") or ["4h"]
+        queue_events = []
+        for symbol in queue_symbols:
+            if str(symbol).upper() in disabled_symbols:
+                continue
+            for interval in queue_intervals:
+                ev = _scan_one(symbol, interval, state, config, None, run_id, profile)
+                if ev:
+                    queue_events.append(ev)
+        events.extend(queue_events)
+    return events
 
 
 def scan_coverage_ok(config, diagnostics):
@@ -2177,11 +2244,32 @@ def build_turtle_message(event, config):
     return "\n".join(lines)
 
 
+def build_early_warning_message(event, config):
+    direction = "向上做多" if event["direction"] == "long" else "向下做空"
+    lines = [
+        f"观察预警 {event['symbol']} {event['interval']} · {event['label']}",
+        f"方向：{direction} · 距突破约 {event.get('warning_distance_n', '--')}N",
+        f"现价：{event['price']}（{event['change']:+.2f}%）",
+        f"依据：{event['reason']}",
+        f"{event['strategy']}",
+        "性质：观察预警，不是交易信号，不登记影子交易样本",
+        "动作：等待正式突破和全部过滤条件通过，不追价",
+        f"K线收盘：{(event.get('timing') or {}).get('bar_close_time', '--')}",
+    ]
+    dashboard_url = config.get("dashboard_url")
+    if dashboard_url:
+        lines.append(f"看板：{dashboard_url}")
+    return "\n".join(lines)
+
+
 def process_events(events, config):
     deliveries = []
     attempted_event_ids = set()
     for event in events:
-        if event.get("turtle"):
+        if event.get("early_warning"):
+            title = f"CoinPulse 观察预警 {event['symbol']} {event['label']}"
+            content = build_early_warning_message(event, config)
+        elif event.get("turtle"):
             title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_turtle_message(event, config)
         elif event.get("divergence"):
@@ -2194,6 +2282,21 @@ def process_events(events, config):
             title = f"CoinPulse {event['symbol']} {event['label']}"
             content = build_message(event, config)
         timing = event.get("timing") or {}
+        if event.get("early_warning"):
+            event_id = "spot-warning|{}|{}|{}|{}|{}".format(
+                event.get("symbol"), event.get("interval"), event.get("bar_time"),
+                event.get("direction"), event.get("label")
+            )
+            delivery = send_outbox_notification(
+                event_id, title, content, config,
+                metadata={"market_type": "spot", "kind": "early_warning",
+                          "symbol": event.get("symbol"), "bar_time": event.get("bar_time")},
+                ttl_minutes=10,
+            )
+            deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
+                               "delivered": delivery.get("delivered", False),
+                               "results": delivery.get("results") or []})
+            continue
         if timing.get("shadow_entry_status") == "late":
             event["notification_status"] = "expired"
             record_signal_event(event, config)
@@ -2224,7 +2327,8 @@ def process_events(events, config):
         event["notification_status"] = "delivered" if delivery.get("delivered") else "queued"
         logging.info("发现信号: %s", content.replace("\n", " / "))
         record_signal_event(event, config)
-        register_trade(event, config)
+        if not event.get("research_only"):
+            register_trade(event, config)
         deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
                            "delivered": delivery.get("delivered", False),
                            "results": results})

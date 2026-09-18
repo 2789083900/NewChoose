@@ -3366,6 +3366,47 @@ class ReliableNotificationTests(unittest.TestCase):
                 sw.send_daily_status_digest(config, scan, portfolio, now=now)
             self.assertEqual(send.call_count, 1)
 
+    def test_research_signal_is_saved_to_separate_records_file(self):
+        event = {
+            "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+            "bar_time": 123456, "time": "now", "price": "100", "turtle": True,
+            "research_only": True, "strategy_version": "turtle_s1_4h_research_v1",
+            "cohort_id": "spot_s1_4h_research_v1", "provider": "okx",
+            "trade_plan": {"system": "system1", "entry": 100, "n": 2},
+        }
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(sw, "RESEARCH_SIGNAL_RECORDS_PATH", os.path.join(directory, "research.json")), \
+             mock.patch.object(sw, "SIGNAL_RECORDS_PATH", os.path.join(directory, "formal.json")):
+            self.assertTrue(sw.record_signal_event(event, {}))
+            self.assertTrue(os.path.exists(sw.RESEARCH_SIGNAL_RECORDS_PATH))
+            self.assertFalse(os.path.exists(sw.SIGNAL_RECORDS_PATH))
+            with open(sw.RESEARCH_SIGNAL_RECORDS_PATH, encoding="utf-8") as file:
+                record = json.load(file)[0]
+        self.assertEqual(record["cohort_id"], "spot_s1_4h_research_v1")
+
+    def test_early_warning_does_not_register_shadow_trade(self):
+        event = {
+            "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
+            "label": "接近突破", "early_warning": True, "research_only": True,
+            "price": "100", "change": 1.0, "warning_distance_n": 0.2,
+            "reason": "距上破阈值约0.20N", "strategy": "阈值 101", "time": "now",
+            "bar_time": 123, "timing": {"shadow_entry_status": "on_time"},
+        }
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", os.path.join(directory, "outbox.json")), \
+             mock.patch.object(sw, "send_notification", return_value=[{"channel": "mock", "ok": True}]), \
+             mock.patch.object(sw, "register_trade") as register:
+            result = sw.process_events([event], {"delivery": {"mode": "primary_fallback"}})
+        register.assert_not_called()
+        self.assertTrue(result[0]["delivered"])
+
+    def test_workflow_commits_research_queue_records(self):
+        workflow = os.path.join(os.path.dirname(__file__), ".github", "workflows", "signal-monitor.yml")
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        self.assertIn("research_signal_records.json", text)
+        self.assertIn("research_signal_tracking_stats.json", text)
+
 
 if __name__ == "__main__":
     unittest.main()

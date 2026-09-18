@@ -3367,6 +3367,42 @@ class ReliableNotificationTests(unittest.TestCase):
                 sw.send_daily_status_digest(config, scan, portfolio, now=now)
             self.assertEqual(send.call_count, 1)
 
+    def test_daily_digest_includes_research_queue_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outbox = os.path.join(directory, "notification_outbox.json")
+            research_state = os.path.join(directory, "research_state.json")
+            research_stats = os.path.join(directory, "research_stats.json")
+            tracking_stats = os.path.join(directory, "research_tracking.json")
+            with open(research_state, "w", encoding="utf-8") as file:
+                json.dump({"open_trades": [{"id": "x"}], "closed_trades": []}, file)
+            with open(research_stats, "w", encoding="utf-8") as file:
+                json.dump({"total": 3, "wins": 2, "losses": 1, "win_rate": 66.7,
+                           "open_count": 1, "total_pnl_pct": 4.2}, file)
+            with open(tracking_stats, "w", encoding="utf-8") as file:
+                json.dump({"total": 5, "pending": 2}, file)
+            config = {"channels": {"serverchan": {"sendkey": "test"}},
+                      "delivery": {"daily_digest_enabled": True, "daily_digest_hour_beijing": 9}}
+            scan = {"run_id": "run-1", "successful_markets": 1, "expected_markets": 1,
+                    "coverage_pct": 100, "providers": ["okx"], "candidate_signals": 1}
+            with mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", outbox), \
+                 mock.patch.object(sw, "RESEARCH_TRADE_STATE_PATH", research_state), \
+                 mock.patch.object(sw, "RESEARCH_TRADE_STATS_PATH", research_stats), \
+                 mock.patch.object(sw, "BASE_DIR", directory), \
+                 mock.patch.object(sw, "send_notification", return_value=[{"channel": "mock", "ok": True}]) as send:
+                sw.send_daily_status_digest(config, scan, {"open_trades": 0, "awaiting_fill": 0},
+                                            now=sw.datetime(2026, 9, 18, 9, tzinfo=sw.CHINA_TZ))
+            self.assertIn("S1快速研究", send.call_args.args[1])
+            self.assertIn("持仓 1", send.call_args.args[1])
+
+    def test_monitor_health_persists_research_summary(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "monitor_health.json")
+            with mock.patch.object(sw, "HEALTH_PATH", path):
+                sw.write_monitor_health(research={"status": "research_only", "closed_trades": 4})
+            with open(path, encoding="utf-8") as file:
+                health = json.load(file)
+        self.assertEqual(health["research"]["closed_trades"], 4)
+
     def test_research_signal_is_saved_to_separate_records_file(self):
         event = {
             "symbol": "BTCUSDT", "interval": "4h", "direction": "long",

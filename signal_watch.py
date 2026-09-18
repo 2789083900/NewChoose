@@ -1316,7 +1316,7 @@ def atomic_write_json(path, data):
         raise
 
 
-def write_monitor_health(scan=None, notifications=None, portfolio=None, status=None):
+def write_monitor_health(scan=None, notifications=None, portfolio=None, research=None, status=None):
     """Persist a compact, secret-free health record for cloud monitoring."""
     previous = {}
     try:
@@ -1343,6 +1343,8 @@ def write_monitor_health(scan=None, notifications=None, portfolio=None, status=N
         }
     if portfolio is not None:
         health["portfolio"] = portfolio
+    if research is not None:
+        health["research"] = research
     if status is not None:
         health["status"] = status
     atomic_write_json(HEALTH_PATH, health)
@@ -2382,7 +2384,45 @@ def process_events(events, config):
     return deliveries
 
 
-def send_daily_status_digest(config, scan, portfolio, now=None):
+def research_runtime_summary():
+    """Return a secret-free, best-effort snapshot of the S1 research queue."""
+    state = load_trade_state(RESEARCH_TRADE_STATE_PATH)
+    stats = {}
+    tracking = {}
+    for path, target in (
+        (RESEARCH_TRADE_STATS_PATH, "stats"),
+        (os.path.join(BASE_DIR, "research_signal_tracking_stats.json"), "tracking"),
+    ):
+        try:
+            with open(path, encoding="utf-8") as file:
+                loaded = json.load(file)
+            if isinstance(loaded, dict):
+                if target == "stats":
+                    stats = loaded
+                else:
+                    tracking = loaded
+        except (OSError, ValueError):
+            pass
+    total = int(stats.get("total") or len(state.get("closed_trades", [])))
+    wins = int(stats.get("wins") or sum(1 for item in state.get("closed_trades", []) if (item.get("pnl_pct") or 0) > 0))
+    losses = int(stats.get("losses") or max(0, total - wins))
+    open_count = int(stats.get("open_count") or len(state.get("open_trades", [])))
+    return {
+        "status": "research_only",
+        "strategy": "turtle_system1",
+        "open_trades": open_count,
+        "closed_trades": total,
+        "wins": wins,
+        "losses": losses,
+        "win_rate": stats.get("win_rate", round(wins / total * 100, 1) if total else 0),
+        "total_pnl_pct": stats.get("total_pnl_pct", 0),
+        "pending_signals": int(tracking.get("pending") or tracking.get("pending_signals") or 0),
+        "tracked_signals": int(tracking.get("total") or tracking.get("signals") or 0),
+        "generated_at": stats.get("generated_at"),
+    }
+
+
+def send_daily_status_digest(config, scan, portfolio, now=None, research=None):
     delivery_config = config.get("delivery") or {}
     if not delivery_config.get("daily_digest_enabled", True):
         return None
@@ -2394,12 +2434,14 @@ def send_daily_status_digest(config, scan, portfolio, now=None):
         return None
     date_key = instant.astimezone(CHINA_TZ).strftime("%Y-%m-%d")
     event_id = f"daily-health|{date_key}"
+    research = research or research_runtime_summary()
     content = "\n".join([
         f"CoinPulse 每日运行摘要 {date_key}",
         f"现货扫描：{scan.get('successful_markets', 0)}/{scan.get('expected_markets', 0)}，覆盖率 {scan.get('coverage_pct', 0)}%",
         f"数据源：{', '.join(scan.get('providers') or []) or '--'}",
         f"候选信号：{scan.get('candidate_signals', 0)}",
         f"现货影子仓位：{portfolio.get('open_trades', 0)}，待成交：{portfolio.get('awaiting_fill', 0)}",
+        f"S1快速研究：持仓 {research.get('open_trades', 0)}，已结算 {research.get('closed_trades', 0)}，胜率 {research.get('win_rate', 0)}%，待观察 {research.get('pending_signals', 0)}（仅研究，不计入正式样本）",
         f"运行编号：{scan.get('run_id', '--')}",
     ])
     return send_outbox_notification(
@@ -2822,6 +2864,7 @@ def main():
                 write_monitor_health(
                     scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
                     portfolio=portfolio_risk_snapshot(state, config),
+                    research=research_runtime_summary(),
                     status="degraded",
                 )
                 logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
@@ -2833,7 +2876,8 @@ def main():
             settle_research_trades(config)
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
-            daily_delivery = send_daily_status_digest(config, scan_health, portfolio)
+            research = research_runtime_summary()
+            daily_delivery = send_daily_status_digest(config, scan_health, portfolio, research=research)
             if daily_delivery:
                 deliveries.append({"event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
@@ -2843,6 +2887,7 @@ def main():
                 scan=scan_health,
                 notifications=deliveries,
                 portfolio=portfolio,
+                research=research,
                 status=delivery_status,
             )
             return 0
@@ -2864,6 +2909,7 @@ def main():
                         0,
                     ),
                     portfolio=portfolio_risk_snapshot(state, config),
+                    research=research_runtime_summary(),
                     status="failed",
                 )
             except Exception:
@@ -2891,6 +2937,7 @@ def main():
                 write_monitor_health(
                     scan=scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, len(events)),
                     portfolio=portfolio_risk_snapshot(state, config),
+                    research=research_runtime_summary(),
                     status="degraded",
                 )
                 logging.error("行情覆盖率 %.2f%% 低于阈值 %.2f%%，本轮不推送信号", coverage_pct, minimum_coverage)
@@ -2904,7 +2951,8 @@ def main():
             settle_research_trades(config)
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
-            daily_delivery = send_daily_status_digest(config, scan_health, portfolio)
+            research = research_runtime_summary()
+            daily_delivery = send_daily_status_digest(config, scan_health, portfolio, research=research)
             if daily_delivery:
                 deliveries.append({"event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
@@ -2914,6 +2962,7 @@ def main():
                 scan=scan_health,
                 notifications=deliveries,
                 portfolio=portfolio,
+                research=research,
                 status=delivery_status,
             )
         except Exception as exc:

@@ -2632,6 +2632,7 @@ function loadMonitorHealth() {
       const scan = health.scan || {};
       const push = health.push || {};
       const portfolio = health.portfolio || {};
+      const research = health.research || {};
       const coverage = Number(scan.coverage_pct);
       const status = health.status || 'unknown';
       const statusLabel = status === 'ok' ? '正常' : status === 'degraded' ? '降级' : status === 'failed' ? '失败' : '未知';
@@ -2645,11 +2646,14 @@ function loadMonitorHealth() {
           <div class="trade-card"><span>推送失败</span><strong class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</strong></div>
           <div class="trade-card"><span>当前总单位</span><strong>${portfolio.total_units ?? '--'}（多 ${portfolio.long_units ?? '--'} / 空 ${portfolio.short_units ?? '--'}）</strong></div>
           <div class="trade-card"><span>止损理论风险</span><strong>${portfolio.estimated_stop_risk != null ? `${portfolio.estimated_stop_risk} U` : '--'}</strong></div>
+          <div class="trade-card"><span>S1研究持仓</span><strong>${research.open_trades ?? 0}</strong></div>
+          <div class="trade-card"><span>S1已结算</span><strong>${research.closed_trades ?? 0}（胜率 ${research.win_rate ?? 0}%）</strong></div>
         </div>`;
       const failures = (scan.failures || []).map((item) => `<li>${escapeHtml(String(item))}</li>`).join('');
       detailsEl.innerHTML = `
         <table class="bt-table"><thead><tr><th>候选信号</th><th>覆盖门槛</th><th>推送尝试</th><th>推送失败</th><th>数据源</th></tr></thead>
         <tbody><tr><td>${scan.candidate_signals ?? 0}</td><td>${scan.minimum_coverage_pct ?? 80}%</td><td>${push.attempted ?? 0}</td><td class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</td><td>${escapeHtml((scan.providers || []).join(', ') || '--')}</td></tr></tbody></table>
+        <p class="strategy-note">S1 快速研究队列：已跟踪 ${research.tracked_signals ?? 0} 条，待观察 ${research.pending_signals ?? 0} 条。该队列仅用于提前研究，不计入正式样本，也不代表实盘建议。</p>
         ${failures ? `<ul class="health-failures">${failures}</ul>` : ''}
         ${portfolio.symbols?.length ? `<table class="bt-table health-risk-table"><thead><tr><th>币种</th><th>方向</th><th>单位</th><th>剩余容量</th><th>止损理论风险</th></tr></thead><tbody>${portfolio.symbols.map((item) => `<tr><td class="sym">${escapeHtml(String(item.symbol || '').replace('USDT', ''))}</td><td>${item.direction === 'long' ? '多' : '空'}</td><td>${item.units ?? 0}</td><td>${item.remaining_symbol_capacity ?? '--'}</td><td>${item.estimated_stop_risk ?? 0} U</td></tr>`).join('')}</tbody></table>` : ''}`;
     })

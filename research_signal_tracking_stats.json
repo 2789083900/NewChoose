@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-19 19:32:08",
-  "total_signals": 5,
-  "pending_signals": 5,
+  "generated_at": "2026-09-19 21:42:47",
+  "total_signals": 7,
+  "pending_signals": 7,
   "horizons": {
     "24h": {
-      "observed": 1,
-      "wins": 1,
+      "observed": 2,
+      "wins": 2,
       "losses": 0,
       "flats": 0,
       "win_rate": 100.0,
-      "avg_return_pct": 0.423,
-      "avg_mfe_pct": 2.861,
-      "avg_mae_pct": -0.126
+      "avg_return_pct": 8.268,
+      "avg_mfe_pct": 10.876,
+      "avg_mae_pct": -0.661
     },
     "48h": {
       "observed": 0,
@@ -38,10 +38,21 @@
     },
     "AVAXUSDT": {
       "signals": 3,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 16.113
+      },
       "48h": {}
     },
     "SUIUSDT": {
+      "signals": 2,
+      "24h": {},
+      "48h": {}
+    },
+    "PEPEUSDT": {
       "signals": 1,
       "24h": {},
       "48h": {}

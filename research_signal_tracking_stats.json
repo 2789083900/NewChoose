@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-19 01:39:30",
-  "total_signals": 2,
-  "pending_signals": 2,
+  "generated_at": "2026-09-19 06:38:21",
+  "total_signals": 3,
+  "pending_signals": 3,
   "horizons": {
     "24h": {
       "observed": 0,
@@ -31,7 +31,7 @@
       "48h": {}
     },
     "AVAXUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {},
       "48h": {}
     }

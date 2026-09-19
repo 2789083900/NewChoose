@@ -10,7 +10,7 @@
   "ADAUSDT|4h|turtle|system1": "none",
   "DOGEUSDT|4h|turtle|system1": "none",
   "LINKUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1": "none",
-  "SUIUSDT|4h|turtle|system1": "none",
+  "AVAXUSDT|4h|turtle|system1": "long",
+  "SUIUSDT|4h|turtle|system1": "long",
   "PEPEUSDT|4h|turtle|system1": "none"
 }

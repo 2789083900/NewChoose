@@ -1,13 +1,18 @@
 {
-  "generated_at": "2026-09-10 00:29:36",
-  "total": 4,
+  "generated_at": "2026-09-20 21:04:42",
+  "total": 5,
   "wins": 0,
-  "losses": 4,
+  "losses": 5,
   "open_count": 0,
   "win_rate": 0.0,
-  "total_pnl_pct": -7.52,
+  "total_pnl_pct": -11.08,
+  "total_gross_pnl_pct": -10.78,
+  "total_fees_pct": 0.2,
+  "total_slippage_pct": 0.1,
+  "shadow_fills": 1,
+  "avg_fill_deviation_pct": 5.3949,
   "avg_win": 0,
-  "avg_loss": -1.88,
+  "avg_loss": -2.22,
   "payoff": 0.0,
   "by_symbol": [
     {
@@ -30,6 +35,13 @@
       "wins": 0,
       "losses": 2,
       "pnl": -3.04
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "total": 1,
+      "wins": 0,
+      "losses": 1,
+      "pnl": -3.56
     }
   ],
   "trades": [
@@ -213,6 +225,57 @@
       "exit": 726.0908082465132,
       "exit_ts": 1788984000000,
       "quantity": 53.182155917148386
+    },
+    {
+      "id": "AVAXUSDT|4h|2026-09-20 16:04:00",
+      "run_id": "f5754cf2ecf1",
+      "symbol": "AVAXUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 11.409,
+      "entry_trigger": 10.825,
+      "signal_price": 11.41,
+      "entry_model": "next_bar_open",
+      "stop": 11.037454651622001,
+      "target": null,
+      "opened_at": "2026-09-20 16:04:00",
+      "entry_ts": 1789905600000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -3.56,
+      "gross_pnl_pct": -3.2566,
+      "net_pnl_pct": -3.5566,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-09-20 16:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system2",
+      "n": 0.18577267418899968,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 1,
+      "unit_quantity": 269.1461498214289,
+      "unit_entries": [
+        {
+          "price": 11.409,
+          "n": 0.18577267418899968
+        }
+      ],
+      "latest_entry": 11.409,
+      "next_add": 11.5018863370945,
+      "exit_period": 20,
+      "bar_time": 1789905600000,
+      "entry_filled": true,
+      "last_managed_bar": 1789920000000,
+      "fill_price": 11.409,
+      "fill_deviation_pct": 5.3949,
+      "entry_bar_time": 1789920000000,
+      "exit": 11.037454651622001,
+      "exit_ts": 1789920000000,
+      "quantity": 269.1461498214289
     }
   ]
 }

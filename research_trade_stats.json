@@ -1,7 +1,29 @@
 {
-  "schema_version": 2,
-  "open_trades": [],
-  "closed_trades": [
+  "generated_at": "2026-09-20 21:04:42",
+  "total": 1,
+  "wins": 0,
+  "losses": 1,
+  "open_count": 0,
+  "win_rate": 0.0,
+  "total_pnl_pct": -3.56,
+  "total_gross_pnl_pct": -3.25,
+  "total_fees_pct": 0.2,
+  "total_slippage_pct": 0.1,
+  "shadow_fills": 1,
+  "avg_fill_deviation_pct": 5.3652,
+  "avg_win": 0,
+  "avg_loss": -3.56,
+  "payoff": 0.0,
+  "by_symbol": [
+    {
+      "symbol": "AVAXUSDT",
+      "total": 1,
+      "wins": 0,
+      "losses": 1,
+      "pnl": -3.56
+    }
+  ],
+  "trades": [
     {
       "id": "AVAXUSDT|4h|2026-09-20 16:04:02",
       "run_id": "f5754cf2ecf1",
@@ -53,17 +75,5 @@
       "exit_ts": 1789920000000,
       "quantity": 269.2514382083689
     }
-  ],
-  "BTCUSDT|4h|turtle|system1": "none",
-  "ETHUSDT|4h|turtle|system1": "none",
-  "SOLUSDT|4h|turtle|system1": "none",
-  "BNBUSDT|4h|turtle|system1": "none",
-  "XRPUSDT|4h|turtle|system1": "none",
-  "ADAUSDT|4h|turtle|system1": "none",
-  "DOGEUSDT|4h|turtle|system1": "none",
-  "LINKUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1": "none",
-  "SUIUSDT|4h|turtle|system1": "none",
-  "PEPEUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1|blocked": false
+  ]
 }

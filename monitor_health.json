@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-20 18:43:23",
+  "updated_at": "2026-09-20 21:04:42",
   "scan": {
-    "run_id": "b998697227dd",
+    "run_id": "60cdd1ab9c3c",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789905600000,
-    "data_lag_minutes": 403.4,
+    "latest_bar_time": 1789920000000,
+    "data_lag_minutes": 304.7,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -30,45 +30,36 @@
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789929803,
+  "updated_at_epoch": 1789938282,
   "portfolio": {
-    "open_trades": 1,
-    "awaiting_fill": 1,
-    "total_units": 1,
-    "long_units": 1,
+    "open_trades": 0,
+    "awaiting_fill": 0,
+    "total_units": 0,
+    "long_units": 0,
     "short_units": 0,
-    "remaining_long_capacity": 11,
+    "remaining_long_capacity": 12,
     "remaining_short_capacity": 12,
-    "estimated_stop_risk": 100.0,
-    "notional_at_entry": 2913.51,
+    "estimated_stop_risk": 0.0,
+    "notional_at_entry": 0.0,
     "limits": {
       "max_symbol_units": 4,
       "max_direction_units": 12
     },
-    "symbols": [
-      {
-        "symbol": "AVAXUSDT",
-        "direction": "long",
-        "units": 1,
-        "estimated_stop_risk": 100.0,
-        "notional_at_entry": 2913.51,
-        "remaining_symbol_capacity": 3
-      }
-    ],
+    "symbols": [],
     "risk_definition": "按已记录入场价、单位数量和当前止损位估算；不含跳空、流动性冲击或人工成交偏差。"
   },
   "research": {
     "status": "research_only",
     "strategy": "turtle_system1",
-    "open_trades": 1,
-    "closed_trades": 0,
+    "open_trades": 0,
+    "closed_trades": 1,
     "wins": 0,
-    "losses": 0,
-    "win_rate": 0,
-    "total_pnl_pct": 0,
+    "losses": 1,
+    "win_rate": 0.0,
+    "total_pnl_pct": -3.56,
     "pending_signals": 7,
     "tracked_signals": 0,
-    "generated_at": null
+    "generated_at": "2026-09-20 21:04:42"
   },
   "daily_summary": {
     "date": "2026-09-20",

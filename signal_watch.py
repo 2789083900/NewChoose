@@ -1316,7 +1316,8 @@ def atomic_write_json(path, data):
         raise
 
 
-def write_monitor_health(scan=None, notifications=None, portfolio=None, research=None, status=None):
+def write_monitor_health(scan=None, notifications=None, portfolio=None, research=None,
+                         status=None, daily_summary=None):
     """Persist a compact, secret-free health record for cloud monitoring."""
     previous = {}
     try:
@@ -1347,6 +1348,8 @@ def write_monitor_health(scan=None, notifications=None, portfolio=None, research
         health["research"] = research
     if status is not None:
         health["status"] = status
+    if daily_summary is not None:
+        health["daily_summary"] = daily_summary
     atomic_write_json(HEALTH_PATH, health)
 
 
@@ -2426,7 +2429,127 @@ def research_runtime_summary():
     }
 
 
-def send_daily_status_digest(config, scan, portfolio, now=None, research=None):
+def _summary_artifact(path, now=None):
+    try:
+        with open(path, encoding="utf-8") as file:
+            data = json.load(file)
+        if not isinstance(data, dict):
+            return {"status": "corrupt", "data": None, "generated_at": None}
+    except (OSError, ValueError):
+        return {"status": "missing", "data": None, "generated_at": None}
+    generated_at = data.get("generated_at")
+    status = "ok"
+    try:
+        generated = datetime.strptime(str(generated_at), "%Y-%m-%d %H:%M:%S")
+        current = now or datetime.now()
+        if current.tzinfo is not None:
+            generated = generated.replace(tzinfo=current.tzinfo)
+        if (current - generated).total_seconds() > 48 * 60 * 60:
+            status = "stale"
+    except (TypeError, ValueError):
+        status = "stale"
+    return {"status": status, "data": data, "generated_at": generated_at}
+
+
+def formal_runtime_summary(now=None):
+    tracking = _summary_artifact(os.path.join(BASE_DIR, "signal_tracking_stats.json"), now)
+    trades = _summary_artifact(os.path.join(BASE_DIR, "trade_stats.json"), now)
+    tracking_data = tracking.get("data") or {}
+    trade_data = trades.get("data") or {}
+    statuses = [tracking.get("status"), trades.get("status")]
+    if any(item in {"corrupt", "stale"} for item in statuses):
+        data_status = "stale" if "stale" in statuses else "corrupt"
+    elif not tracking_data and not trade_data:
+        data_status = "no_samples"
+    else:
+        data_status = "ok"
+    return {
+        "data_status": data_status,
+        "signal_samples": int(tracking_data.get("total_signals") or 0),
+        "pending_signals": int(tracking_data.get("pending_signals") or 0),
+        "closed_trades": int(trade_data.get("total") or 0),
+        "open_trades": int(trade_data.get("open_count") or 0),
+        "tracking_generated_at": tracking.get("generated_at"),
+        "trade_stats_generated_at": trades.get("generated_at"),
+        "sources": {"tracking_stats": tracking.get("status"), "trade_stats": trades.get("status")},
+    }
+
+
+def notification_outbox_summary():
+    try:
+        events = _load_outbox().get("events", [])
+    except RuntimeError:
+        return {"status": "corrupt", "pending": None, "exhausted": None}
+    return {
+        "status": "ok",
+        "pending": sum(1 for item in events if item.get("status") == "pending"),
+        "exhausted": sum(1 for item in events if item.get("status") == "exhausted"),
+    }
+
+
+def build_daily_summary(scan, portfolio, research=None, now=None, deliveries=None):
+    """Build a one-minute, quiet-by-default daily operating summary."""
+    instant = now or datetime.now(CHINA_TZ)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=CHINA_TZ)
+    scan = scan or {}
+    portfolio = portfolio or {}
+    research = research or {}
+    formal = formal_runtime_summary(now=instant.replace(tzinfo=None))
+    outbox = notification_outbox_summary()
+    failed_deliveries = sum(1 for item in (deliveries or []) if not item.get("delivered", True))
+    try:
+        coverage_bad = float(scan.get("coverage_pct")) < float(scan.get("minimum_coverage_pct"))
+    except (TypeError, ValueError):
+        coverage_bad = False
+    try:
+        data_lag = float(scan.get("data_lag_minutes"))
+    except (TypeError, ValueError):
+        data_lag = None
+    reasons = []
+    if coverage_bad or int(scan.get("failed_markets") or 0) > 0:
+        reasons.append("行情扫描或覆盖率异常")
+    if data_lag is not None and data_lag > 30:
+        reasons.append("行情数据延迟超过30分钟")
+    if failed_deliveries:
+        reasons.append(f"本轮通知失败 {failed_deliveries} 条")
+    if outbox.get("status") != "ok":
+        reasons.append("通知发件箱无法读取")
+    elif outbox.get("pending") or outbox.get("exhausted"):
+        reasons.append(f"通知积压 {outbox.get('pending', 0)} 条、重试耗尽 {outbox.get('exhausted', 0)} 条")
+    if formal.get("data_status") in {"stale", "corrupt"}:
+        reasons.append("正式样本统计过期或损坏")
+    if research.get("data_status") in {"stale", "corrupt", "missing"}:
+        reasons.append("研究样本数据异常")
+    data_time = None
+    try:
+        if scan.get("latest_bar_time"):
+            data_time = datetime.fromtimestamp(
+                int(scan["latest_bar_time"]) / 1000, tz=timezone.utc
+            ).astimezone(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S 北京")
+    except (TypeError, ValueError, OSError, OverflowError):
+        pass
+    return {
+        "date": instant.astimezone(CHINA_TZ).strftime("%Y-%m-%d"),
+        "system_status": "degraded" if reasons else "normal",
+        "action_required": bool(reasons), "action_reasons": reasons,
+        "data_time": data_time, "data_lag_minutes": data_lag,
+        "formal": formal,
+        "research": {"data_status": research.get("data_status"),
+                     "open_trades": research.get("open_trades"),
+                     "closed_trades": research.get("closed_trades"),
+                     "pending_signals": research.get("pending_signals"),
+                     "tracking_generated_at": research.get("generated_at")},
+        "notifications": {"round_failed": failed_deliveries,
+                           "pending": outbox.get("pending"),
+                           "exhausted": outbox.get("exhausted")},
+        "portfolio": {"open_trades": portfolio.get("open_trades", 0),
+                      "awaiting_fill": portfolio.get("awaiting_fill", 0)},
+        "run_id": scan.get("run_id"),
+    }
+
+
+def send_daily_status_digest(config, scan, portfolio, now=None, research=None, deliveries=None):
     delivery_config = config.get("delivery") or {}
     if not delivery_config.get("daily_digest_enabled", True):
         return None
@@ -2439,19 +2562,31 @@ def send_daily_status_digest(config, scan, portfolio, now=None, research=None):
     date_key = instant.astimezone(CHINA_TZ).strftime("%Y-%m-%d")
     event_id = f"daily-health|{date_key}"
     research = research or research_runtime_summary()
+    summary = build_daily_summary(
+        scan, portfolio, research=research, now=instant, deliveries=deliveries
+    )
+    value = lambda item: "未知" if item is None else str(item)
+    status_text = "正常，无需处理" if not summary["action_required"] else "降级，需要处理"
     content = "\n".join([
         f"CoinPulse 每日运行摘要 {date_key}",
+        f"系统状态：{status_text}",
+        f"数据时间：{summary.get('data_time') or '--'}，延迟 {value(summary.get('data_lag_minutes'))} 分钟",
         f"现货扫描：{scan.get('successful_markets', 0)}/{scan.get('expected_markets', 0)}，覆盖率 {scan.get('coverage_pct', 0)}%",
         f"数据源：{', '.join(scan.get('providers') or []) or '--'}",
         f"候选信号：{scan.get('candidate_signals', 0)}",
         f"现货影子仓位：{portfolio.get('open_trades', 0)}，待成交：{portfolio.get('awaiting_fill', 0)}",
+        f"正式样本：信号 {summary['formal']['signal_samples']}（待观察 {summary['formal']['pending_signals']}），已结算交易 {summary['formal']['closed_trades']}，持仓 {summary['formal']['open_trades']}",
         f"S1快速研究：持仓 {research.get('open_trades', 0)}，已结算 {research.get('closed_trades', 0)}，胜率 {research.get('win_rate', 0)}%，待观察 {research.get('pending_signals', 0)}（仅研究，不计入正式样本）",
+        f"通知链路：本轮失败 {summary['notifications']['round_failed']} 条，积压 {value(summary['notifications']['pending'])} 条，重试耗尽 {value(summary['notifications']['exhausted'])} 条",
+        "用户处理：" + ("；".join(summary["action_reasons"]) if summary["action_required"] else "无需处理"),
         f"运行编号：{scan.get('run_id', '--')}",
     ])
-    return send_outbox_notification(
+    delivery = send_outbox_notification(
         event_id, f"CoinPulse 每日运行摘要 {date_key}", content, config,
         metadata={"kind": "daily_health", "date": date_key}, ttl_minutes=1440,
     )
+    delivery["daily_summary"] = summary
+    return delivery
 
 
 # ---------------------------------------------------------------------------
@@ -2881,7 +3016,10 @@ def main():
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
             research = research_runtime_summary()
-            daily_delivery = send_daily_status_digest(config, scan_health, portfolio, research=research)
+            daily_delivery = send_daily_status_digest(
+                config, scan_health, portfolio, research=research, deliveries=deliveries
+            )
+            daily_summary = daily_delivery.get("daily_summary") if daily_delivery else None
             if daily_delivery:
                 deliveries.append({"event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
@@ -2893,6 +3031,7 @@ def main():
                 portfolio=portfolio,
                 research=research,
                 status=delivery_status,
+                daily_summary=daily_summary,
             )
             return 0
         except Exception as exc:
@@ -2956,7 +3095,10 @@ def main():
             scan_health = scan_health_payload(run_id, diagnostics, round(diagnostics.get("successful_markets", 0) / max(1, diagnostics.get("expected_markets", 1)) * 100, 2), minimum_coverage, len(events), sum(1 for event in events if event.get("capacity_rejected")))
             portfolio = portfolio_risk_snapshot(state, config)
             research = research_runtime_summary()
-            daily_delivery = send_daily_status_digest(config, scan_health, portfolio, research=research)
+            daily_delivery = send_daily_status_digest(
+                config, scan_health, portfolio, research=research, deliveries=deliveries
+            )
+            daily_summary = daily_delivery.get("daily_summary") if daily_delivery else None
             if daily_delivery:
                 deliveries.append({"event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
@@ -2968,6 +3110,7 @@ def main():
                 portfolio=portfolio,
                 research=research,
                 status=delivery_status,
+                daily_summary=daily_summary,
             )
         except Exception as exc:
             logging.exception("扫描失败: %s", exc)

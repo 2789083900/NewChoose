@@ -3533,6 +3533,54 @@ class ReliableNotificationTests(unittest.TestCase):
             self.assertIn("S1快速研究", send.call_args.args[1])
             self.assertIn("持仓 1", send.call_args.args[1])
 
+    def test_daily_summary_is_quiet_and_actionable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outbox = os.path.join(directory, "notification_outbox.json")
+            with open(os.path.join(directory, "signal_tracking_stats.json"), "w", encoding="utf-8") as file:
+                json.dump({"generated_at": "2026-09-18 09:00:00", "total_signals": 5,
+                           "pending_signals": 1}, file)
+            with open(os.path.join(directory, "trade_stats.json"), "w", encoding="utf-8") as file:
+                json.dump({"generated_at": "2026-09-18 09:00:00", "total": 3,
+                           "open_count": 1}, file)
+            with open(outbox, "w", encoding="utf-8") as file:
+                json.dump({"schema_version": 1, "events": []}, file)
+            with mock.patch.object(sw, "BASE_DIR", directory), \
+                 mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", outbox):
+                summary = sw.build_daily_summary(
+                    {"run_id": "run-1", "coverage_pct": 100,
+                     "minimum_coverage_pct": 80, "data_lag_minutes": 4,
+                     "latest_bar_time": 1789722000000},
+                    {"open_trades": 1, "awaiting_fill": 0},
+                    {"data_status": "no_samples", "open_trades": 0,
+                     "closed_trades": 0, "pending_signals": 0},
+                    now=sw.datetime(2026, 9, 18, 9, tzinfo=sw.CHINA_TZ),
+                )
+        self.assertEqual(summary["system_status"], "normal")
+        self.assertFalse(summary["action_required"])
+        self.assertEqual(summary["formal"]["signal_samples"], 5)
+        self.assertEqual(summary["formal"]["closed_trades"], 3)
+
+    def test_daily_summary_requires_action_for_notification_backlog(self):
+        with tempfile.TemporaryDirectory() as directory:
+            outbox = os.path.join(directory, "notification_outbox.json")
+            with open(outbox, "w", encoding="utf-8") as file:
+                json.dump({"schema_version": 1, "events": [
+                    {"event_id": "pending", "status": "pending"},
+                    {"event_id": "exhausted", "status": "exhausted"},
+                ]}, file)
+            with mock.patch.object(sw, "BASE_DIR", directory), \
+                 mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", outbox):
+                summary = sw.build_daily_summary(
+                    {"run_id": "run-2", "coverage_pct": 100,
+                     "minimum_coverage_pct": 80, "data_lag_minutes": 2},
+                    {}, {"data_status": "no_samples"},
+                    now=sw.datetime(2026, 9, 18, 9, tzinfo=sw.CHINA_TZ),
+                )
+        self.assertEqual(summary["system_status"], "degraded")
+        self.assertTrue(summary["action_required"])
+        self.assertEqual(summary["notifications"]["pending"], 1)
+        self.assertIn("通知积压", summary["action_reasons"][0])
+
     def test_monitor_health_persists_research_summary(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "monitor_health.json")

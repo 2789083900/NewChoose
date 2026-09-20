@@ -2645,7 +2645,9 @@ function loadMonitorHealth() {
         notification_degraded: '推送降级', scan_degraded: '扫描降级'
       };
       const ordinaryState = ordinaryStateLabels[alertState.ordinary_state] || '未分类';
-      metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel} · 普通监控 ${ordinaryState}`;
+      const daily = health.daily_summary || {};
+      const dailyAction = daily.action_required ? '今日需处理' : '今日无需处理';
+      metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel} · 普通监控 ${ordinaryState} · ${dailyAction}`;
       summaryEl.innerHTML = `
         <div class="trade-cards">
           <div class="trade-card"><span>最近扫描</span><strong>${escapeHtml(scan.run_id || '--')}</strong></div>

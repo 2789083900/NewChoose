@@ -2627,21 +2627,24 @@ function loadMonitorHealth() {
   const summaryEl = $('monitorHealthSummary');
   const detailsEl = $('monitorHealthDetails');
   if (!metaEl || !summaryEl || !detailsEl) return;
-  fetchJSON('monitor_health.json', 15000)
-    .then((health) => {
+  Promise.all([
+    fetchJSON('monitor_health.json', 15000),
+    fetchJSON('monitor_alert_state.json', 15000).catch(() => ({}))
+  ])
+    .then(([health, alertState]) => {
       const scan = health.scan || {};
       const push = health.push || {};
       const portfolio = health.portfolio || {};
       const research = health.research || {};
       const coverage = Number(scan.coverage_pct);
-      const status = health.status || 'unknown';
-      const statusLabel = status === 'ok' ? '正常' : status === 'degraded' ? '降级' : status === 'failed' ? '失败' : '未知';
+      const status = alertState.status || health.status || 'unknown';
+      const statusLabel = status === 'ok' || status === 'healthy' ? '正常' : status === 'degraded' ? '降级' : status === 'failed' ? '失败' : status === 'stale' ? '失联' : '未知';
       const ordinaryStateLabels = {
         idle: '正常空闲', active: '运行中', scan_failed: '扫描失败',
         heartbeat_stale: '心跳过期', coverage_insufficient: '覆盖不足',
         notification_degraded: '推送降级', scan_degraded: '扫描降级'
       };
-      const ordinaryState = ordinaryStateLabels[health.ordinary_state] || '未分类';
+      const ordinaryState = ordinaryStateLabels[alertState.ordinary_state] || '未分类';
       metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel} · 普通监控 ${ordinaryState}`;
       summaryEl.innerHTML = `
         <div class="trade-cards">

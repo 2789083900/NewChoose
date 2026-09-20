@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-20 16:04:05",
+  "updated_at": "2026-09-20 18:43:23",
   "scan": {
-    "run_id": "f5754cf2ecf1",
+    "run_id": "b998697227dd",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -16,8 +16,8 @@
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
     "latest_bar_time": 1789905600000,
-    "data_lag_minutes": 244.1,
-    "candidate_signals": 2,
+    "data_lag_minutes": 403.4,
+    "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -25,12 +25,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 2,
+    "attempted": 0,
     "failed": 0,
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789920245,
+  "updated_at_epoch": 1789929803,
   "portfolio": {
     "open_trades": 1,
     "awaiting_fill": 1,

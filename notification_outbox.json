@@ -2,6 +2,27 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "daily-health|2026-09-20",
+      "title": "CoinPulse 每日运行摘要 2026-09-20",
+      "content": "CoinPulse 每日运行摘要 2026-09-20\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\nS1快速研究：持仓 0，已结算 0，胜率 0%，待观察 7（仅研究，不计入正式样本）\n运行编号：1e2d469ce3aa",
+      "metadata": {
+        "kind": "daily_health",
+        "date": "2026-09-20"
+      },
+      "created_epoch_ms": 1789868126457,
+      "expires_epoch_ms": 1789954526457,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789868128121,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789868128121
+    },
+    {
       "event_id": "daily-health|2026-09-19",
       "title": "CoinPulse 每日运行摘要 2026-09-19",
       "content": "CoinPulse 每日运行摘要 2026-09-19\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\nS1快速研究：持仓 0，已结算 0，胜率 0%，待观察 2（仅研究，不计入正式样本）\n运行编号：ff40441d34d1",

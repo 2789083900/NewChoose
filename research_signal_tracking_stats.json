@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-20 01:35:29",
+  "generated_at": "2026-09-20 06:35:32",
   "total_signals": 7,
   "pending_signals": 7,
   "horizons": {
     "24h": {
-      "observed": 2,
-      "wins": 2,
+      "observed": 3,
+      "wins": 3,
       "losses": 0,
       "flats": 0,
       "win_rate": 100.0,
-      "avg_return_pct": 8.268,
-      "avg_mfe_pct": 10.876,
-      "avg_mae_pct": -0.661
+      "avg_return_pct": 9.708,
+      "avg_mfe_pct": 16.419,
+      "avg_mae_pct": -0.955
     },
     "48h": {
       "observed": 0,
@@ -39,11 +39,11 @@
     "AVAXUSDT": {
       "signals": 3,
       "24h": {
-        "observed": 1,
-        "wins": 1,
+        "observed": 2,
+        "wins": 2,
         "losses": 0,
         "win_rate": 100.0,
-        "avg_return_pct": 16.113
+        "avg_return_pct": 14.35
       },
       "48h": {}
     },

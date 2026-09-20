@@ -1,12 +1,9 @@
 {
-  "status": "stale",
-  "checked_at_epoch": 1789880220,
-  "health_age_seconds": 12090,
-  "perpetual_age_seconds": 11961,
-  "failed_components": [
-    "ordinary_monitor",
-    "perpetual_shadow"
-  ],
+  "status": "healthy",
+  "checked_at_epoch": 1789886359,
+  "health_age_seconds": 23,
+  "perpetual_age_seconds": 72,
+  "failed_components": [],
   "advisory_components": [],
   "risk_tier_status": "healthy",
   "risk_tier_signature": "healthy||",

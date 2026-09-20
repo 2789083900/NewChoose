@@ -2,6 +2,28 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-signal|AVAXUSDT|4h|1789905600000|long",
+      "title": "CoinPulse AVAXUSDT 海龟突破做多",
+      "content": "海龟突破信号 AVAXUSDT 4h\nsystem2 · 突破做多\n现价 11.41（+20.80%）\n依据：海龟S2 55/20向上突破 · N=0.185773\nsystem2 做多，突破触发价 ≈ 10.82\n止损 10.45（2N）\n每 0.5N 至 10.92 加 1 单位，首单位 269.15，最多4单位；20周期反向突破 7.04 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 4.0 分钟\nK线收盘：2026-09-20 16:00:00 UTC / 2026-09-21 00:00:00 北京\n信号生成：2026-09-20 16:04:00 UTC / 2026-09-21 00:04:00 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多4单位\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "AVAXUSDT",
+        "bar_time": 1789905600000
+      },
+      "created_epoch_ms": 1789920242684,
+      "expires_epoch_ms": 1789920600000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789920244919,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789920244919
+    },
+    {
       "event_id": "daily-health|2026-09-20",
       "title": "CoinPulse 每日运行摘要 2026-09-20",
       "content": "CoinPulse 每日运行摘要 2026-09-20\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\nS1快速研究：持仓 0，已结算 0，胜率 0%，待观察 7（仅研究，不计入正式样本）\n运行编号：1e2d469ce3aa",

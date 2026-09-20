@@ -1,6 +1,52 @@
 {
   "schema_version": 2,
-  "open_trades": [],
+  "open_trades": [
+    {
+      "id": "AVAXUSDT|4h|2026-09-20 16:04:02",
+      "run_id": "f5754cf2ecf1",
+      "symbol": "AVAXUSDT",
+      "interval": "4h",
+      "direction": "long",
+      "entry": 10.829,
+      "entry_trigger": 10.829,
+      "signal_price": 11.41,
+      "entry_model": "next_bar_open",
+      "stop": 10.457599941135276,
+      "target": null,
+      "opened_at": "2026-09-20 16:04:02",
+      "entry_ts": 1789905600000,
+      "status": "open",
+      "result": null,
+      "pnl_pct": null,
+      "gross_pnl_pct": null,
+      "net_pnl_pct": null,
+      "fees_pct": null,
+      "slippage_pct": null,
+      "closed_at": null,
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 0.18570002943236238,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 1,
+      "unit_quantity": 269.2514382083689,
+      "unit_entries": [
+        {
+          "price": 10.829,
+          "n": 0.18570002943236238
+        }
+      ],
+      "latest_entry": 10.829,
+      "next_add": 10.921850014716181,
+      "exit_period": 10,
+      "bar_time": 1789905600000,
+      "entry_filled": false,
+      "last_managed_bar": 1789905600000
+    }
+  ],
   "closed_trades": [],
   "BTCUSDT|4h|turtle|system1": "none",
   "ETHUSDT|4h|turtle|system1": "none",
@@ -10,7 +56,7 @@
   "ADAUSDT|4h|turtle|system1": "none",
   "DOGEUSDT|4h|turtle|system1": "none",
   "LINKUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1": "none",
+  "AVAXUSDT|4h|turtle|system1": "long",
   "SUIUSDT|4h|turtle|system1": "none",
   "PEPEUSDT|4h|turtle|system1": "none"
 }

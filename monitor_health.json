@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-20 12:09:22",
+  "updated_at": "2026-09-20 16:04:05",
   "scan": {
-    "run_id": "8ec3e7d1a2a6",
+    "run_id": "f5754cf2ecf1",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,9 +15,9 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789891200000,
-    "data_lag_minutes": 249.4,
-    "candidate_signals": 0,
+    "latest_bar_time": 1789905600000,
+    "data_lag_minutes": 244.1,
+    "candidate_signals": 2,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -25,33 +25,42 @@
     "failures": []
   },
   "push": {
-    "attempted": 1,
+    "attempted": 2,
     "failed": 0,
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789906162,
+  "updated_at_epoch": 1789920245,
   "portfolio": {
-    "open_trades": 0,
-    "awaiting_fill": 0,
-    "total_units": 0,
-    "long_units": 0,
+    "open_trades": 1,
+    "awaiting_fill": 1,
+    "total_units": 1,
+    "long_units": 1,
     "short_units": 0,
-    "remaining_long_capacity": 12,
+    "remaining_long_capacity": 11,
     "remaining_short_capacity": 12,
-    "estimated_stop_risk": 0.0,
-    "notional_at_entry": 0.0,
+    "estimated_stop_risk": 100.0,
+    "notional_at_entry": 2913.51,
     "limits": {
       "max_symbol_units": 4,
       "max_direction_units": 12
     },
-    "symbols": [],
+    "symbols": [
+      {
+        "symbol": "AVAXUSDT",
+        "direction": "long",
+        "units": 1,
+        "estimated_stop_risk": 100.0,
+        "notional_at_entry": 2913.51,
+        "remaining_symbol_capacity": 3
+      }
+    ],
     "risk_definition": "按已记录入场价、单位数量和当前止损位估算；不含跳空、流动性冲击或人工成交偏差。"
   },
   "research": {
     "status": "research_only",
     "strategy": "turtle_system1",
-    "open_trades": 0,
+    "open_trades": 1,
     "closed_trades": 0,
     "wins": 0,
     "losses": 0,

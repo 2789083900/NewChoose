@@ -259,7 +259,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 111.16,
@@ -273,7 +273,18 @@
         "observed_at": "2026-09-19 17:28:31",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 111.16,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.861,
+        "mae_pct": -3.383,
+        "final_return_pct": -2.114,
+        "final_price": 108.81,
+        "outcome": "LOSS",
+        "observed_until": 1789920000000,
+        "observed_at": "2026-09-20 16:04:06",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -339,6 +350,85 @@
     "notification_status": "expired",
     "notification_event_id": null,
     "status": "diagnostic_expired",
+    "horizons": {
+      "24h": {
+        "entry_price": 9.444,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 21.029,
+        "mae_pct": -0.402,
+        "final_return_pct": 20.839,
+        "final_price": 11.412,
+        "outcome": "WIN",
+        "observed_until": 1789920000000,
+        "observed_at": "2026-09-20 16:04:06",
+        "provider": "okx"
+      },
+      "48h": null
+    }
+  },
+  {
+    "id": "AVAXUSDT|4h|1789905600000|long|system2",
+    "run_id": "f5754cf2ecf1",
+    "symbol": "AVAXUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 10.825,
+    "entry_trigger": 10.825,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1789905600000,
+    "signal_time": "2026-09-20 16:04:00",
+    "timing": {
+      "bar_close_time": "2026-09-20 16:00:00 UTC / 2026-09-21 00:00:00 北京",
+      "bar_close_epoch": 1789920000000,
+      "generated_time": "2026-09-20 16:04:00 UTC / 2026-09-21 00:04:00 北京",
+      "generated_epoch": 1789920240377,
+      "delay_minutes": 4.0,
+      "shadow_entry_deadline": "2026-09-20 16:00:00 UTC / 2026-09-21 00:00:00 北京",
+      "shadow_entry_status": "on_time",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": 1789920242684,
+    "dispatch_completed_epoch": 1789920244920,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 0.18577267418899968,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 0.18577267418899968,
+      "breakout_trigger": 10.825,
+      "stop": 10.453454651622,
+      "next_add": 10.9178863370945,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "delivered",
+    "notification_event_id": "spot-signal|AVAXUSDT|4h|1789905600000|long",
+    "status": "pending",
     "horizons": {
       "24h": null,
       "48h": null

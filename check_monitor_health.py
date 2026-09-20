@@ -79,10 +79,111 @@ def send_serverchan(sendkey, title, content):
     return True
 
 
-def health_alert_detail(health, age_seconds):
+def send_pushplus(token, title, content):
+    if not token:
+        return False
+    payload = urllib.parse.urlencode({
+        "token": token,
+        "title": title,
+        "content": content,
+        "template": "txt",
+    }).encode("utf-8")
+    request = urllib.request.Request(
+        "https://www.pushplus.plus/send", data=payload, method="POST"
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        body = response.read()
+        if not 200 <= response.status < 300:
+            raise RuntimeError(f"PushPlus HTTP status {response.status}")
+    try:
+        result = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("PushPlus returned invalid JSON") from exc
+    if not isinstance(result, dict) or str(result.get("code")) != "200":
+        raise RuntimeError("PushPlus rejected health alert")
+    return True
+
+
+def send_health_notification(sendkey, pushplus_token, title, content):
+    """Use ServerChan first and PushPlus as a delivery fallback."""
+    errors = []
+    if sendkey:
+        try:
+            return send_serverchan(sendkey, title, content)
+        except (OSError, ValueError, RuntimeError, urllib.error.URLError) as exc:
+            errors.append(exc)
+    if pushplus_token:
+        try:
+            return send_pushplus(pushplus_token, title, content)
+        except (OSError, ValueError, RuntimeError, urllib.error.URLError) as exc:
+            errors.append(exc)
+    if errors:
+        raise errors[-1]
+    return False
+
+
+def classify_ordinary_monitor(health, age_seconds, max_age_minutes):
+    """Return distinct idle/failure/degradation reasons for the ordinary monitor."""
+    scan = health.get("scan") or {}
+    push = health.get("push") or {}
+    reasons = []
+    if age_seconds is None:
+        reasons.append("heartbeat_missing")
+    elif age_seconds > max_age_minutes * 60:
+        reasons.append("heartbeat_stale")
+    if health.get("status") in {"failed", "stale"}:
+        reasons.append("scan_failed")
+    try:
+        coverage = float(scan.get("coverage_pct"))
+        minimum = float(scan.get("minimum_coverage_pct"))
+        if coverage < minimum:
+            reasons.append("coverage_insufficient")
+    except (TypeError, ValueError):
+        pass
+    try:
+        if int(push.get("failed") or 0) > 0:
+            reasons.append("notification_degraded")
+    except (TypeError, ValueError):
+        pass
+    if health.get("status") == "degraded" and not any(
+        reason in reasons for reason in ("coverage_insufficient", "notification_degraded")
+    ):
+        reasons.append("scan_degraded")
+    if "heartbeat_missing" in reasons or "heartbeat_stale" in reasons:
+        state = "heartbeat_stale"
+    elif "scan_failed" in reasons:
+        state = "scan_failed"
+    elif "coverage_insufficient" in reasons:
+        state = "coverage_insufficient"
+    elif "notification_degraded" in reasons:
+        state = "notification_degraded"
+    elif "scan_degraded" in reasons:
+        state = "scan_degraded"
+    elif int(scan.get("candidate_signals") or 0) == 0:
+        state = "idle"
+    else:
+        state = "active"
+    return state, sorted(set(reasons))
+
+
+def health_alert_detail(health, age_seconds, ordinary_state=None, ordinary_reasons=None):
     """Build a diagnostic alert without exposing channel credentials."""
     scan = health.get("scan") or {}
-    parts = ["monitor_health.json 未在预期周期内更新，或最近扫描失败。"]
+    labels = {
+        "heartbeat_missing": "未找到健康心跳",
+        "heartbeat_stale": "健康心跳已过期",
+        "scan_failed": "最近一次扫描失败",
+        "coverage_insufficient": "行情数据覆盖率不足",
+        "notification_degraded": "通知通道存在投递失败",
+        "scan_degraded": "最近扫描处于降级状态",
+    }
+    reasons = ordinary_reasons or []
+    if reasons:
+        parts = ["；".join(labels.get(reason, reason) for reason in reasons) + "。"]
+    elif ordinary_state == "idle":
+        parts = ["扫描成功但当前没有候选信号，属于正常空闲。"]
+    else:
+        parts = ["monitor_health.json 未在预期周期内更新，或最近扫描失败。"]
     if age_seconds is not None:
         parts.append(f"最近更新距今约 {round(age_seconds / 60, 1)} 分钟。")
     if health.get("updated_at"):
@@ -100,10 +201,13 @@ def health_alert_detail(health, age_seconds):
     return "".join(parts)
 
 
-def combined_alert_detail(health, health_age, perp_stats, perp_age, failed_components):
+def combined_alert_detail(health, health_age, perp_stats, perp_age, failed_components,
+                          ordinary_state=None, ordinary_reasons=None):
     parts = []
     if "ordinary_monitor" in failed_components:
-        parts.append(health_alert_detail(health, health_age))
+        parts.append(health_alert_detail(
+            health, health_age, ordinary_state, ordinary_reasons
+        ))
     if "perpetual_shadow" in failed_components:
         parts.append("perp_shadow_stats.json 未在预期周期内更新。")
         if perp_age is not None:
@@ -212,19 +316,32 @@ def risk_tier_alert_detail(tier_state):
 
 def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
           max_perp_age_minutes=DEFAULT_MAX_PERP_AGE_MINUTES,
-          now=None, sendkey=""):
+          now=None, sendkey="", pushplus_token=""):
     health = load_json(HEALTH_PATH, {})
     perp_stats = load_json(PERP_STATS_PATH, {})
     age = health_age_seconds(health, now=now)
     perp_age = perpetual_age_seconds(perp_stats, now=now)
     status = health.get("status")
+    ordinary_state, ordinary_reasons = classify_ordinary_monitor(
+        health, age, max_age_minutes
+    )
     failed_components = []
-    if age is None or age > max_age_minutes * 60 or status in {"failed", "stale"}:
+    if any(reason in ordinary_reasons for reason in (
+        "heartbeat_missing", "heartbeat_stale", "scan_failed"
+    )):
         failed_components.append("ordinary_monitor")
     if perp_age is None or perp_age > max_perp_age_minutes * 60:
         failed_components.append("perpetual_shadow")
     tier_state = risk_tier_alert_state(perp_stats)
-    advisory_components = ["risk_tiers"] if tier_state["active"] else []
+    advisory_components = []
+    if any(reason == "coverage_insufficient" for reason in ordinary_reasons):
+        advisory_components.append("scan_coverage")
+    if any(reason == "notification_degraded" for reason in ordinary_reasons):
+        advisory_components.append("notifications")
+    if any(reason == "scan_degraded" for reason in ordinary_reasons):
+        advisory_components.append("scan_status")
+    if tier_state["active"]:
+        advisory_components.append("risk_tiers")
     current = "stale" if failed_components else (
         "degraded" if advisory_components else "healthy"
     )
@@ -232,6 +349,8 @@ def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
         "status": current,
         "failed_components": sorted(failed_components),
         "advisory_components": sorted(advisory_components),
+        "ordinary_state": ordinary_state if ordinary_reasons else "normal",
+        "ordinary_reasons": ordinary_reasons,
         "risk_tier_signature": tier_state["signature"],
     }
     previous = load_json(ALERT_STATE_PATH, {})
@@ -239,41 +358,70 @@ def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
         "status": previous.get("status"),
         "failed_components": sorted(previous.get("failed_components") or []),
         "advisory_components": sorted(previous.get("advisory_components") or []),
+        "ordinary_state": (
+            previous.get("ordinary_state", "normal")
+            if previous.get("ordinary_reasons") else "normal"
+        ),
+        "ordinary_reasons": sorted(previous.get("ordinary_reasons") or []),
         "risk_tier_signature": previous.get("risk_tier_signature", "not_monitored"),
     }
     transition = current_signature != previous_signature
-    notify = transition and bool(sendkey)
+    notify = transition and bool(sendkey or pushplus_token)
     notification_error = None
     if notify:
         try:
             if current == "stale":
                 detail = combined_alert_detail(
-                    health, age, perp_stats, perp_age, failed_components
+                    health, age, perp_stats, perp_age, failed_components,
+                    ordinary_state, ordinary_reasons,
                 )
                 if tier_state["active"]:
                     detail += risk_tier_alert_detail(tier_state)
-                send_serverchan(sendkey, "CoinPulse 监控失联告警", detail)
+                title = (
+                    "CoinPulse 扫描失败告警"
+                    if ordinary_state == "scan_failed" and
+                    "heartbeat_stale" not in ordinary_reasons and
+                    "heartbeat_missing" not in ordinary_reasons
+                    else "CoinPulse 监控失联告警"
+                )
+                send_health_notification(sendkey, pushplus_token, title, detail)
             elif previous.get("status") == "stale":
-                send_serverchan(
-                    sendkey,
+                send_health_notification(
+                    sendkey, pushplus_token,
                     "CoinPulse 监控恢复（风险档位仍降级）"
                     if tier_state["active"] else "CoinPulse 监控恢复",
                     "监控健康记录已恢复更新，扫描任务重新可用。"
                     + (risk_tier_alert_detail(tier_state) if tier_state["active"] else ""),
                 )
             elif current == "degraded":
-                send_serverchan(
-                    sendkey, "CoinPulse 风险档位降级告警",
-                    risk_tier_alert_detail(tier_state),
-                )
+                if advisory_components == ["risk_tiers"]:
+                    title = "CoinPulse 风险档位降级告警"
+                    detail = risk_tier_alert_detail(tier_state)
+                else:
+                    title = (
+                        "CoinPulse 数据覆盖不足告警"
+                        if advisory_components == ["scan_coverage"] else
+                        "CoinPulse 推送通道降级告警"
+                        if advisory_components == ["notifications"] else
+                        "CoinPulse 运行降级告警"
+                    )
+                    detail = health_alert_detail(
+                        health, age, ordinary_state, ordinary_reasons
+                    )
+                    if tier_state["active"]:
+                        detail += risk_tier_alert_detail(tier_state)
+                send_health_notification(sendkey, pushplus_token, title, detail)
             elif previous.get("status") == "degraded":
-                send_serverchan(
-                    sendkey, "CoinPulse 风险档位恢复",
-                    "OKX 官方风险档位缓存已恢复健康，研究强平模型不再处于降级状态。",
+                send_health_notification(
+                    sendkey, pushplus_token,
+                    "CoinPulse 风险档位恢复"
+                    if previous.get("advisory_components") == ["risk_tiers"]
+                    else "CoinPulse 运行状态恢复",
+                    "监控扫描、数据覆盖或通知通道已恢复正常。",
                 )
             else:
-                send_serverchan(
-                    sendkey, "CoinPulse 监控恢复",
+                send_health_notification(
+                    sendkey, pushplus_token, "CoinPulse 监控恢复",
                     "监控健康记录已初始化为正常状态。",
                 )
         except (OSError, ValueError, RuntimeError, urllib.error.URLError) as exc:
@@ -285,6 +433,8 @@ def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
         "perpetual_age_seconds": perp_age,
         "failed_components": failed_components,
         "advisory_components": advisory_components,
+        "ordinary_state": ordinary_state,
+        "ordinary_reasons": ordinary_reasons,
         "risk_tier_status": tier_state["status"],
         "risk_tier_signature": tier_state["signature"],
         "risk_tier_degraded_symbols": tier_state["degraded_symbols"],
@@ -300,6 +450,8 @@ def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
         "perpetual_age_seconds": perp_age,
         "failed_components": failed_components,
         "advisory_components": advisory_components,
+        "ordinary_state": ordinary_state,
+        "ordinary_reasons": ordinary_reasons,
         "risk_tier_status": tier_state["status"],
         "risk_tier_signature": tier_state["signature"],
         "notified": notify and not notification_error, "notification_error": notification_error,
@@ -313,7 +465,8 @@ def main():
                         default=DEFAULT_MAX_PERP_AGE_MINUTES)
     args = parser.parse_args()
     result = check(args.max_age_minutes, args.max_perp_age_minutes,
-                   sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""))
+                   sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""),
+                   pushplus_token=os.environ.get("PUSHPLUS_TOKEN", ""))
     print(json.dumps(result, ensure_ascii=False))
     return 1 if result["status"] == "stale" else 0
 

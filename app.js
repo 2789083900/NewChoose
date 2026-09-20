@@ -2636,7 +2636,13 @@ function loadMonitorHealth() {
       const coverage = Number(scan.coverage_pct);
       const status = health.status || 'unknown';
       const statusLabel = status === 'ok' ? '正常' : status === 'degraded' ? '降级' : status === 'failed' ? '失败' : '未知';
-      metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel}`;
+      const ordinaryStateLabels = {
+        idle: '正常空闲', active: '运行中', scan_failed: '扫描失败',
+        heartbeat_stale: '心跳过期', coverage_insufficient: '覆盖不足',
+        notification_degraded: '推送降级', scan_degraded: '扫描降级'
+      };
+      const ordinaryState = ordinaryStateLabels[health.ordinary_state] || '未分类';
+      metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel} · 普通监控 ${ordinaryState}`;
       summaryEl.innerHTML = `
         <div class="trade-cards">
           <div class="trade-card"><span>最近扫描</span><strong>${escapeHtml(scan.run_id || '--')}</strong></div>

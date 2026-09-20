@@ -57,6 +57,7 @@ class TurtleCoreTests(unittest.TestCase):
             "check_monitor_health.py --max-age-minutes 35 --max-perp-age-minutes 45",
             text,
         )
+        self.assertIn("PUSHPLUS_TOKEN", text)
 
     def test_console_output_configures_supported_streams(self):
         stdout = mock.Mock()
@@ -2944,6 +2945,79 @@ class TurtleCoreTests(unittest.TestCase):
         self.assertIn("abc123", detail)
         self.assertIn("覆盖率：0.0%", detail)
         self.assertIn("BTCUSDT|4h: timeout", detail)
+
+    def test_monitor_health_distinguishes_idle_and_coverage_degradation(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", return_value=True) as notify:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({
+                    "updated_at_epoch": 100, "status": "ok",
+                    "scan": {"candidate_signals": 0, "coverage_pct": 50,
+                              "minimum_coverage_pct": 80},
+                }, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:01:40Z"}, file)
+            degraded = check_monitor_health.check(now=200, sendkey="SCT-test")
+            repeated = check_monitor_health.check(now=201, sendkey="SCT-test")
+        self.assertEqual(degraded["status"], "degraded")
+        self.assertEqual(degraded["ordinary_state"], "coverage_insufficient")
+        self.assertEqual(degraded["advisory_components"], ["scan_coverage"])
+        self.assertEqual(notify.call_count, 1)
+        self.assertIn("数据覆盖不足", notify.call_args.args[1])
+        self.assertEqual(repeated["ordinary_state"], "coverage_insufficient")
+
+    def test_monitor_health_classifies_successful_empty_scan_as_idle(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")):
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({
+                    "updated_at_epoch": 100, "status": "ok",
+                    "scan": {"candidate_signals": 0},
+                }, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:01:40Z"}, file)
+            result = check_monitor_health.check(now=200)
+        self.assertEqual(result["status"], "healthy")
+        self.assertEqual(result["ordinary_state"], "idle")
+        self.assertEqual(result["advisory_components"], [])
+
+    def test_monitor_health_preserves_legacy_degraded_status_as_advisory(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")):
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 100, "status": "degraded"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:01:40Z"}, file)
+            result = check_monitor_health.check(now=200)
+        self.assertEqual(result["status"], "degraded")
+        self.assertEqual(result["ordinary_state"], "scan_degraded")
+        self.assertEqual(result["advisory_components"], ["scan_status"])
+
+    def test_monitor_health_uses_pushplus_when_serverchan_fails(self):
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(check_monitor_health, "HEALTH_PATH", os.path.join(directory, "monitor_health.json")), \
+             mock.patch.object(check_monitor_health, "PERP_STATS_PATH", os.path.join(directory, "perp_shadow_stats.json")), \
+             mock.patch.object(check_monitor_health, "ALERT_STATE_PATH", os.path.join(directory, "monitor_alert_state.json")), \
+             mock.patch.object(check_monitor_health, "send_serverchan", side_effect=RuntimeError("down")) as primary, \
+             mock.patch.object(check_monitor_health, "send_pushplus", return_value=True) as fallback:
+            with open(check_monitor_health.HEALTH_PATH, "w", encoding="utf-8") as file:
+                json.dump({"updated_at_epoch": 100, "status": "ok"}, file)
+            with open(check_monitor_health.PERP_STATS_PATH, "w", encoding="utf-8") as file:
+                json.dump({"generated_at_utc": "1970-01-01T00:01:40Z"}, file)
+            result = check_monitor_health.check(
+                max_age_minutes=1, now=200, sendkey="SCT-test", pushplus_token="PP-test"
+            )
+        self.assertTrue(result["notified"])
+        self.assertIsNone(result["notification_error"])
+        primary.assert_called_once()
+        fallback.assert_called_once()
 
     def test_monitor_health_detects_perpetual_heartbeat_transition_once(self):
         with tempfile.TemporaryDirectory() as directory, \

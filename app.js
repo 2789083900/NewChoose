@@ -2648,6 +2648,10 @@ function loadMonitorHealth() {
       const daily = health.daily_summary || {};
       const dailyAction = daily.action_required ? '今日需处理' : '今日无需处理';
       metaEl.textContent = `最后更新 ${health.updated_at || '--'} · 状态 ${statusLabel} · 普通监控 ${ordinaryState} · ${dailyAction}`;
+      const dailyFormal = daily.formal || {};
+      const dailyResearch = daily.research || {};
+      const dailyNotifications = daily.notifications || {};
+      const dailyReasons = daily.action_required ? (daily.action_reasons || []).join('；') : '无需处理';
       summaryEl.innerHTML = `
         <div class="trade-cards">
           <div class="trade-card"><span>最近扫描</span><strong>${escapeHtml(scan.run_id || '--')}</strong></div>
@@ -2664,6 +2668,7 @@ function loadMonitorHealth() {
       detailsEl.innerHTML = `
         <table class="bt-table"><thead><tr><th>候选信号</th><th>覆盖门槛</th><th>推送尝试</th><th>推送失败</th><th>数据源</th></tr></thead>
         <tbody><tr><td>${scan.candidate_signals ?? 0}</td><td>${scan.minimum_coverage_pct ?? 80}%</td><td>${push.attempted ?? 0}</td><td class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</td><td>${escapeHtml((scan.providers || []).join(', ') || '--')}</td></tr></tbody></table>
+        <p class="strategy-note">每日摘要：${daily.action_required ? '需要处理' : '无需处理'}；正式信号 ${dailyFormal.signal_samples ?? '未知'}（待观察 ${dailyFormal.pending_signals ?? '未知'}），已结算交易 ${dailyFormal.closed_trades ?? '未知'}；研究持仓 ${dailyResearch.open_trades ?? '未知'}、待观察 ${dailyResearch.pending_signals ?? '未知'}；通知失败 ${dailyNotifications.round_failed ?? '未知'}、积压 ${dailyNotifications.pending ?? '未知'}、耗尽 ${dailyNotifications.exhausted ?? '未知'}；${escapeHtml(dailyReasons)}</p>
         <p class="strategy-note">S1 快速研究队列：已跟踪 ${research.tracked_signals ?? 0} 条，待观察 ${research.pending_signals ?? 0} 条。该队列仅用于提前研究，不计入正式样本，也不代表实盘建议。</p>
         ${failures ? `<ul class="health-failures">${failures}</ul>` : ''}
         ${portfolio.symbols?.length ? `<table class="bt-table health-risk-table"><thead><tr><th>币种</th><th>方向</th><th>单位</th><th>剩余容量</th><th>止损理论风险</th></tr></thead><tbody>${portfolio.symbols.map((item) => `<tr><td class="sym">${escapeHtml(String(item.symbol || '').replace('USDT', ''))}</td><td>${item.direction === 'long' ? '多' : '空'}</td><td>${item.units ?? 0}</td><td>${item.remaining_symbol_capacity ?? '--'}</td><td>${item.estimated_stop_risk ?? 0} U</td></tr>`).join('')}</tbody></table>` : ''}`;

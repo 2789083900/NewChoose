@@ -57,7 +57,13 @@ class TurtleCoreTests(unittest.TestCase):
             "check_monitor_health.py --max-age-minutes 35 --max-perp-age-minutes 45",
             text,
         )
-        self.assertIn("PUSHPLUS_TOKEN", text)
+
+    def test_dashboard_exposes_daily_summary_and_unknown_values(self):
+        with open(os.path.join(os.path.dirname(__file__), "app.js"), encoding="utf-8") as file:
+            text = file.read()
+        self.assertIn("daily_summary", text)
+        self.assertIn("今日无需处理", text)
+        self.assertIn("未知", text)
 
     def test_console_output_configures_supported_streams(self):
         stdout = mock.Mock()

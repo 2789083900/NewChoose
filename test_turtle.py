@@ -45,6 +45,19 @@ def make_bars(count, close=100.0, high=101.0, low=99.0, start=1):
 
 
 class TurtleCoreTests(unittest.TestCase):
+    def test_monitor_health_workflow_uses_jitter_tolerant_thresholds(self):
+        workflow = os.path.join(
+            os.path.dirname(__file__), ".github", "workflows", "monitor-health.yml"
+        )
+        with open(workflow, encoding="utf-8") as file:
+            text = file.read()
+        self.assertEqual(check_monitor_health.DEFAULT_MAX_AGE_MINUTES, 35)
+        self.assertEqual(check_monitor_health.DEFAULT_MAX_PERP_AGE_MINUTES, 45)
+        self.assertIn(
+            "check_monitor_health.py --max-age-minutes 35 --max-perp-age-minutes 45",
+            text,
+        )
+
     def test_console_output_configures_supported_streams(self):
         stdout = mock.Mock()
         stderr = mock.Mock()

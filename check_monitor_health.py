@@ -16,6 +16,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
 ALERT_STATE_PATH = os.path.join(BASE_DIR, "monitor_alert_state.json")
 PERP_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
+DEFAULT_MAX_AGE_MINUTES = 35
+DEFAULT_MAX_PERP_AGE_MINUTES = 45
 
 
 def load_json(path, fallback):
@@ -208,7 +210,9 @@ def risk_tier_alert_detail(tier_state):
     return "".join(parts)
 
 
-def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
+def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
+          max_perp_age_minutes=DEFAULT_MAX_PERP_AGE_MINUTES,
+          now=None, sendkey=""):
     health = load_json(HEALTH_PATH, {})
     perp_stats = load_json(PERP_STATS_PATH, {})
     age = health_age_seconds(health, now=now)
@@ -304,8 +308,9 @@ def check(max_age_minutes=20, max_perp_age_minutes=30, now=None, sendkey=""):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-age-minutes", type=float, default=20)
-    parser.add_argument("--max-perp-age-minutes", type=float, default=30)
+    parser.add_argument("--max-age-minutes", type=float, default=DEFAULT_MAX_AGE_MINUTES)
+    parser.add_argument("--max-perp-age-minutes", type=float,
+                        default=DEFAULT_MAX_PERP_AGE_MINUTES)
     args = parser.parse_args()
     result = check(args.max_age_minutes, args.max_perp_age_minutes,
                    sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""))

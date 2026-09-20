@@ -3287,6 +3287,34 @@ class ReliableNotificationTests(unittest.TestCase):
             results = sw.send_notification("title", "body", config)
         self.assertEqual([item["ok"] for item in results], [False, True])
 
+    def test_both_channels_fail_and_outbox_exhausts_without_storing_secrets(self):
+        config = {
+            "channels": {
+                "serverchan": {"sendkey": "SCT-secret-value"},
+                "pushplus": {"token": "pushplus-secret-value"},
+            },
+            "delivery": {"mode": "primary_fallback", "primary": "serverchan",
+                         "fallback": ["pushplus"], "max_attempts": 1},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "notification_outbox.json")
+            with mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", path), \
+                 mock.patch.object(sw, "post_form", side_effect=TimeoutError("primary")), \
+                 mock.patch.object(sw, "post_json", side_effect=OSError("fallback")):
+                result = sw.send_outbox_notification(
+                    "event-both-fail", "title", "body", config
+                )
+            with open(path, encoding="utf-8") as file:
+                raw = file.read()
+                outbox = json.loads(raw)
+        self.assertFalse(result["delivered"])
+        self.assertTrue(result["exhausted"])
+        self.assertEqual([item["ok"] for item in result["results"]], [False, False])
+        self.assertEqual(outbox["events"][0]["status"], "exhausted")
+        self.assertEqual(outbox["events"][0]["attempts"], 1)
+        self.assertNotIn("SCT-secret-value", raw)
+        self.assertNotIn("pushplus-secret-value", raw)
+
     def test_late_signal_is_diagnostic_only(self):
         event = {
             "symbol": "BTCUSDT", "interval": "4h", "direction": "long",
@@ -3311,16 +3339,40 @@ class ReliableNotificationTests(unittest.TestCase):
                  mock.patch.object(sw, "send_notification", side_effect=[
                      [{"channel": "Server酱", "ok": False, "error": "timeout"}],
                      [{"channel": "PushPlus", "ok": True}],
-                 ]):
+                 ]) as send:
                 first = sw.send_outbox_notification("event-1", "title", "body", {})
                 second = sw.send_outbox_notification("event-1", "title", "body", {})
+                third = sw.send_outbox_notification("event-1", "title", "body", {})
             self.assertFalse(first["delivered"])
             self.assertTrue(second["delivered"])
+            self.assertTrue(third["delivered"])
+            self.assertEqual(send.call_count, 2)
             with open(path, encoding="utf-8") as file:
                 outbox = json.load(file)
             self.assertEqual(len(outbox["events"]), 1)
             self.assertEqual(outbox["events"][0]["attempts"], 2)
             self.assertEqual(outbox["events"][0]["status"], "delivered")
+
+    def test_outbox_stops_retrying_after_attempt_limit(self):
+        config = {"delivery": {"max_attempts": 2}}
+        failed = [{"channel": "Server酱", "ok": False,
+                   "error_category": "TimeoutError"}]
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "notification_outbox.json")
+            with mock.patch.object(sw, "NOTIFICATION_OUTBOX_PATH", path), \
+                 mock.patch.object(sw, "send_notification", return_value=failed) as send:
+                first = sw.send_outbox_notification("event-limit", "title", "body", config)
+                second = sw.send_outbox_notification("event-limit", "title", "body", config)
+                third = sw.send_outbox_notification("event-limit", "title", "body", config)
+            with open(path, encoding="utf-8") as file:
+                item = json.load(file)["events"][0]
+        self.assertFalse(first["delivered"])
+        self.assertFalse(first["exhausted"])
+        self.assertTrue(second["exhausted"])
+        self.assertTrue(third["exhausted"])
+        self.assertEqual(send.call_count, 2)
+        self.assertEqual(item["attempts"], 2)
+        self.assertEqual(item["status"], "exhausted")
 
     def test_outbox_validator_fails_for_pending_delivery(self):
         with tempfile.TemporaryDirectory() as directory:

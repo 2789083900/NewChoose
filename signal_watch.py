@@ -1695,8 +1695,12 @@ def send_outbox_notification(event_id, title, content, config, metadata=None,
         return {"event_id": event_id, "delivered": False, "exhausted": True,
                 "results": item.get("last_results") or []}
     delivered, results = _dispatch_outbox_event(item, config)
+    exhausted = not delivered and int(item.get("attempts") or 0) >= int(limit)
+    if exhausted:
+        item["status"] = "exhausted"
     _save_outbox(outbox)
-    return {"event_id": event_id, "delivered": delivered, "results": results}
+    return {"event_id": event_id, "delivered": delivered,
+            "exhausted": exhausted, "results": results}
 
 
 def build_message(event, config):

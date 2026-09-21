@@ -1,10 +1,11 @@
 {
   "status": "stale",
-  "checked_at_epoch": 1789940810,
-  "health_age_seconds": 2526,
-  "perpetual_age_seconds": 2371,
+  "checked_at_epoch": 1789948921,
+  "health_age_seconds": 3019,
+  "perpetual_age_seconds": 2864,
   "failed_components": [
-    "ordinary_monitor"
+    "ordinary_monitor",
+    "perpetual_shadow"
   ],
   "advisory_components": [],
   "ordinary_state": "heartbeat_stale",

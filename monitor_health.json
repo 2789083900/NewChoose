@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-20 23:11:40",
+  "updated_at": "2026-09-21 01:07:03",
   "scan": {
-    "run_id": "14593b8a0185",
+    "run_id": "9bc856f98347",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789920000000,
-    "data_lag_minutes": 431.7,
+    "latest_bar_time": 1789934400000,
+    "data_lag_minutes": 307.0,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -25,12 +25,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 0,
+    "attempted": 1,
     "failed": 0,
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1789945900,
+  "updated_at_epoch": 1789952823,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -62,34 +62,33 @@
     "generated_at": "2026-09-20 21:04:42"
   },
   "daily_summary": {
-    "date": "2026-09-20",
+    "date": "2026-09-21",
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
-      "行情数据延迟超过30分钟",
-      "正式样本统计过期或损坏"
+      "行情数据延迟超过30分钟"
     ],
-    "data_time": "2026-09-20 16:00:00 北京",
-    "data_lag_minutes": 249.4,
+    "data_time": "2026-09-21 04:00:00 北京",
+    "data_lag_minutes": 307.0,
     "formal": {
-      "data_status": "stale",
-      "signal_samples": 6,
+      "data_status": "ok",
+      "signal_samples": 7,
       "pending_signals": 2,
-      "closed_trades": 4,
+      "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-20 06:57:40",
-      "trade_stats_generated_at": "2026-09-10 00:29:36",
+      "tracking_generated_at": "2026-09-20 23:11:43",
+      "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
-        "trade_stats": "stale"
+        "trade_stats": "ok"
       }
     },
     "research": {
       "data_status": null,
       "open_trades": 0,
-      "closed_trades": 0,
-      "pending_signals": 7,
-      "tracking_generated_at": null
+      "closed_trades": 1,
+      "pending_signals": 6,
+      "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
       "round_failed": 0,
@@ -100,6 +99,6 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "8ec3e7d1a2a6"
+    "run_id": "9bc856f98347"
   }
 }

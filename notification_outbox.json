@@ -2,6 +2,52 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|SUIUSDT|4h|1789948800000|long|接近突破",
+      "title": "CoinPulse 观察预警 SUIUSDT 接近突破",
+      "content": "观察预警 SUIUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.296N\n现价：0.949900（+14.94%）\n依据：距上破阈值约0.30N\n当前价 0.949900 · 突破阈值 0.956092 · N=0.020917\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-21 04:00:00 UTC / 2026-09-21 12:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SUIUSDT",
+        "bar_time": 1789948800000
+      },
+      "created_epoch_ms": 1789971418667,
+      "expires_epoch_ms": 1789972018667,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789971421010,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789971421010
+    },
+    {
+      "event_id": "spot-warning|ETHUSDT|4h|1789948800000|long|重点观察",
+      "title": "CoinPulse 观察预警 ETHUSDT 重点观察",
+      "content": "观察预警 ETHUSDT 4h · 重点观察\n方向：向上做多 · 距突破约 0.158N\n现价：2,665.95（+3.01%）\n依据：距上破阈值约0.16N\n当前价 2,665.95 · 突破阈值 2,671.56 · N=35.58\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-21 04:00:00 UTC / 2026-09-21 12:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ETHUSDT",
+        "bar_time": 1789948800000
+      },
+      "created_epoch_ms": 1789971416654,
+      "expires_epoch_ms": 1789972016654,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789971418666,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789971418666
+    },
+    {
       "event_id": "daily-health|2026-09-21",
       "title": "CoinPulse 每日运行摘要 2026-09-21",
       "content": "CoinPulse 每日运行摘要 2026-09-21\n系统状态：降级，需要处理\n数据时间：2026-09-21 04:00:00 北京，延迟 307.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\n正式样本：信号 7（待观察 2），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 6（仅研究，不计入正式样本）\n通知链路：本轮失败 0 条，积压 0 条，重试耗尽 0 条\n用户处理：行情数据延迟超过30分钟\n运行编号：9bc856f98347",

@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-21 01:07:03",
+  "updated_at": "2026-09-21 06:17:01",
   "scan": {
-    "run_id": "9bc856f98347",
+    "run_id": "8b26dcbb74b7",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,9 +15,9 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1789934400000,
-    "data_lag_minutes": 307.0,
-    "candidate_signals": 0,
+    "latest_bar_time": 1789948800000,
+    "data_lag_minutes": 377.0,
+    "candidate_signals": 3,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -25,12 +25,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 1,
+    "attempted": 3,
     "failed": 0,
     "failures": []
   },
-  "status": "ok",
-  "updated_at_epoch": 1789952823,
+  "status": "degraded",
+  "updated_at_epoch": 1789971421,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -66,17 +66,18 @@
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
-      "行情数据延迟超过30分钟"
+      "行情数据延迟超过30分钟",
+      "本轮通知失败 1 条"
     ],
-    "data_time": "2026-09-21 04:00:00 北京",
-    "data_lag_minutes": 307.0,
+    "data_time": "2026-09-21 08:00:00 北京",
+    "data_lag_minutes": 377.0,
     "formal": {
       "data_status": "ok",
       "signal_samples": 7,
       "pending_signals": 2,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-20 23:11:43",
+      "tracking_generated_at": "2026-09-21 01:07:04",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -91,7 +92,7 @@
       "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
-      "round_failed": 0,
+      "round_failed": 1,
       "pending": 0,
       "exhausted": 0
     },
@@ -99,6 +100,6 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "9bc856f98347"
+    "run_id": "8b26dcbb74b7"
   }
 }

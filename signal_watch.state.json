@@ -259,5 +259,7 @@
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2,
-  "AVAXUSDT|4h|early_warning|long|1789747200000": true
+  "AVAXUSDT|4h|early_warning|long|1789747200000": true,
+  "ETHUSDT|4h|early_warning|long|1789948800000": true,
+  "SUIUSDT|4h|early_warning|long|1789948800000": true
 }

@@ -241,7 +241,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 8.493,
@@ -255,7 +255,18 @@
         "observed_at": "2026-09-20 06:35:32",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 8.493,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 38.938,
+        "mae_pct": -1.542,
+        "final_return_pct": 32.851,
+        "final_price": 11.283,
+        "outcome": "WIN",
+        "observed_until": 1789963200000,
+        "observed_at": "2026-09-21 06:17:02",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -637,6 +648,74 @@
     "notification_status": "delivered",
     "notification_event_id": "spot-signal|AVAXUSDT|4h|1789905600000|long",
     "status": "pending",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "SUIUSDT|4h|1789948800000|long|system1",
+    "run_id": "8b26dcbb74b7",
+    "symbol": "SUIUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 0.9206,
+    "entry_trigger": 0.9206,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1789948800000,
+    "signal_time": "2026-09-21 06:16:56",
+    "timing": {
+      "bar_close_time": "2026-09-21 04:00:00 UTC / 2026-09-21 12:00:00 北京",
+      "bar_close_epoch": 1789963200000,
+      "generated_time": "2026-09-21 06:16:56 UTC / 2026-09-21 14:16:56 北京",
+      "generated_epoch": 1789971416485,
+      "delay_minutes": 136.9,
+      "shadow_entry_deadline": "2026-09-21 04:00:00 UTC / 2026-09-21 12:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 0.02070168313724495,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 0.02070168313724495,
+      "breakout_trigger": 0.9206,
+      "stop": 0.87919663372551,
+      "next_add": 0.9309508415686224,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
     "horizons": {
       "24h": null,
       "48h": null

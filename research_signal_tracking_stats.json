@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-21 18:36:28",
+  "generated_at": "2026-09-21 22:11:41",
   "total_signals": 16,
-  "pending_signals": 11,
+  "pending_signals": 9,
   "horizons": {
     "24h": {
       "observed": 8,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -4.04
     },
     "48h": {
-      "observed": 5,
-      "wins": 4,
+      "observed": 7,
+      "wins": 6,
       "losses": 1,
       "flats": 0,
-      "win_rate": 80.0,
-      "avg_return_pct": 20.865,
-      "avg_mfe_pct": 25.254,
-      "avg_mae_pct": -3.062
+      "win_rate": 85.71,
+      "avg_return_pct": 20.073,
+      "avg_mfe_pct": 24.165,
+      "avg_mae_pct": -4.447
     }
   },
   "by_symbol": {
@@ -69,11 +69,11 @@
         "avg_return_pct": -2.038
       },
       "48h": {
-        "observed": 1,
-        "wins": 1,
+        "observed": 2,
+        "wins": 2,
         "losses": 0,
         "win_rate": 100.0,
-        "avg_return_pct": 17.667
+        "avg_return_pct": 18.067
       }
     },
     "PEPEUSDT": {
@@ -85,7 +85,13 @@
         "win_rate": 0.0,
         "avg_return_pct": -4.95
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 17.717
+      }
     },
     "BTCUSDT": {
       "signals": 1,

@@ -54,12 +54,12 @@
       "quantity": 269.2514382083689
     }
   ],
-  "BTCUSDT|4h|turtle|system1": "none",
-  "ETHUSDT|4h|turtle|system1": "none",
-  "SOLUSDT|4h|turtle|system1": "none",
-  "BNBUSDT|4h|turtle|system1": "none",
+  "BTCUSDT|4h|turtle|system1": "long",
+  "ETHUSDT|4h|turtle|system1": "long",
+  "SOLUSDT|4h|turtle|system1": "long",
+  "BNBUSDT|4h|turtle|system1": "long",
   "XRPUSDT|4h|turtle|system1": "none",
-  "ADAUSDT|4h|turtle|system1": "none",
+  "ADAUSDT|4h|turtle|system1": "long",
   "DOGEUSDT|4h|turtle|system1": "none",
   "LINKUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1": "none",

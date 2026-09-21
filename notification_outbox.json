@@ -2,6 +2,62 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2|pending_entry|1789992000000",
+      "title": "CoinPulse 永续 ETHUSDT signal_created",
+      "content": "永续做多 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：2709.91\n预定成交时间：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n信号有效期至：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n初始止损参考：2635.69287325\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：911.884715 · 预估最大亏损：50.00000000\n风险占用：0.50% · 组合剩余容量：2.00%\n标记价：2724.01 · 指数价：2725.42 · 基差：-0.051735%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "signal_created",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1789995751415,
+      "expires_epoch_ms": 1789996351415,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789995754741,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789995754741
+    },
+    {
+      "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2|pending_entry|1789992000000",
+      "title": "CoinPulse 永续 BTCUSDT signal_created",
+      "content": "永续做多 · BTCUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：82279.9\n预定成交时间：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n信号有效期至：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n初始止损参考：80587.26859166\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：1213.628525 · 预估最大亏损：50.00000000\n风险占用：0.50% · 组合剩余容量：2.50%\n标记价：84848.8 · 指数价：84889.3 · 基差：-0.047709%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "signal_created",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2",
+        "symbol": "BTCUSDT"
+      },
+      "created_epoch_ms": 1789995749021,
+      "expires_epoch_ms": 1789996349021,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1789995751413,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1789995751413
+    },
+    {
       "event_id": "spot-warning|SUIUSDT|4h|1789948800000|long|接近突破",
       "title": "CoinPulse 观察预警 SUIUSDT 接近突破",
       "content": "观察预警 SUIUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.296N\n现价：0.949900（+14.94%）\n依据：距上破阈值约0.30N\n当前价 0.949900 · 突破阈值 0.956092 · N=0.020917\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-21 04:00:00 UTC / 2026-09-21 12:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

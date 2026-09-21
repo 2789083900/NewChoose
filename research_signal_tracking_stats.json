@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-21 06:17:02",
-  "total_signals": 9,
-  "pending_signals": 6,
+  "generated_at": "2026-09-21 12:59:55",
+  "total_signals": 14,
+  "pending_signals": 9,
   "horizons": {
     "24h": {
       "observed": 7,
@@ -14,19 +14,19 @@
       "avg_mae_pct": -3.981
     },
     "48h": {
-      "observed": 3,
-      "wins": 2,
+      "observed": 5,
+      "wins": 4,
       "losses": 1,
       "flats": 0,
-      "win_rate": 66.67,
-      "avg_return_pct": 21.801,
-      "avg_mfe_pct": 26.628,
-      "avg_mae_pct": -2.04
+      "win_rate": 80.0,
+      "avg_return_pct": 20.865,
+      "avg_mfe_pct": 25.254,
+      "avg_mae_pct": -3.062
     }
   },
   "by_symbol": {
     "SOLUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {
         "observed": 1,
         "wins": 1,
@@ -52,11 +52,11 @@
         "avg_return_pct": 13.456
       },
       "48h": {
-        "observed": 2,
-        "wins": 2,
+        "observed": 3,
+        "wins": 3,
         "losses": 0,
         "win_rate": 100.0,
-        "avg_return_pct": 33.758
+        "avg_return_pct": 29.591
       }
     },
     "SUIUSDT": {
@@ -68,7 +68,13 @@
         "win_rate": 50.0,
         "avg_return_pct": -2.038
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 17.667
+      }
     },
     "PEPEUSDT": {
       "signals": 1,
@@ -79,6 +85,26 @@
         "win_rate": 0.0,
         "avg_return_pct": -4.95
       },
+      "48h": {}
+    },
+    "BTCUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "ETHUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "BNBUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "ADAUSDT": {
+      "signals": 1,
+      "24h": {},
       "48h": {}
     }
   }

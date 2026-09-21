@@ -349,7 +349,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 9.444,
@@ -363,7 +363,18 @@
         "observed_at": "2026-09-20 16:04:06",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 9.444,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 24.947,
+        "mae_pct": -0.402,
+        "final_return_pct": 17.344,
+        "final_price": 11.082,
+        "outcome": "WIN",
+        "observed_until": 1790006400000,
+        "observed_at": "2026-09-21 18:36:27",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -430,7 +441,18 @@
     "notification_event_id": "spot-signal|AVAXUSDT|4h|1789905600000|long",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 11.41,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.418,
+        "mae_pct": -4.452,
+        "final_return_pct": -2.875,
+        "final_price": 11.082,
+        "outcome": "LOSS",
+        "observed_until": 1790006400000,
+        "observed_at": "2026-09-21 18:36:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -674,6 +696,74 @@
       "breakout_trigger": 114.32,
       "stop": 110.74716203015693,
       "next_add": 115.21320949246076,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "PEPEUSDT|4h|1789992000000|long|system2",
+    "run_id": "d3f75ffa3df3",
+    "symbol": "PEPEUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 4.56e-06,
+    "entry_trigger": 4.56e-06,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1789992000000,
+    "signal_time": "2026-09-21 18:36:24",
+    "timing": {
+      "bar_close_time": "2026-09-21 16:00:00 UTC / 2026-09-22 00:00:00 北京",
+      "bar_close_epoch": 1790006400000,
+      "generated_time": "2026-09-21 18:36:24 UTC / 2026-09-22 02:36:24 北京",
+      "generated_epoch": 1790015784685,
+      "delay_minutes": 156.4,
+      "shadow_entry_deadline": "2026-09-21 16:00:00 UTC / 2026-09-22 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 1.1131237012115154e-07,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 1.1131237012115154e-07,
+      "breakout_trigger": 4.56e-06,
+      "stop": 4.3373752597576976e-06,
+      "next_add": 4.615656185060576e-06,
       "risk_fraction": 0.01,
       "filters": {
         "closed_candles_only": true,

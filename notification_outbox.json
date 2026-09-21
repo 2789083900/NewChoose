@@ -2,6 +2,52 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2|open|1789992000000",
+      "title": "CoinPulse 永续 ETHUSDT entry_filled",
+      "content": "永续做多 · ETHUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n成交时间：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n成交价：2725.33 · 数量：0.673\n止损：2651.112873250324 · 杠杆：2.0\n手续费：0.73365884\n滑点：0.0501% · 模型：volume_impact\n保证金：917.073545 · 预估最大亏损：49.99499142\n标记价：2754.02 · 指数价：2755.47 · 基差：-0.052623%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "entry_filled",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1790015919187,
+      "expires_epoch_ms": 1790102319187,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790015921197,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790015921197
+    },
+    {
+      "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2|open|1789992000000",
+      "title": "CoinPulse 永续 BTCUSDT entry_filled",
+      "content": "永续做多 · BTCUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n成交时间：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n成交价：84891.2 · 数量：0.0295\n止损：83198.56859165562 · 杠杆：2.0\n手续费：1.00171616\n滑点：0.0501% · 模型：volume_impact\n保证金：1252.1452 · 预估最大亏损：50.00000000\n标记价：85888.7 · 指数价：85930.6 · 基差：-0.04876%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "entry_filled",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1789977600000|long|system2",
+        "symbol": "BTCUSDT"
+      },
+      "created_epoch_ms": 1790015917365,
+      "expires_epoch_ms": 1790102317365,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790015919185,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790015919185
+    },
+    {
       "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2|pending_entry|1789992000000",
       "title": "CoinPulse 永续 ETHUSDT signal_created",
       "content": "永续做多 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：2709.91\n预定成交时间：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n信号有效期至：2026-09-21 12:00:00 UTC / 2026-09-21 20:00:00 北京\n初始止损参考：2635.69287325\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：911.884715 · 预估最大亏损：50.00000000\n风险占用：0.50% · 组合剩余容量：2.00%\n标记价：2724.01 · 指数价：2725.42 · 基差：-0.051735%\n研究影子信号：需人工确认，不会自动下单",

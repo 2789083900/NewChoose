@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-21 12:59:55",
-  "total_signals": 14,
-  "pending_signals": 9,
+  "generated_at": "2026-09-21 18:36:28",
+  "total_signals": 16,
+  "pending_signals": 11,
   "horizons": {
     "24h": {
-      "observed": 7,
+      "observed": 8,
       "wins": 5,
-      "losses": 2,
+      "losses": 3,
       "flats": 0,
-      "win_rate": 71.43,
-      "avg_return_pct": 4.538,
-      "avg_mfe_pct": 10.643,
-      "avg_mae_pct": -3.981
+      "win_rate": 62.5,
+      "avg_return_pct": 3.611,
+      "avg_mfe_pct": 9.74,
+      "avg_mae_pct": -4.04
     },
     "48h": {
       "observed": 5,
@@ -45,11 +45,11 @@
     "AVAXUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 3,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 13.456
+        "losses": 1,
+        "win_rate": 75.0,
+        "avg_return_pct": 9.373
       },
       "48h": {
         "observed": 3,
@@ -77,7 +77,7 @@
       }
     },
     "PEPEUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {
         "observed": 1,
         "wins": 0,
@@ -103,6 +103,11 @@
       "48h": {}
     },
     "ADAUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "DOGEUSDT": {
       "signals": 1,
       "24h": {},
       "48h": {}

@@ -1,27 +1,27 @@
 {
-  "generated_at": "2026-09-21 12:59:55",
-  "total_signals": 11,
+  "generated_at": "2026-09-21 18:36:28",
+  "total_signals": 12,
   "pending_signals": 6,
   "horizons": {
     "24h": {
+      "observed": 7,
+      "wins": 3,
+      "losses": 4,
+      "flats": 0,
+      "win_rate": 42.86,
+      "avg_return_pct": 1.895,
+      "avg_mfe_pct": 5.347,
+      "avg_mae_pct": -2.308
+    },
+    "48h": {
       "observed": 6,
       "wins": 3,
       "losses": 3,
       "flats": 0,
       "win_rate": 50.0,
-      "avg_return_pct": 2.69,
-      "avg_mfe_pct": 5.669,
-      "avg_mae_pct": -1.951
-    },
-    "48h": {
-      "observed": 5,
-      "wins": 2,
-      "losses": 3,
-      "flats": 0,
-      "win_rate": 40.0,
-      "avg_return_pct": -0.689,
-      "avg_mfe_pct": 3.764,
-      "avg_mae_pct": -3.396
+      "avg_return_pct": 2.317,
+      "avg_mfe_pct": 7.295,
+      "avg_mae_pct": -2.897
     }
   },
   "by_symbol": {
@@ -96,15 +96,26 @@
     "AVAXUSDT": {
       "signals": 2,
       "24h": {
+        "observed": 2,
+        "wins": 1,
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": 8.982
+      },
+      "48h": {
         "observed": 1,
         "wins": 1,
         "losses": 0,
         "win_rate": 100.0,
-        "avg_return_pct": 20.839
-      },
-      "48h": {}
+        "avg_return_pct": 17.344
+      }
     },
     "ETHUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
+    },
+    "PEPEUSDT": {
       "signals": 1,
       "24h": {},
       "48h": {}

@@ -2,6 +2,60 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "daily-health|2026-09-22",
+      "title": "CoinPulse 每日运行摘要 2026-09-22",
+      "content": "CoinPulse 每日运行摘要 2026-09-22\n系统状态：降级，需要处理\n数据时间：2026-09-22 08:00:00 北京，延迟 331.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：3\n现货影子仓位：0，待成交：0\n正式样本：信号 12（待观察 6），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 10（仅研究，不计入正式样本）\n通知链路：本轮失败 2 条，积压 0 条，重试耗尽 0 条\n用户处理：行情数据延迟超过30分钟；本轮通知失败 2 条\n运行编号：991d9e99c4e6",
+      "metadata": {
+        "kind": "daily_health",
+        "date": "2026-09-22"
+      },
+      "created_epoch_ms": 1790055060165,
+      "expires_epoch_ms": 1790141460165,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790055064659,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790055064659
+    },
+    {
+      "event_id": "spot-warning|DOGEUSDT|4h|1790035200000|long|接近突破",
+      "title": "CoinPulse 观察预警 DOGEUSDT 接近突破",
+      "content": "观察预警 DOGEUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.201N\n现价：0.101930（+15.19%）\n依据：距上破阈值约0.20N\n当前价 0.101930 · 突破阈值 0.102288 · N=0.001783\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-22 04:00:00 UTC / 2026-09-22 12:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "DOGEUSDT",
+        "bar_time": 1790035200000
+      },
+      "created_epoch_ms": 1790055056666,
+      "expires_epoch_ms": 1790055656666,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790055060134,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790055060134
+    },
+    {
       "event_id": "spot-warning|SOLUSDT|4h|1790020800000|long|接近突破",
       "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
       "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.239N\n现价：118.90（+6.95%）\n依据：距上破阈值约0.24N\n当前价 118.90 · 突破阈值 119.33 · N=1.79\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-22 00:00:00 UTC / 2026-09-22 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

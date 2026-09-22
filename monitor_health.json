@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-22 00:51:00",
+  "updated_at": "2026-09-22 05:31:04",
   "scan": {
-    "run_id": "6ea66f748cbc",
+    "run_id": "991d9e99c4e6",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,9 +15,9 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1790020800000,
-    "data_lag_minutes": 291.0,
-    "candidate_signals": 4,
+    "latest_bar_time": 1790035200000,
+    "data_lag_minutes": 331.0,
+    "candidate_signals": 3,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -25,14 +25,9 @@
     "failures": []
   },
   "push": {
-    "attempted": 6,
-    "failed": 3,
+    "attempted": 4,
+    "failed": 2,
     "failures": [
-      {
-        "channel": "Server酱",
-        "ok": false,
-        "error_category": "HTTPError"
-      },
       {
         "channel": "Server酱",
         "ok": false,
@@ -46,7 +41,7 @@
     ]
   },
   "status": "degraded",
-  "updated_at_epoch": 1790038260,
+  "updated_at_epoch": 1790055064,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -73,27 +68,27 @@
     "losses": 1,
     "win_rate": 0.0,
     "total_pnl_pct": -3.56,
-    "pending_signals": 9,
+    "pending_signals": 10,
     "tracked_signals": 0,
     "generated_at": "2026-09-20 21:04:42"
   },
   "daily_summary": {
-    "date": "2026-09-21",
+    "date": "2026-09-22",
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
       "行情数据延迟超过30分钟",
-      "本轮通知失败 9 条"
+      "本轮通知失败 2 条"
     ],
-    "data_time": "2026-09-21 16:00:00 北京",
-    "data_lag_minutes": 299.9,
+    "data_time": "2026-09-22 08:00:00 北京",
+    "data_lag_minutes": 331.0,
     "formal": {
       "data_status": "ok",
-      "signal_samples": 7,
-      "pending_signals": 2,
+      "signal_samples": 12,
+      "pending_signals": 6,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-21 06:17:02",
+      "tracking_generated_at": "2026-09-22 00:51:03",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -104,11 +99,11 @@
       "data_status": null,
       "open_trades": 0,
       "closed_trades": 1,
-      "pending_signals": 6,
+      "pending_signals": 10,
       "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
-      "round_failed": 9,
+      "round_failed": 2,
       "pending": 0,
       "exhausted": 0
     },
@@ -116,6 +111,6 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "93981e573cdd"
+    "run_id": "991d9e99c4e6"
   }
 }

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-22 00:51:03",
-  "total_signals": 12,
-  "pending_signals": 6,
+  "generated_at": "2026-09-22 05:31:08",
+  "total_signals": 13,
+  "pending_signals": 7,
   "horizons": {
     "24h": {
       "observed": 7,
@@ -116,7 +116,7 @@
       "48h": {}
     },
     "PEPEUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {},
       "48h": {}
     }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-22 10:16:12",
+  "generated_at": "2026-09-22 15:01:17",
   "definition": {
     "trade_win_rate": "按海龟实际影子交易的止损/通道退出结算",
     "horizon_win_rate": "按下一根K线开盘后固定24h/48h方向收益结算，不等同于策略最终胜率"
@@ -24,15 +24,15 @@
   },
   "horizons": {
     "24h": {
-      "observed": 7,
-      "wins": 3,
-      "losses": 4,
-      "win_rate": 42.86,
+      "observed": 11,
+      "wins": 6,
+      "losses": 5,
+      "win_rate": 54.55,
       "win_rate_95_ci": {
-        "low": 15.82,
-        "high": 74.95
+        "low": 28.01,
+        "high": 78.73
       },
-      "avg_return_pct": 1.895
+      "avg_return_pct": 1.379
     },
     "48h": {
       "observed": 6,

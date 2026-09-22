@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-22 10:16:08",
+  "updated_at": "2026-09-22 15:01:14",
   "scan": {
-    "run_id": "08b6e1c52c4c",
+    "run_id": "f94cc457e95a",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1790049600000,
-    "data_lag_minutes": 376.1,
+    "latest_bar_time": 1790064000000,
+    "data_lag_minutes": 421.2,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -36,7 +36,7 @@
     ]
   },
   "status": "ok",
-  "updated_at_epoch": 1790072168,
+  "updated_at_epoch": 1790089274,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -72,21 +72,22 @@
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
-      "行情数据延迟超过30分钟"
+      "行情数据延迟超过30分钟",
+      "正式样本统计过期或损坏"
     ],
-    "data_time": "2026-09-22 12:00:00 北京",
-    "data_lag_minutes": 376.1,
+    "data_time": "2026-09-22 16:00:00 北京",
+    "data_lag_minutes": 421.2,
     "formal": {
-      "data_status": "ok",
+      "data_status": "stale",
       "signal_samples": 13,
       "pending_signals": 7,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-22 05:31:08",
+      "tracking_generated_at": "2026-09-22 10:16:12",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
-        "trade_stats": "ok"
+        "trade_stats": "stale"
       }
     },
     "research": {
@@ -105,6 +106,6 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "08b6e1c52c4c"
+    "run_id": "f94cc457e95a"
   }
 }

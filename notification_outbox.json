@@ -2,6 +2,90 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|SOLUSDT|4h|1790020800000|long|接近突破",
+      "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
+      "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.239N\n现价：118.90（+6.95%）\n依据：距上破阈值约0.24N\n当前价 118.90 · 突破阈值 119.33 · N=1.79\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-22 00:00:00 UTC / 2026-09-22 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SOLUSDT",
+        "bar_time": 1790020800000
+      },
+      "created_epoch_ms": 1790038256475,
+      "expires_epoch_ms": 1790038856475,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790038259993,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790038259993
+    },
+    {
+      "event_id": "spot-warning|ETHUSDT|4h|1790020800000|long|重点观察",
+      "title": "CoinPulse 观察预警 ETHUSDT 重点观察",
+      "content": "观察预警 ETHUSDT 4h · 重点观察\n方向：向上做多 · 距突破约 0.103N\n现价：2,776.19（+4.95%）\n依据：距上破阈值约0.10N\n当前价 2,776.19 · 突破阈值 2,779.92 · N=36.13\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-22 00:00:00 UTC / 2026-09-22 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ETHUSDT",
+        "bar_time": 1790020800000
+      },
+      "created_epoch_ms": 1790038253034,
+      "expires_epoch_ms": 1790038853034,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790038256474,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790038256474
+    },
+    {
+      "event_id": "spot-warning|BTCUSDT|4h|1790020800000|long|接近突破",
+      "title": "CoinPulse 观察预警 BTCUSDT 接近突破",
+      "content": "观察预警 BTCUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.432N\n现价：86,620.00（+6.70%）\n依据：距上破阈值约0.43N\n当前价 86,620.00 · 突破阈值 86,978.83 · N=831.31\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-22 00:00:00 UTC / 2026-09-22 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "BTCUSDT",
+        "bar_time": 1790020800000
+      },
+      "created_epoch_ms": 1790038250626,
+      "expires_epoch_ms": 1790038850626,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790038253033,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790038253033
+    },
+    {
       "event_id": "perp-notify|scale_in|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2|open|1789992000000",
       "title": "CoinPulse 永续 ETHUSDT scale_in",
       "content": "永续做多 · ETHUSDT · 4h\n事件：scale_in\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1789977600000|long|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n最新成交价：2755.4 · 总数量：1.346\n单位数：2 · 新止损：2681.182873250324\n标记价：2760.22 · 指数价：2761.94 · 基差：-0.062275%\n研究影子信号：需人工确认，不会自动下单",

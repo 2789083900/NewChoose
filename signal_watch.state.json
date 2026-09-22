@@ -247,7 +247,7 @@
   "PEPEUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "TONUSDT|4h|turtle|system2": "none",
-  "BTCUSDT|4h|turtle|system2": "long",
+  "BTCUSDT|4h|turtle|system2": "none",
   "ETHUSDT|4h|turtle|system2": "none",
   "XRPUSDT|4h|turtle|system2": "none",
   "DOGEUSDT|4h|turtle|system2": "none",
@@ -262,5 +262,8 @@
   "AVAXUSDT|4h|early_warning|long|1789747200000": true,
   "ETHUSDT|4h|early_warning|long|1789948800000": true,
   "SUIUSDT|4h|early_warning|long|1789948800000": true,
-  "ETHUSDT|4h|early_warning|long|1790006400000": true
+  "ETHUSDT|4h|early_warning|long|1790006400000": true,
+  "ETHUSDT|4h|early_warning|long|1790020800000": true,
+  "BTCUSDT|4h|early_warning|long|1790020800000": true,
+  "SOLUSDT|4h|early_warning|long|1790020800000": true
 }

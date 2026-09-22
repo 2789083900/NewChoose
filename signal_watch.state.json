@@ -257,7 +257,7 @@
   "BNBUSDT|4h|turtle|system2": "none",
   "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
-  "PEPEUSDT|4h|turtle|system2": "long",
+  "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2,
   "AVAXUSDT|4h|early_warning|long|1789747200000": true,
   "ETHUSDT|4h|early_warning|long|1789948800000": true,

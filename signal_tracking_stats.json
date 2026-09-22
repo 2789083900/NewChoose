@@ -1,27 +1,27 @@
 {
-  "generated_at": "2026-09-22 15:01:17",
+  "generated_at": "2026-09-22 18:46:03",
   "total_signals": 13,
-  "pending_signals": 7,
+  "pending_signals": 6,
   "horizons": {
     "24h": {
-      "observed": 11,
+      "observed": 12,
       "wins": 6,
-      "losses": 5,
-      "flats": 0,
-      "win_rate": 54.55,
-      "avg_return_pct": 1.379,
-      "avg_mfe_pct": 4.391,
-      "avg_mae_pct": -1.708
-    },
-    "48h": {
-      "observed": 6,
-      "wins": 3,
-      "losses": 3,
+      "losses": 6,
       "flats": 0,
       "win_rate": 50.0,
-      "avg_return_pct": 2.317,
-      "avg_mfe_pct": 7.295,
-      "avg_mae_pct": -2.897
+      "avg_return_pct": 0.911,
+      "avg_mfe_pct": 4.478,
+      "avg_mae_pct": -2.184
+    },
+    "48h": {
+      "observed": 7,
+      "wins": 3,
+      "losses": 4,
+      "flats": 0,
+      "win_rate": 42.86,
+      "avg_return_pct": 1.606,
+      "avg_mfe_pct": 6.741,
+      "avg_mae_pct": -3.587
     }
   },
   "by_symbol": {
@@ -103,11 +103,11 @@
         "avg_return_pct": 8.982
       },
       "48h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 17.344
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": 7.344
       }
     },
     "ETHUSDT": {
@@ -123,7 +123,13 @@
     },
     "PEPEUSDT": {
       "signals": 2,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -4.23
+      },
       "48h": {}
     }
   }

@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-09-22 15:01:17",
+  "generated_at": "2026-09-22 18:46:03",
   "definition": {
     "trade_win_rate": "按海龟实际影子交易的止损/通道退出结算",
     "horizon_win_rate": "按下一根K线开盘后固定24h/48h方向收益结算，不等同于策略最终胜率"
   },
   "sample": {
     "closed_trades": 5,
-    "pending_signals": 7,
+    "pending_signals": 6,
     "minimum_for_judgement": 30,
     "recommended_for_judgement": 50,
     "reliability": "insufficient_sample",
@@ -24,26 +24,26 @@
   },
   "horizons": {
     "24h": {
-      "observed": 11,
+      "observed": 12,
       "wins": 6,
-      "losses": 5,
-      "win_rate": 54.55,
-      "win_rate_95_ci": {
-        "low": 28.01,
-        "high": 78.73
-      },
-      "avg_return_pct": 1.379
-    },
-    "48h": {
-      "observed": 6,
-      "wins": 3,
-      "losses": 3,
+      "losses": 6,
       "win_rate": 50.0,
       "win_rate_95_ci": {
-        "low": 18.76,
-        "high": 81.24
+        "low": 25.38,
+        "high": 74.62
       },
-      "avg_return_pct": 2.317
+      "avg_return_pct": 0.911
+    },
+    "48h": {
+      "observed": 7,
+      "wins": 3,
+      "losses": 4,
+      "win_rate": 42.86,
+      "win_rate_95_ci": {
+        "low": 15.82,
+        "high": 74.95
+      },
+      "avg_return_pct": 1.606
     }
   },
   "action_policy": "在完成至少30笔海龟影子交易前，仅把推送作为观察信号；不要仅根据24h/48h方向胜率扩大仓位。"

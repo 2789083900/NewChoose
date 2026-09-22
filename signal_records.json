@@ -439,7 +439,7 @@
     },
     "notification_status": "delivered",
     "notification_event_id": "spot-signal|AVAXUSDT|4h|1789905600000|long",
-    "status": "pending",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 11.41,
@@ -453,7 +453,18 @@
         "observed_at": "2026-09-21 18:36:27",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 11.41,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.418,
+        "mae_pct": -7.73,
+        "final_return_pct": -2.656,
+        "final_price": 11.107,
+        "outcome": "LOSS",
+        "observed_until": 1790092800000,
+        "observed_at": "2026-09-22 18:46:01",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -836,7 +847,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 5.083e-06,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.43,
+        "mae_pct": -7.417,
+        "final_return_pct": -4.23,
+        "final_price": 4.868e-06,
+        "outcome": "LOSS",
+        "observed_until": 1790092800000,
+        "observed_at": "2026-09-22 18:46:01",
+        "provider": "okx"
+      },
       "48h": null
     }
   },

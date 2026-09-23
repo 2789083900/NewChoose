@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-23 11:44:14",
+  "generated_at": "2026-09-23 12:41:03",
   "total_signals": 20,
-  "pending_signals": 11,
+  "pending_signals": 6,
   "horizons": {
     "24h": {
       "observed": 18,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.292
     },
     "48h": {
-      "observed": 9,
-      "wins": 7,
-      "losses": 2,
+      "observed": 14,
+      "wins": 11,
+      "losses": 3,
       "flats": 0,
-      "win_rate": 77.78,
-      "avg_return_pct": 16.193,
-      "avg_mfe_pct": 20.731,
-      "avg_mae_pct": -4.565
+      "win_rate": 78.57,
+      "avg_return_pct": 10.696,
+      "avg_mfe_pct": 14.707,
+      "avg_mae_pct": -3.207
     }
   },
   "by_symbol": {
@@ -35,11 +35,11 @@
         "avg_return_pct": 0.443
       },
       "48h": {
-        "observed": 1,
-        "wins": 0,
+        "observed": 2,
+        "wins": 1,
         "losses": 1,
-        "win_rate": 0.0,
-        "avg_return_pct": -2.114
+        "win_rate": 50.0,
+        "avg_return_pct": -0.928
       }
     },
     "AVAXUSDT": {
@@ -102,7 +102,13 @@
         "win_rate": 100.0,
         "avg_return_pct": 1.305
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 0.912
+      }
     },
     "ETHUSDT": {
       "signals": 1,
@@ -113,7 +119,13 @@
         "win_rate": 100.0,
         "avg_return_pct": 0.618
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 0.1
+      }
     },
     "BNBUSDT": {
       "signals": 1,
@@ -124,7 +136,13 @@
         "win_rate": 0.0,
         "avg_return_pct": -0.481
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -0.987
+      }
     },
     "ADAUSDT": {
       "signals": 2,
@@ -135,7 +153,13 @@
         "win_rate": 100.0,
         "avg_return_pct": 1.778
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 1,
+        "losses": 0,
+        "win_rate": 100.0,
+        "avg_return_pct": 3.722
+      }
     },
     "DOGEUSDT": {
       "signals": 1,

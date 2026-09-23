@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-22 23:50:34",
+  "updated_at": "2026-09-23 01:52:14",
   "scan": {
-    "run_id": "38ccb47e7c52",
+    "run_id": "73e902213185",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,8 +15,8 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1790092800000,
-    "data_lag_minutes": 470.6,
+    "latest_bar_time": 1790107200000,
+    "data_lag_minutes": 352.2,
     "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
@@ -25,12 +25,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 0,
+    "attempted": 1,
     "failed": 0,
     "failures": []
   },
   "status": "ok",
-  "updated_at_epoch": 1790121034,
+  "updated_at_epoch": 1790128334,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -62,22 +62,22 @@
     "generated_at": "2026-09-20 21:04:42"
   },
   "daily_summary": {
-    "date": "2026-09-22",
+    "date": "2026-09-23",
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
       "行情数据延迟超过30分钟",
       "正式样本统计过期或损坏"
     ],
-    "data_time": "2026-09-22 16:00:00 北京",
-    "data_lag_minutes": 421.2,
+    "data_time": "2026-09-23 04:00:00 北京",
+    "data_lag_minutes": 352.2,
     "formal": {
       "data_status": "stale",
       "signal_samples": 13,
-      "pending_signals": 7,
+      "pending_signals": 6,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-22 10:16:12",
+      "tracking_generated_at": "2026-09-22 23:50:37",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -88,7 +88,7 @@
       "data_status": null,
       "open_trades": 0,
       "closed_trades": 1,
-      "pending_signals": 11,
+      "pending_signals": 10,
       "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
@@ -100,6 +100,6 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "f94cc457e95a"
+    "run_id": "73e902213185"
   }
 }

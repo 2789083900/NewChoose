@@ -17,6 +17,8 @@ from datetime import datetime, timezone, timedelta
 import tempfile
 
 from signal_archive import archive_and_trim
+from monitor_reporting import (notification_round_summary, market_freshness,
+                               runtime_health_reasons, REASON_LABELS)
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1317,7 +1319,7 @@ def atomic_write_json(path, data):
 
 
 def write_monitor_health(scan=None, notifications=None, portfolio=None, research=None,
-                         status=None, daily_summary=None):
+                         status=None, daily_summary=None, health_reasons=None):
     """Persist a compact, secret-free health record for cloud monitoring."""
     previous = {}
     try:
@@ -1337,6 +1339,7 @@ def write_monitor_health(scan=None, notifications=None, portfolio=None, research
             result for item in notifications for result in item.get("results") or []
             if not result.get("ok")
         ]
+        health["notification_summary"] = notification_round_summary(notifications)
         health["push"] = {
             "attempted": attempts,
             "failed": len(failures),
@@ -1348,6 +1351,11 @@ def write_monitor_health(scan=None, notifications=None, portfolio=None, research
         health["research"] = research
     if status is not None:
         health["status"] = status
+        health["health_reasons"] = list(health_reasons) if health_reasons is not None else (
+            ["scan_failed"] if status == "failed" else
+            ["coverage_insufficient"] if status == "degraded" and scan and
+            float(scan.get("coverage_pct", 100)) < float(scan.get("minimum_coverage_pct", 0)) else
+            ["scan_degraded"] if status == "degraded" else [])
     if daily_summary is not None:
         health["daily_summary"] = daily_summary
     atomic_write_json(HEALTH_PATH, health)
@@ -1685,18 +1693,18 @@ def send_outbox_notification(event_id, title, content, config, metadata=None,
         outbox["events"].append(item)
         _save_outbox(outbox)
     if item.get("status") == "delivered":
-        return {"event_id": event_id, "delivered": True, "results": item.get("last_results") or []}
+        return {"event_id": event_id, "delivered": True, "deduplicated": True, "results": []}
     if now > int(item.get("expires_epoch_ms") or now):
         item["status"] = "expired"
         _save_outbox(outbox)
         return {"event_id": event_id, "delivered": False, "expired": True,
-                "results": item.get("last_results") or []}
+                "results": []}
     limit = max_attempts or (config.get("delivery") or {}).get("max_attempts", DEFAULT_NOTIFICATION_MAX_ATTEMPTS)
     if int(item.get("attempts") or 0) >= int(limit):
         item["status"] = "exhausted"
         _save_outbox(outbox)
         return {"event_id": event_id, "delivered": False, "exhausted": True,
-                "results": item.get("last_results") or []}
+                "results": []}
     delivered, results = _dispatch_outbox_event(item, config)
     exhausted = not delivered and int(item.get("attempts") or 0) >= int(limit)
     if exhausted:
@@ -1962,6 +1970,11 @@ def _scan_one(symbol, interval, state, config, diagnostics=None, run_id=None, pr
             diagnostics["successful_markets"] = diagnostics.get("successful_markets", 0) + 1
             diagnostics.setdefault("providers", set()).add(provider)
             diagnostics["latest_bar_time"] = max(diagnostics.get("latest_bar_time", 0), latest_time)
+            diagnostics.setdefault("market_freshness", {})[f"{symbol}|{interval}"] = {
+                "symbol": symbol, "interval": interval, "bar_open_epoch_ms": latest_time,
+                "interval_ms": interval_ms, "closed_only": filter_options["closed_candles_only"],
+                "scope": "formal_spot",
+            }
         indicators = compute_indicators(klines)
         if mode == "turtle":
             system = turtle_system
@@ -2167,7 +2180,7 @@ def scan_coverage_ok(config, diagnostics):
 def scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, candidate_signals, capacity_rejected=0):
     """Build a consistent, secret-free scan summary for health reporting."""
     latest_bar_time = int(diagnostics.get("latest_bar_time") or 0)
-    data_lag_minutes = round(max(0, int(time.time() * 1000) - latest_bar_time) / 60000, 1) if latest_bar_time else None
+    freshness = market_freshness(list((diagnostics.get("market_freshness") or {}).values()), int(time.time() * 1000))
     return {
         "run_id": run_id,
         "expected_markets": diagnostics.get("expected_markets", 0),
@@ -2180,7 +2193,8 @@ def scan_health_payload(run_id, diagnostics, coverage_pct, minimum_coverage, can
         "coverage_pct": coverage_pct,
         "minimum_coverage_pct": minimum_coverage,
         "latest_bar_time": latest_bar_time or None,
-        "data_lag_minutes": data_lag_minutes,
+        **freshness,
+        "data_freshness_scope": "formal_spot_scan",
         "candidate_signals": candidate_signals,
         "capacity_rejected": capacity_rejected,
         "providers": sorted(diagnostics.get("providers", set())),
@@ -2334,7 +2348,8 @@ def process_events(events, config):
                           "symbol": event.get("symbol"), "bar_time": event.get("bar_time")},
                 ttl_minutes=10,
             )
-            deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
+            attempted_event_ids.add(event_id)
+            deliveries.append({**delivery, "event_id": event_id, "symbol": event.get("symbol"),
                                "delivered": delivery.get("delivered", False),
                                "results": delivery.get("results") or []})
             continue
@@ -2342,7 +2357,7 @@ def process_events(events, config):
             event["notification_status"] = "expired"
             record_signal_event(event, config)
             deliveries.append({"symbol": event.get("symbol"), "delivered": False,
-                               "expired": True, "results": []})
+                               "expired": True, "suppressed": "signal_expired_before_dispatch", "results": []})
             logging.warning("过期信号仅记录诊断，不发送也不登记影子交易: %s %s",
                             event.get("symbol"), event.get("interval"))
             continue
@@ -2365,14 +2380,16 @@ def process_events(events, config):
         event["dispatch_started_epoch"] = dispatch_started
         event["dispatch_completed_epoch"] = dispatch_completed
         event["notification_event_id"] = event_id
-        event["notification_status"] = "delivered" if delivery.get("delivered") else "queued"
+        event["notification_status"] = ("expired" if delivery.get("expired") else
+                                        "delivered" if delivery.get("delivered") else "queued")
         logging.info("发现信号: %s", content.replace("\n", " / "))
         record_signal_event(event, config)
-        register_trade(
-            event, config,
-            state_path=RESEARCH_TRADE_STATE_PATH if event.get("research_only") else STATE_PATH,
-        )
-        deliveries.append({"event_id": event_id, "symbol": event.get("symbol"),
+        if not delivery.get("expired"):
+            register_trade(
+                event, config,
+                state_path=RESEARCH_TRADE_STATE_PATH if event.get("research_only") else STATE_PATH,
+            )
+        deliveries.append({**delivery, "event_id": event_id, "symbol": event.get("symbol"),
                            "delivered": delivery.get("delivered", False),
                            "results": results})
     # Retry older pending lifecycle messages on every scan, including scans
@@ -2385,7 +2402,7 @@ def process_events(events, config):
             item["event_id"], item["title"], item["content"], config,
             metadata=item.get("metadata"),
         )
-        deliveries.append({"event_id": item["event_id"],
+        deliveries.append({**delivery, "event_id": item["event_id"],
                            "delivered": delivery.get("delivered", False),
                            "results": delivery.get("results") or []})
     return deliveries
@@ -2497,7 +2514,8 @@ def build_daily_summary(scan, portfolio, research=None, now=None, deliveries=Non
     research = research or {}
     formal = formal_runtime_summary(now=instant.replace(tzinfo=None))
     outbox = notification_outbox_summary()
-    failed_deliveries = sum(1 for item in (deliveries or []) if not item.get("delivered", True))
+    delivery_counts = notification_round_summary(deliveries)
+    failed_deliveries = delivery_counts["round_failed"]
     try:
         coverage_bad = float(scan.get("coverage_pct")) < float(scan.get("minimum_coverage_pct"))
     except (TypeError, ValueError):
@@ -2509,8 +2527,14 @@ def build_daily_summary(scan, portfolio, research=None, now=None, deliveries=Non
     reasons = []
     if coverage_bad or int(scan.get("failed_markets") or 0) > 0:
         reasons.append("行情扫描或覆盖率异常")
-    if data_lag is not None and data_lag > 30:
-        reasons.append("行情数据延迟超过30分钟")
+    if scan.get("data_freshness_status") == "stale":
+        reasons.append("部分市场应有的已收盘K线缺失超过30分钟")
+    elif scan.get("data_freshness_status") == "unknown":
+        reasons.append("行情时效无法核实")
+    if delivery_counts["expired_signals"]:
+        reasons.append(f"信号过期未发送 {delivery_counts['expired_signals']} 条（非渠道失败）")
+    if delivery_counts["expired_notifications"]:
+        reasons.append(f"发件箱通知过期 {delivery_counts['expired_notifications']} 条")
     if failed_deliveries:
         reasons.append(f"本轮通知失败 {failed_deliveries} 条")
     if outbox.get("status") != "ok":
@@ -2523,9 +2547,9 @@ def build_daily_summary(scan, portfolio, research=None, now=None, deliveries=Non
         reasons.append("研究样本数据异常")
     data_time = None
     try:
-        if scan.get("latest_bar_time"):
+        if scan.get("data_reference_close_epoch_ms"):
             data_time = datetime.fromtimestamp(
-                int(scan["latest_bar_time"]) / 1000, tz=timezone.utc
+                int(scan["data_reference_close_epoch_ms"]) / 1000, tz=timezone.utc
             ).astimezone(CHINA_TZ).strftime("%Y-%m-%d %H:%M:%S 北京")
     except (TypeError, ValueError, OSError, OverflowError):
         pass
@@ -2534,13 +2558,16 @@ def build_daily_summary(scan, portfolio, research=None, now=None, deliveries=Non
         "system_status": "degraded" if reasons else "normal",
         "action_required": bool(reasons), "action_reasons": reasons,
         "data_time": data_time, "data_lag_minutes": data_lag,
+        "data_lag_basis": scan.get("data_lag_basis", "legacy_unknown"),
+        "data_freshness_status": scan.get("data_freshness_status", "unknown"),
+        "max_closed_bar_overdue_minutes": scan.get("max_closed_bar_overdue_minutes"),
         "formal": formal,
         "research": {"data_status": research.get("data_status"),
                      "open_trades": research.get("open_trades"),
                      "closed_trades": research.get("closed_trades"),
                      "pending_signals": research.get("pending_signals"),
                      "tracking_generated_at": research.get("generated_at")},
-        "notifications": {"round_failed": failed_deliveries,
+        "notifications": {**delivery_counts, "round_failed": failed_deliveries,
                            "pending": outbox.get("pending"),
                            "exhausted": outbox.get("exhausted")},
         "portfolio": {"open_trades": portfolio.get("open_trades", 0),
@@ -2570,14 +2597,15 @@ def send_daily_status_digest(config, scan, portfolio, now=None, research=None, d
     content = "\n".join([
         f"CoinPulse 每日运行摘要 {date_key}",
         f"系统状态：{status_text}",
-        f"数据时间：{summary.get('data_time') or '--'}，延迟 {value(summary.get('data_lag_minutes'))} 分钟",
+        f"最旧收盘参考时间：{summary.get('data_time') or '未知'}，各市场收盘距今最大 {value(summary.get('data_lag_minutes'))} 分钟（不是接口延迟）",
+        f"K线时效：{summary.get('data_freshness_status')}；应有收盘K线逾期最大 {value(summary.get('max_closed_bar_overdue_minutes'))} 分钟",
         f"现货扫描：{scan.get('successful_markets', 0)}/{scan.get('expected_markets', 0)}，覆盖率 {scan.get('coverage_pct', 0)}%",
         f"数据源：{', '.join(scan.get('providers') or []) or '--'}",
         f"候选信号：{scan.get('candidate_signals', 0)}",
         f"现货影子仓位：{portfolio.get('open_trades', 0)}，待成交：{portfolio.get('awaiting_fill', 0)}",
         f"正式样本：信号 {summary['formal']['signal_samples']}（待观察 {summary['formal']['pending_signals']}），已结算交易 {summary['formal']['closed_trades']}，持仓 {summary['formal']['open_trades']}",
         f"S1快速研究：持仓 {research.get('open_trades', 0)}，已结算 {research.get('closed_trades', 0)}，胜率 {research.get('win_rate', 0)}%，待观察 {research.get('pending_signals', 0)}（仅研究，不计入正式样本）",
-        f"通知链路：本轮失败 {summary['notifications']['round_failed']} 条，积压 {value(summary['notifications']['pending'])} 条，重试耗尽 {value(summary['notifications']['exhausted'])} 条",
+        f"通知链路：本轮投递失败 {summary['notifications']['round_failed']} 条，信号过期未发送 {summary['notifications']['expired_signals']} 条，通知过期 {summary['notifications']['expired_notifications']} 条，积压 {value(summary['notifications']['pending'])} 条，重试耗尽 {value(summary['notifications']['exhausted'])} 条",
         "用户处理：" + ("；".join(summary["action_reasons"]) if summary["action_required"] else "无需处理"),
         f"运行编号：{scan.get('run_id', '--')}",
     ])
@@ -3021,16 +3049,18 @@ def main():
             )
             daily_summary = daily_delivery.get("daily_summary") if daily_delivery else None
             if daily_delivery:
-                deliveries.append({"event_id": daily_delivery["event_id"],
+                deliveries.append({**daily_delivery, "event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
                                    "results": daily_delivery.get("results") or []})
-            delivery_status = "ok" if all(item.get("delivered", True) for item in deliveries) else "degraded"
+            health_reasons = runtime_health_reasons(scan_health, deliveries)
+            delivery_status = "degraded" if health_reasons else "ok"
             write_monitor_health(
                 scan=scan_health,
                 notifications=deliveries,
                 portfolio=portfolio,
                 research=research,
                 status=delivery_status,
+                health_reasons=health_reasons,
                 daily_summary=daily_summary,
             )
             return 0
@@ -3100,16 +3130,18 @@ def main():
             )
             daily_summary = daily_delivery.get("daily_summary") if daily_delivery else None
             if daily_delivery:
-                deliveries.append({"event_id": daily_delivery["event_id"],
+                deliveries.append({**daily_delivery, "event_id": daily_delivery["event_id"],
                                    "delivered": daily_delivery["delivered"],
                                    "results": daily_delivery.get("results") or []})
-            delivery_status = "ok" if all(item.get("delivered", True) for item in deliveries) else "degraded"
+            health_reasons = runtime_health_reasons(scan_health, deliveries)
+            delivery_status = "degraded" if health_reasons else "ok"
             write_monitor_health(
                 scan=scan_health,
                 notifications=deliveries,
                 portfolio=portfolio,
                 research=research,
                 status=delivery_status,
+                health_reasons=health_reasons,
                 daily_summary=daily_summary,
             )
         except Exception as exc:

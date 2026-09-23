@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: coinpulse-state-writer
@@ -152,6 +153,9 @@ jobs:
           if [ -d signal_archive ]; then
             git add -f signal_archive
           fi
+          if [ -d research_signal_archive ]; then
+            git add -f research_signal_archive
+          fi
           if git diff --cached --quiet; then
             echo "state unchanged"
           else
@@ -213,10 +217,28 @@ jobs:
             exit 1
           fi
 
-      - name: Validate reliable notification delivery
+      - name: Validate notification queue and runtime health
         id: validate_notifications
         if: always() && github.event.inputs.test_push != 'true' && github.event.inputs.test_perp_push != 'true' && steps.save_ordinary_state.outcome == 'success' && steps.save_perpetual_state.outcome == 'success'
         run: python validate_notification_outbox.py --health monitor_health.json --config signal_watch.config.json
+
+      - name: Collect read-only monitor diagnostics
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXTERNAL_HEARTBEAT_URL: ${{ secrets.EXTERNAL_HEARTBEAT_URL }}
+        run: python workflow_diagnostics.py --github --output reports/monitor-diagnostics.json
+
+      - name: Save secret-free monitor diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-diagnostics-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/monitor-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Send external success heartbeat
         continue-on-error: true

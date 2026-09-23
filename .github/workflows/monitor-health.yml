@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: coinpulse-state-writer
@@ -62,6 +63,24 @@ jobs:
           done
           echo "unable to publish health state after retries" >&2
           exit 1
+
+      - name: Collect read-only monitor diagnostics
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXTERNAL_HEARTBEAT_URL: ${{ secrets.EXTERNAL_HEARTBEAT_URL }}
+        run: python workflow_diagnostics.py --github --output reports/monitor-diagnostics.json
+
+      - name: Save secret-free monitor diagnostics
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-diagnostics-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/monitor-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Fail stale health check
         if: steps.check.outcome == 'failure'

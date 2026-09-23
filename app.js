@@ -2642,7 +2642,8 @@ function loadMonitorHealth() {
       const ordinaryStateLabels = {
         idle: '正常空闲', active: '运行中', scan_failed: '扫描失败',
         heartbeat_stale: '心跳过期', coverage_insufficient: '覆盖不足',
-        notification_degraded: '推送降级', scan_degraded: '扫描降级'
+        notification_degraded: '推送降级', scan_degraded: '扫描降级',
+        signals_expired_before_dispatch: '信号发现过晚', market_data_degraded: '行情时效异常'
       };
       const ordinaryState = ordinaryStateLabels[alertState.ordinary_state] || '未分类';
       const daily = health.daily_summary || {};
@@ -2652,12 +2653,23 @@ function loadMonitorHealth() {
       const dailyResearch = daily.research || {};
       const dailyNotifications = daily.notifications || {};
       const dailyReasons = daily.action_required ? (daily.action_reasons || []).join('；') : '无需处理';
+      const roundNotifications = health.notification_summary || {};
+      const healthReasonLabels = {
+        signals_expired_before_dispatch: '信号发现过晚，按保护规则未发送',
+        notification_delivery_failed: '通知投递未成功', notification_events_expired: '发件箱通知过期',
+        coverage_insufficient: '行情覆盖不足', market_data_stale: '缺少应有已收盘K线',
+        market_freshness_unknown: '行情时效未知', scan_failed: '扫描失败', scan_degraded: '扫描降级（旧格式）'
+      };
+      const currentReasons = Array.isArray(health.health_reasons)
+        ? health.health_reasons.map((reason) => healthReasonLabels[reason] || reason).join('；') || '本轮无降级原因'
+        : '旧记录未提供具体原因';
       summaryEl.innerHTML = `
         <div class="trade-cards">
           <div class="trade-card"><span>最近扫描</span><strong>${escapeHtml(scan.run_id || '--')}</strong></div>
           <div class="trade-card"><span>行情覆盖率</span><strong class="${coverage >= 80 ? 'bull' : 'bear'}">${Number.isFinite(coverage) ? coverage.toFixed(1) : '--'}%</strong></div>
           <div class="trade-card"><span>成功市场</span><strong>${scan.successful_markets ?? '--'} / ${scan.expected_markets ?? '--'}</strong></div>
-          <div class="trade-card"><span>数据延迟</span><strong class="${Number(scan.data_lag_minutes || 0) > 30 ? 'bear' : 'bull'}">${scan.data_lag_minutes != null ? `${scan.data_lag_minutes} 分钟` : '--'}</strong></div>
+          <div class="trade-card"><span>收盘距今最大（非接口延迟）</span><strong>${scan.freshness_schema_version === 2 && scan.data_lag_minutes != null ? `${scan.data_lag_minutes} 分钟` : '未知（旧口径）'}</strong></div>
+          <div class="trade-card"><span>应有收盘K线逾期</span><strong class="${scan.data_freshness_status === 'stale' ? 'bear' : ''}">${scan.max_closed_bar_overdue_minutes != null ? `${scan.max_closed_bar_overdue_minutes} 分钟` : '未知'}</strong></div>
           <div class="trade-card"><span>推送失败</span><strong class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</strong></div>
           <div class="trade-card"><span>当前总单位</span><strong>${portfolio.total_units ?? '--'}（多 ${portfolio.long_units ?? '--'} / 空 ${portfolio.short_units ?? '--'}）</strong></div>
           <div class="trade-card"><span>止损理论风险</span><strong>${portfolio.estimated_stop_risk != null ? `${portfolio.estimated_stop_risk} U` : '--'}</strong></div>
@@ -2668,7 +2680,8 @@ function loadMonitorHealth() {
       detailsEl.innerHTML = `
         <table class="bt-table"><thead><tr><th>候选信号</th><th>覆盖门槛</th><th>推送尝试</th><th>推送失败</th><th>数据源</th></tr></thead>
         <tbody><tr><td>${scan.candidate_signals ?? 0}</td><td>${scan.minimum_coverage_pct ?? 80}%</td><td>${push.attempted ?? 0}</td><td class="${Number(push.failed || 0) ? 'bear' : 'bull'}">${push.failed ?? 0}</td><td>${escapeHtml((scan.providers || []).join(', ') || '--')}</td></tr></tbody></table>
-        <p class="strategy-note">每日摘要：${daily.action_required ? '需要处理' : '无需处理'}；正式信号 ${dailyFormal.signal_samples ?? '未知'}（待观察 ${dailyFormal.pending_signals ?? '未知'}），已结算交易 ${dailyFormal.closed_trades ?? '未知'}；研究持仓 ${dailyResearch.open_trades ?? '未知'}、待观察 ${dailyResearch.pending_signals ?? '未知'}；通知失败 ${dailyNotifications.round_failed ?? '未知'}、积压 ${dailyNotifications.pending ?? '未知'}、耗尽 ${dailyNotifications.exhausted ?? '未知'}；${escapeHtml(dailyReasons)}</p>
+        <p class="strategy-note">本轮运行原因：${escapeHtml(currentReasons)}；投递失败 ${roundNotifications.round_failed ?? '未知'}，信号过期未发送 ${roundNotifications.expired_signals ?? '未知'}，发件箱通知过期 ${roundNotifications.expired_notifications ?? '未知'}。过期未发送不等于渠道失败。</p>
+        <p class="strategy-note">每日摘要：${daily.action_required ? '需要处理' : '无需处理'}；正式信号 ${dailyFormal.signal_samples ?? '未知'}（待观察 ${dailyFormal.pending_signals ?? '未知'}），已结算交易 ${dailyFormal.closed_trades ?? '未知'}；研究持仓 ${dailyResearch.open_trades ?? '未知'}、待观察 ${dailyResearch.pending_signals ?? '未知'}；投递失败 ${dailyNotifications.round_failed ?? '未知'}、信号过期未发送 ${dailyNotifications.expired_signals ?? '未知（旧记录）'}、通知过期 ${dailyNotifications.expired_notifications ?? '未知（旧记录）'}、积压 ${dailyNotifications.pending ?? '未知'}、耗尽 ${dailyNotifications.exhausted ?? '未知'}；${escapeHtml(dailyReasons)}</p>
         <p class="strategy-note">S1 快速研究队列：已跟踪 ${research.tracked_signals ?? 0} 条，待观察 ${research.pending_signals ?? 0} 条。该队列仅用于提前研究，不计入正式样本，也不代表实盘建议。</p>
         ${failures ? `<ul class="health-failures">${failures}</ul>` : ''}
         ${portfolio.symbols?.length ? `<table class="bt-table health-risk-table"><thead><tr><th>币种</th><th>方向</th><th>单位</th><th>剩余容量</th><th>止损理论风险</th></tr></thead><tbody>${portfolio.symbols.map((item) => `<tr><td class="sym">${escapeHtml(String(item.symbol || '').replace('USDT', ''))}</td><td>${item.direction === 'long' ? '多' : '空'}</td><td>${item.units ?? 0}</td><td>${item.remaining_symbol_capacity ?? '--'}</td><td>${item.estimated_stop_risk ?? 0} U</td></tr>`).join('')}</tbody></table>` : ''}`;

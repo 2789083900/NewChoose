@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Detect a missing/stale CoinPulse monitor heartbeat and notify once per transition."""
 
+from monitor_reporting import REASON_LABELS
+
 import argparse
 import json
 import os
@@ -145,7 +147,9 @@ def classify_ordinary_monitor(health, age_seconds, max_age_minutes):
             reasons.append("notification_degraded")
     except (TypeError, ValueError):
         pass
-    if health.get("status") == "degraded" and not any(
+    structured_reasons = [r for r in (health.get("health_reasons") or []) if r in REASON_LABELS]
+    reasons.extend(r for r in structured_reasons if r not in reasons)
+    if health.get("status") == "degraded" and not structured_reasons and not any(
         reason in reasons for reason in ("coverage_insufficient", "notification_degraded")
     ):
         reasons.append("scan_degraded")
@@ -157,7 +161,11 @@ def classify_ordinary_monitor(health, age_seconds, max_age_minutes):
         state = "coverage_insufficient"
     elif "notification_degraded" in reasons:
         state = "notification_degraded"
-    elif "scan_degraded" in reasons:
+    elif "signals_expired_before_dispatch" in reasons:
+        state = "signals_expired_before_dispatch"
+    elif "market_data_stale" in reasons or "market_freshness_unknown" in reasons:
+        state = "market_data_degraded"
+    elif reasons:
         state = "scan_degraded"
     elif int(scan.get("candidate_signals") or 0) == 0:
         state = "idle"
@@ -170,6 +178,7 @@ def health_alert_detail(health, age_seconds, ordinary_state=None, ordinary_reaso
     """Build a diagnostic alert without exposing channel credentials."""
     scan = health.get("scan") or {}
     labels = {
+        **REASON_LABELS,
         "heartbeat_missing": "未找到健康心跳",
         "heartbeat_stale": "健康心跳已过期",
         "scan_failed": "最近一次扫描失败",
@@ -340,6 +349,8 @@ def check(max_age_minutes=DEFAULT_MAX_AGE_MINUTES,
         advisory_components.append("notifications")
     if any(reason == "scan_degraded" for reason in ordinary_reasons):
         advisory_components.append("scan_status")
+    if any(reason in {"signals_expired_before_dispatch", "notification_delivery_failed", "notification_events_expired", "market_data_stale", "market_freshness_unknown"} for reason in ordinary_reasons) and "scan_status" not in advisory_components:
+        advisory_components.append("scan_status")
     if tier_state["active"]:
         advisory_components.append("risk_tiers")
     current = "stale" if failed_components else (
@@ -468,6 +479,14 @@ def main():
                    sendkey=os.environ.get("SERVERCHAN_SENDKEY", ""),
                    pushplus_token=os.environ.get("PUSHPLUS_TOKEN", ""))
     print(json.dumps(result, ensure_ascii=False))
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as file:
+            file.write("## CoinPulse 健康检查\n\n")
+            file.write(f"状态：{result['status']}；普通状态：{result['ordinary_state']}\n\n")
+            file.write(f"普通心跳年龄：{result['age_seconds']} 秒（阈值 {args.max_age_minutes} 分钟）；永续：{result['perpetual_age_seconds']} 秒（阈值 {args.max_perp_age_minutes} 分钟）。\n\n")
+            file.write("原因：" + "、".join(REASON_LABELS.get(r, r) for r in result['ordinary_reasons']) + "\n\n")
+            file.write("心跳过期/缺失或扫描失败仍返回失败；此结果不证明手机已收到告警。\n")
     return 1 if result["status"] == "stale" else 0
 
 

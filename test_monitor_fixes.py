@@ -258,6 +258,28 @@ class DiagnosticsFixTests(unittest.TestCase):
         self.assertTrue(data['external_heartbeat_configured'])
         self.assertNotIn('SECRET',json.dumps(data))
 
+    def test_both_writers_checkout_latest_branch_after_shared_queue(self):
+        root=Path(__file__).parent
+        for name in ['signal-monitor.yml','monitor-health.yml']:
+            text=(root/'.github/workflows'/name).read_text(encoding='utf-8')
+            checkout=text.split('- name: Checkout',1)[1].split('- name: Set up Python',1)[0]
+            self.assertIn('ref: ${{ github.ref_name }}',checkout)
+            self.assertIn('fetch-depth: 1',checkout)
+            self.assertIn('group: coinpulse-state-writer',text)
+            self.assertNotIn('ref: ${{ github.sha }}',checkout)
+
+    def test_diagnostics_distinguish_event_revision_and_local_head(self):
+        from subprocess import CompletedProcess
+        with tempfile.TemporaryDirectory() as tmp,patch.object(diagnostics.subprocess,'run',return_value=CompletedProcess([],0,'a'*40+'\n','')):
+            data=diagnostics.build(tmp,env={'GITHUB_SHA':'b'*40})
+        self.assertEqual(data['local_head_sha_at_diagnostics'],'a'*40)
+        self.assertEqual(data['workflow']['GITHUB_SHA'],'b'*40)
+
+    def test_diagnostics_without_git_still_work(self):
+        with tempfile.TemporaryDirectory() as tmp,patch.object(diagnostics.subprocess,'run',side_effect=FileNotFoundError()):
+            data=diagnostics.build(tmp,env={})
+        self.assertIsNone(data['local_head_sha_at_diagnostics'])
+
     def test_workflow_diagnostics_preserve_gates_and_thresholds(self):
         root=Path(__file__).parent
         for name in ['signal-monitor.yml','monitor-health.yml']:

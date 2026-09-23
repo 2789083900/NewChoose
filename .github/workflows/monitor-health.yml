@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # A queued health event must inspect the state just published by scan,
+          # not the older SHA captured when the event was created.
+          ref: ${{ github.ref_name }}
           fetch-depth: 1
 
       - name: Set up Python

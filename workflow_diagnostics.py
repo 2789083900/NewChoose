@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -85,7 +86,16 @@ def build(source, include_github=False, env=None):
     health = read('monitor_health.json')
     alert = read('monitor_alert_state.json')
     scan = health.get('scan') if isinstance(health.get('scan'), dict) else {}
+    try:
+        revision = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=source,
+                                  capture_output=True, text=True, timeout=5)
+        checkout_sha = revision.stdout.strip() if revision.returncode == 0 else None
+        if not re.fullmatch(r'[0-9a-f]{40,64}', checkout_sha or ''):
+            checkout_sha = None
+    except (OSError, subprocess.TimeoutExpired):
+        checkout_sha = None
     result = {'schema_version':1, 'observed_at':datetime.now(timezone.utc).isoformat(),
+        'local_head_sha_at_diagnostics':checkout_sha,
         'workflow':{k:env.get(k) for k in ('GITHUB_RUN_ID','GITHUB_RUN_ATTEMPT','GITHUB_EVENT_NAME','GITHUB_SHA','GITHUB_REF_NAME')},
         'health':{k:health.get(k) for k in ('status','updated_at_epoch','health_reasons','notification_summary')},
         'scan':{k:scan.get(k) for k in ('run_id','coverage_pct','data_lag_basis','data_lag_minutes','data_freshness_status','max_closed_bar_overdue_minutes')},
@@ -93,6 +103,7 @@ def build(source, include_github=False, env=None):
         'external_heartbeat_configured':bool(env.get('EXTERNAL_HEARTBEAT_URL','').strip()),
         'sources':sources,
         'limits':['Health alert snapshot is transition-persisted, not necessarily the latest check.',
+                  'GITHUB_SHA is the event revision; local_head_sha_at_diagnostics may include newer branch state and state-save commits.',
                   'This report does not send, repair, or prove phone receipt.']}
     if include_github:
         result['actions_history'] = github_history(env.get('GITHUB_REPOSITORY'), env.get('GITHUB_REF_NAME','master'), env.get('GITHUB_TOKEN'))

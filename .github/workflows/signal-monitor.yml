@@ -31,6 +31,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Shared concurrency serializes writers, but an event SHA may predate
+          # the previous writer. Read the branch tip after acquiring the slot.
+          ref: ${{ github.ref_name }}
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5

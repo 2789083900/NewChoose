@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-23 12:41:03",
+  "generated_at": "2026-09-23 17:28:35",
   "total_signals": 20,
-  "pending_signals": 6,
+  "pending_signals": 4,
   "horizons": {
     "24h": {
       "observed": 18,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.292
     },
     "48h": {
-      "observed": 14,
+      "observed": 16,
       "wins": 11,
-      "losses": 3,
+      "losses": 5,
       "flats": 0,
-      "win_rate": 78.57,
-      "avg_return_pct": 10.696,
-      "avg_mfe_pct": 14.707,
-      "avg_mae_pct": -3.207
+      "win_rate": 68.75,
+      "avg_return_pct": 8.218,
+      "avg_mfe_pct": 13.76,
+      "avg_mae_pct": -3.995
     }
   },
   "by_symbol": {
@@ -86,11 +86,11 @@
         "avg_return_pct": -4.906
       },
       "48h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 17.717
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": 2.051
       }
     },
     "BTCUSDT": {
@@ -170,7 +170,13 @@
         "win_rate": 100.0,
         "avg_return_pct": 2.796
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -4.646
+      }
     },
     "XRPUSDT": {
       "signals": 2,

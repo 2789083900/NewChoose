@@ -1,27 +1,27 @@
 {
-  "generated_at": "2026-09-24 01:23:17",
+  "generated_at": "2026-09-24 06:23:27",
   "total_signals": 14,
-  "pending_signals": 2,
+  "pending_signals": 1,
   "horizons": {
     "24h": {
+      "observed": 14,
+      "wins": 6,
+      "losses": 8,
+      "flats": 0,
+      "win_rate": 42.86,
+      "avg_return_pct": -0.199,
+      "avg_mfe_pct": 4.039,
+      "avg_mae_pct": -3.236
+    },
+    "48h": {
       "observed": 13,
       "wins": 6,
       "losses": 7,
       "flats": 0,
       "win_rate": 46.15,
-      "avg_return_pct": 0.415,
-      "avg_mfe_pct": 4.284,
-      "avg_mae_pct": -2.698
-    },
-    "48h": {
-      "observed": 12,
-      "wins": 6,
-      "losses": 6,
-      "flats": 0,
-      "win_rate": 50.0,
-      "avg_return_pct": -0.174,
-      "avg_mfe_pct": 5.291,
-      "avg_mae_pct": -3.508
+      "avg_return_pct": -1.469,
+      "avg_mfe_pct": 5.035,
+      "avg_mae_pct": -4.66
     }
   },
   "by_symbol": {
@@ -137,16 +137,22 @@
         "avg_return_pct": -4.883
       },
       "48h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 0,
-        "losses": 1,
+        "losses": 2,
         "win_rate": 0.0,
-        "avg_return_pct": -13.614
+        "avg_return_pct": -15.312
       }
     },
     "ADAUSDT": {
       "signals": 1,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -8.192
+      },
       "48h": {}
     }
   }

@@ -266,5 +266,6 @@
   "ETHUSDT|4h|early_warning|long|1790020800000": true,
   "BTCUSDT|4h|early_warning|long|1790020800000": true,
   "SOLUSDT|4h|early_warning|long|1790020800000": true,
-  "DOGEUSDT|4h|early_warning|long|1790035200000": true
+  "DOGEUSDT|4h|early_warning|long|1790035200000": true,
+  "SOLUSDT|4h|early_warning|long|1790352000000": true
 }

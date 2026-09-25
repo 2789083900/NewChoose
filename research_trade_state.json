@@ -56,14 +56,14 @@
   ],
   "BTCUSDT|4h|turtle|system1": "none",
   "ETHUSDT|4h|turtle|system1": "none",
-  "SOLUSDT|4h|turtle|system1": "none",
+  "SOLUSDT|4h|turtle|system1": "long",
   "BNBUSDT|4h|turtle|system1": "none",
   "XRPUSDT|4h|turtle|system1": "none",
   "ADAUSDT|4h|turtle|system1": "none",
   "DOGEUSDT|4h|turtle|system1": "none",
-  "LINKUSDT|4h|turtle|system1": "none",
+  "LINKUSDT|4h|turtle|system1": "long",
   "AVAXUSDT|4h|turtle|system1": "none",
-  "SUIUSDT|4h|turtle|system1": "none",
+  "SUIUSDT|4h|turtle|system1": "long",
   "PEPEUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1|blocked": false
 }

@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-25 06:35:39",
-  "total_signals": 20,
-  "pending_signals": 0,
+  "generated_at": "2026-09-25 12:10:45",
+  "total_signals": 23,
+  "pending_signals": 3,
   "horizons": {
     "24h": {
       "observed": 20,
@@ -26,7 +26,7 @@
   },
   "by_symbol": {
     "SOLUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 2,
@@ -60,7 +60,7 @@
       }
     },
     "SUIUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 2,
@@ -194,6 +194,11 @@
         "win_rate": 0.0,
         "avg_return_pct": -3.864
       }
+    },
+    "LINKUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
     }
   }
 }

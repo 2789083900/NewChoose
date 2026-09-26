@@ -2,6 +2,50 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "daily-health|2026-09-26",
+      "title": "CoinPulse 每日运行摘要 2026-09-26",
+      "content": "CoinPulse 每日运行摘要 2026-09-26\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-09-26 08:00:00 北京，各市场收盘距今最大 112.7 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：3\n现货影子仓位：0，待成交：0\n正式样本：信号 17（待观察 3），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 3（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 2 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：信号过期未发送 2 条（非渠道失败）；正式样本统计过期或损坏\n运行编号：2711dc961df2",
+      "metadata": {
+        "kind": "daily_health",
+        "date": "2026-09-26"
+      },
+      "created_epoch_ms": 1790387562954,
+      "expires_epoch_ms": 1790473962954,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790387564988,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790387564988
+    },
+    {
+      "event_id": "spot-warning|SOLUSDT|4h|1790366400000|long|接近突破",
+      "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
+      "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.431N\n现价：122.15（+4.37%）\n依据：距上破阈值约0.43N\n当前价 122.15 · 突破阈值 122.97 · N=1.90\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-26 00:00:00 UTC / 2026-09-26 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SOLUSDT",
+        "bar_time": 1790366400000
+      },
+      "created_epoch_ms": 1790387560144,
+      "expires_epoch_ms": 1790388160144,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790387562927,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790387562927
+    },
+    {
       "event_id": "spot-warning|SOLUSDT|4h|1790352000000|long|接近突破",
       "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
       "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.321N\n现价：121.91（+3.93%）\n依据：距上破阈值约0.32N\n当前价 121.91 · 突破阈值 122.52 · N=1.90\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-25 20:00:00 UTC / 2026-09-26 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

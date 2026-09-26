@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-25 23:28:30",
-  "total_signals": 23,
-  "pending_signals": 3,
+  "generated_at": "2026-09-26 01:52:49",
+  "total_signals": 24,
+  "pending_signals": 4,
   "horizons": {
     "24h": {
       "observed": 20,
@@ -60,7 +60,7 @@
       }
     },
     "SUIUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 3,
         "wins": 2,

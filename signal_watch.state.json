@@ -256,7 +256,7 @@
   "ADAUSDT|4h|turtle|system2": "none",
   "BNBUSDT|4h|turtle|system2": "none",
   "LINKUSDT|4h|turtle|system2": "none",
-  "SUIUSDT|4h|turtle|system2": "none",
+  "SUIUSDT|4h|turtle|system2": "long",
   "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2,
   "AVAXUSDT|4h|early_warning|long|1789747200000": true,
@@ -267,5 +267,6 @@
   "BTCUSDT|4h|early_warning|long|1790020800000": true,
   "SOLUSDT|4h|early_warning|long|1790020800000": true,
   "DOGEUSDT|4h|early_warning|long|1790035200000": true,
-  "SOLUSDT|4h|early_warning|long|1790352000000": true
+  "SOLUSDT|4h|early_warning|long|1790352000000": true,
+  "SOLUSDT|4h|early_warning|long|1790366400000": true
 }

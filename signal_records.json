@@ -1300,5 +1300,73 @@
       "24h": null,
       "48h": null
     }
+  },
+  {
+    "id": "SUIUSDT|4h|1790366400000|long|system2",
+    "run_id": "2711dc961df2",
+    "symbol": "SUIUSDT",
+    "interval": "4h",
+    "direction": "long",
+    "entry_price": 1.1615,
+    "entry_trigger": 1.1615,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1790366400000,
+    "signal_time": "2026-09-26 01:52:36",
+    "timing": {
+      "bar_close_time": "2026-09-26 00:00:00 UTC / 2026-09-26 08:00:00 北京",
+      "bar_close_epoch": 1790380800000,
+      "generated_time": "2026-09-26 01:52:36 UTC / 2026-09-26 09:52:36 北京",
+      "generated_epoch": 1790387556653,
+      "delay_minutes": 112.6,
+      "shadow_entry_deadline": "2026-09-26 00:00:00 UTC / 2026-09-26 08:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 0.026374015802693485,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 0.026374015802693485,
+      "breakout_trigger": 1.1615,
+      "stop": 1.108751968394613,
+      "next_add": 1.1746870079013467,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
   }
 ]

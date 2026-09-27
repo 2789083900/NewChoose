@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|SOLUSDT|4h|1790496000000|long|接近突破",
+      "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
+      "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.343N\n现价：123.94（+2.19%）\n依据：距上破阈值约0.34N\n当前价 123.94 · 突破阈值 124.59 · N=1.90\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-27 12:00:00 UTC / 2026-09-27 20:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SOLUSDT",
+        "bar_time": 1790496000000
+      },
+      "created_epoch_ms": 1790522376605,
+      "expires_epoch_ms": 1790522976605,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1790522378643,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1790522378643
+    },
+    {
       "event_id": "spot-warning|LINKUSDT|4h|1790481600000|long|接近突破",
       "title": "CoinPulse 观察预警 LINKUSDT 接近突破",
       "content": "观察预警 LINKUSDT 4h · 接近突破\n方向：向上做多 · 距突破约 0.307N\n现价：14.44（+2.54%）\n依据：距上破阈值约0.31N\n当前价 14.44 · 突破阈值 14.53 · N=0.275018\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-09-27 08:00:00 UTC / 2026-09-27 16:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

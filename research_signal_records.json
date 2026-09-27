@@ -1861,7 +1861,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 120.85,
@@ -1875,7 +1875,18 @@
         "observed_at": "2026-09-26 16:16:21",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 120.85,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.401,
+        "mae_pct": -2.168,
+        "final_return_pct": 2.549,
+        "final_price": 123.93,
+        "outcome": "WIN",
+        "observed_until": 1790510400000,
+        "observed_at": "2026-09-27 15:19:43",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -1940,7 +1951,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 14.083,
@@ -1954,7 +1965,18 @@
         "observed_at": "2026-09-26 16:16:21",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 14.083,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.933,
+        "mae_pct": -2.989,
+        "final_return_pct": 1.399,
+        "final_price": 14.28,
+        "outcome": "WIN",
+        "observed_until": 1790510400000,
+        "observed_at": "2026-09-27 15:19:43",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2019,7 +2041,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 1.139,
@@ -2033,7 +2055,18 @@
         "observed_at": "2026-09-26 16:16:21",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 1.139,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 13.09,
+        "mae_pct": -4.284,
+        "final_return_pct": 9.526,
+        "final_price": 1.2475,
+        "outcome": "WIN",
+        "observed_until": 1790510400000,
+        "observed_at": "2026-09-27 15:19:43",
+        "provider": "okx"
+      }
     }
   },
   {

@@ -2131,7 +2131,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 1.1948,
@@ -2145,7 +2145,18 @@
         "observed_at": "2026-09-27 00:25:39",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 1.1948,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.294,
+        "mae_pct": -5.499,
+        "final_return_pct": 5.817,
+        "final_price": 1.2643,
+        "outcome": "WIN",
+        "observed_until": 1790553600000,
+        "observed_at": "2026-09-28 00:36:22",
+        "provider": "okx"
+      }
     }
   },
   {

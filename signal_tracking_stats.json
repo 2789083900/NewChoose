@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-09-28 05:50:20",
+  "generated_at": "2026-09-28 12:02:47",
   "total_signals": 19,
   "pending_signals": 1,
   "horizons": {
     "24h": {
-      "observed": 18,
+      "observed": 19,
       "wins": 9,
-      "losses": 9,
+      "losses": 10,
       "flats": 0,
-      "win_rate": 50.0,
-      "avg_return_pct": -0.014,
-      "avg_mfe_pct": 3.772,
-      "avg_mae_pct": -3.347
+      "win_rate": 47.37,
+      "avg_return_pct": -0.37,
+      "avg_mfe_pct": 3.696,
+      "avg_mae_pct": -3.537
     },
     "48h": {
       "observed": 18,
@@ -164,11 +164,11 @@
     "SUIUSDT": {
       "signals": 3,
       "24h": {
-        "observed": 2,
+        "observed": 3,
         "wins": 1,
-        "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": 0.399
+        "losses": 2,
+        "win_rate": 33.33,
+        "avg_return_pct": -1.996
       },
       "48h": {
         "observed": 2,

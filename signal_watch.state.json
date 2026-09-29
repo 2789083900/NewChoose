@@ -255,7 +255,7 @@
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
   "BNBUSDT|4h|turtle|system2": "none",
-  "LINKUSDT|4h|turtle|system2": "long",
+  "LINKUSDT|4h|turtle|system2": "none",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2,

@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-09-28 23:56:32",
+  "updated_at": "2026-09-29 04:35:43",
   "scan": {
-    "run_id": "286f294a41eb",
+    "run_id": "d8b1dcaafa80",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,17 +15,17 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1790611200000,
+    "latest_bar_time": 1790640000000,
     "freshness_schema_version": 2,
     "market_freshness": [
       {
-        "symbol": "BNBUSDT",
+        "symbol": "LINKUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -33,11 +33,11 @@
       {
         "symbol": "SOLUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -45,47 +45,23 @@
       {
         "symbol": "DOGEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
       },
       {
-        "symbol": "BTCUSDT",
+        "symbol": "BNBUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "SUIUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "AVAXUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -93,35 +69,11 @@
       {
         "symbol": "XRPUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "ADAUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "LINKUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -129,11 +81,59 @@
       {
         "symbol": "ETHUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "SUIUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1790640000000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1790640000000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1790640000000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "ADAUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1790640000000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -141,11 +141,11 @@
       {
         "symbol": "PEPEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1790611200000,
+        "bar_open_epoch_ms": 1790640000000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1790625600000,
-        "age_since_close_minutes": 236.5,
+        "bar_close_epoch_ms": 1790654400000,
+        "age_since_close_minutes": 35.7,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -153,11 +153,11 @@
     ],
     "data_freshness_status": "fresh",
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
-    "data_lag_minutes": 236.5,
+    "data_lag_minutes": 35.7,
     "max_closed_bar_overdue_minutes": 0.0,
-    "data_reference_close_epoch_ms": 1790625600000,
+    "data_reference_close_epoch_ms": 1790654400000,
     "data_freshness_scope": "formal_spot_scan",
-    "candidate_signals": 2,
+    "candidate_signals": 0,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -165,12 +165,12 @@
     "failures": []
   },
   "push": {
-    "attempted": 0,
+    "attempted": 1,
     "failed": 0,
     "failures": []
   },
-  "status": "degraded",
-  "updated_at_epoch": 1790639792,
+  "status": "ok",
+  "updated_at_epoch": 1790656543,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -197,29 +197,29 @@
     "losses": 1,
     "win_rate": 0.0,
     "total_pnl_pct": -3.56,
-    "pending_signals": 1,
+    "pending_signals": 2,
     "tracked_signals": 0,
     "generated_at": "2026-09-20 21:04:42"
   },
   "daily_summary": {
-    "date": "2026-09-28",
+    "date": "2026-09-29",
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
       "正式样本统计过期或损坏"
     ],
-    "data_time": "2026-09-28 20:00:00 北京",
-    "data_lag_minutes": 2.7,
+    "data_time": "2026-09-29 12:00:00 北京",
+    "data_lag_minutes": 35.7,
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
     "data_freshness_status": "fresh",
     "max_closed_bar_overdue_minutes": 0.0,
     "formal": {
       "data_status": "stale",
-      "signal_samples": 19,
-      "pending_signals": 1,
+      "signal_samples": 20,
+      "pending_signals": 2,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-09-28 05:50:20",
+      "tracking_generated_at": "2026-09-28 23:56:36",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -230,7 +230,7 @@
       "data_status": null,
       "open_trades": 0,
       "closed_trades": 1,
-      "pending_signals": 1,
+      "pending_signals": 2,
       "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
@@ -246,16 +246,14 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "d9431cecc54d"
+    "run_id": "d8b1dcaafa80"
   },
   "notification_summary": {
     "round_failed": 0,
-    "expired_signals": 2,
+    "expired_signals": 0,
     "expired_notifications": 0,
-    "channel_attempts": 0,
+    "channel_attempts": 1,
     "channel_failures": 0
   },
-  "health_reasons": [
-    "signals_expired_before_dispatch"
-  ]
+  "health_reasons": []
 }

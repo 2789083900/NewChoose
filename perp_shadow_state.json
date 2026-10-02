@@ -2484,11 +2484,23 @@
       "long_notional": 0.0,
       "short_notional": 0.0,
       "open_risk_fraction": 0.0
+    },
+    {
+      "time": 1790942400000,
+      "realized_equity": 9774.95335239,
+      "marked_equity": 9774.95335239,
+      "unrealized_pnl": 0.0,
+      "open_count": 0,
+      "open_margin": 0.0,
+      "open_notional": 0.0,
+      "long_notional": 0.0,
+      "short_notional": 0.0,
+      "open_risk_fraction": 0.0
     }
   ],
-  "run_count": 128,
+  "run_count": 129,
   "consecutive_unavailable_runs": 0,
-  "last_success_at_epoch_ms": 1790925053350,
+  "last_success_at_epoch_ms": 1790949163941,
   "last_successful_symbols": [
     "BTCUSDT",
     "ETHUSDT"
@@ -2497,46 +2509,46 @@
     "BTCUSDT": {
       "status": "healthy",
       "component_errors": {},
-      "data_lag_minutes": 429.51,
-      "market_data_lag_minutes": 189.51,
+      "data_lag_minutes": 351.43,
+      "market_data_lag_minutes": 111.43,
       "market_data_max_lag_minutes": 252.0,
       "market_data_freshness": "fresh",
       "market_data_component_lag_minutes": {
-        "contract_klines": 189.51,
-        "mark_price_klines": 189.51,
-        "index_price_klines": 189.51
+        "contract_klines": 111.43,
+        "mark_price_klines": 111.43,
+        "index_price_klines": 111.43
       },
-      "latest_market_time": 1790913600000,
+      "latest_market_time": 1790942400000,
       "signal_status": "no_breakout",
       "signal_diagnostic": {
         "symbol": "BTCUSDT",
         "provider": "okx",
-        "signal_bar_time": 1790899200000,
+        "signal_bar_time": 1790928000000,
         "outcome": "no_breakout",
         "candidate_direction": null,
         "filter_stage": null,
         "reasons": [],
-        "price": 85466.9,
-        "n": 865.5198174352256,
-        "long_breakout_threshold": 87460.85198174353,
-        "short_breakout_threshold": 62421.74801825648,
-        "distance_to_long_breakout_pct": 2.333011,
-        "distance_to_short_breakout_pct": 26.963833,
+        "price": 86373.9,
+        "n": 868.3111377235999,
+        "long_breakout_threshold": 87461.13111377237,
+        "short_breakout_threshold": 62421.468886227645,
+        "distance_to_long_breakout_pct": 1.25875,
+        "distance_to_short_breakout_pct": 27.731098,
         "filter_metrics": {},
         "market_state": {
           "state": "range",
           "risk_multiplier": 0.5,
           "flags": [],
           "metrics": {
-            "move_pct": 2.4034,
-            "trend_efficiency": 0.2546,
+            "move_pct": 2.8941,
+            "trend_efficiency": 0.3253,
             "atr_method": "wilder_true_range",
-            "atr_current": 0.01061634,
-            "atr_prior": 0.01014581,
-            "atr_ratio": 1.0464,
-            "basis_pct": -0.050637,
-            "funding_rate": 3.2181372956e-06,
-            "oi_change_pct": -1.7157
+            "atr_current": 0.01074578,
+            "atr_prior": 0.01034594,
+            "atr_ratio": 1.0386,
+            "basis_pct": -0.055656,
+            "funding_rate": 7.09670858217e-05,
+            "oi_change_pct": 1.1161
           }
         }
       },
@@ -2545,15 +2557,15 @@
         "risk_multiplier": 0.5,
         "flags": [],
         "metrics": {
-          "move_pct": 2.4034,
-          "trend_efficiency": 0.2546,
+          "move_pct": 2.8941,
+          "trend_efficiency": 0.3253,
           "atr_method": "wilder_true_range",
-          "atr_current": 0.01061634,
-          "atr_prior": 0.01014581,
-          "atr_ratio": 1.0464,
-          "basis_pct": -0.050637,
-          "funding_rate": 3.2181372956e-06,
-          "oi_change_pct": -1.7157
+          "atr_current": 0.01074578,
+          "atr_prior": 0.01034594,
+          "atr_ratio": 1.0386,
+          "basis_pct": -0.055656,
+          "funding_rate": 7.09670858217e-05,
+          "oi_change_pct": 1.1161
         }
       },
       "provider": "okx",
@@ -2561,9 +2573,9 @@
         {
           "provider": "binance",
           "status": "error",
-          "latency_ms": 69118.13,
+          "latency_ms": 65455.35,
           "error": "required perpetual data unavailable: contract_klines, mark_price_klines, index_price_klines, contract_specs; component_errors: contract_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/klines; contract_specs=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/exchangeInfo; funding_rates=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/fundingRate; index_price_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/indexPriceKlines; mark_price_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/markPriceKlines; open_interest=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/futures/data/openInterestHist",
-          "consecutive_failures": 120,
+          "consecutive_failures": 121,
           "component_errors": {
             "contract_klines": "EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/klines",
             "mark_price_klines": "EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/markPriceKlines",
@@ -2577,22 +2589,22 @@
         {
           "provider": "okx",
           "status": "success",
-          "latency_ms": 7702.23,
+          "latency_ms": 6723.71,
           "market_data_freshness": {
             "status": "fresh",
-            "lag_minutes": 189.51,
+            "lag_minutes": 111.43,
             "max_lag_minutes": 252.0,
             "max_lag_intervals": 1.05,
             "component_lag_minutes": {
-              "contract_klines": 189.51,
-              "mark_price_klines": 189.51,
-              "index_price_klines": 189.51
+              "contract_klines": 111.43,
+              "mark_price_klines": 111.43,
+              "index_price_klines": 111.43
             }
           }
         }
       ],
       "provider_switch_reason": "fallback_after_1_failure(s)",
-      "provider_latency_ms": 7702.23,
+      "provider_latency_ms": 6723.71,
       "position_status": "normal",
       "reconciliation_uncertain": false,
       "risk_tier_health": {
@@ -2606,9 +2618,9 @@
         "remaining_stale_minutes": 1440.0,
         "expiry_risk": "normal",
         "consecutive_refresh_failures": 0,
-        "last_checked_at_epoch_ms": 1790924978123,
+        "last_checked_at_epoch_ms": 1790949092370,
         "last_refresh_failure_at_epoch_ms": null,
-        "retrieved_at_epoch_ms": 1790924978108,
+        "retrieved_at_epoch_ms": 1790949092354,
         "tier_version": "5902a976be77b92a",
         "tier_checksum": "5902a976be77b92a35b03cd9ff611d4cba1bc1eb65420477a655a93d81f419a8",
         "refresh_error_category": null
@@ -2617,46 +2629,46 @@
     "ETHUSDT": {
       "status": "healthy",
       "component_errors": {},
-      "data_lag_minutes": 430.76,
-      "market_data_lag_minutes": 190.76,
+      "data_lag_minutes": 352.62,
+      "market_data_lag_minutes": 112.62,
       "market_data_max_lag_minutes": 252.0,
       "market_data_freshness": "fresh",
       "market_data_component_lag_minutes": {
-        "contract_klines": 190.76,
-        "mark_price_klines": 190.76,
-        "index_price_klines": 190.76
+        "contract_klines": 112.62,
+        "mark_price_klines": 112.62,
+        "index_price_klines": 112.62
       },
-      "latest_market_time": 1790913600000,
+      "latest_market_time": 1790942400000,
       "signal_status": "no_breakout",
       "signal_diagnostic": {
         "symbol": "ETHUSDT",
         "provider": "okx",
-        "signal_bar_time": 1790899200000,
+        "signal_bar_time": 1790928000000,
         "outcome": "no_breakout",
         "candidate_direction": null,
         "filter_stage": null,
         "reasons": [],
-        "price": 2718.12,
-        "n": 36.88604850557709,
-        "long_breakout_threshold": 2810.6486048505576,
-        "short_breakout_threshold": 1848.681395149442,
-        "distance_to_long_breakout_pct": 3.40414,
-        "distance_to_short_breakout_pct": 31.986763,
+        "price": 2745.0,
+        "n": 36.94109947144795,
+        "long_breakout_threshold": 2810.6541099471447,
+        "short_breakout_threshold": 1848.675890052855,
+        "distance_to_long_breakout_pct": 2.391771,
+        "distance_to_short_breakout_pct": 32.652973,
         "filter_metrics": {},
         "market_state": {
           "state": "range",
           "risk_multiplier": 0.5,
           "flags": [],
           "metrics": {
-            "move_pct": 1.1288,
-            "trend_efficiency": 0.0814,
+            "move_pct": 1.2545,
+            "trend_efficiency": 0.1032,
             "atr_method": "wilder_true_range",
-            "atr_current": 0.01342015,
-            "atr_prior": 0.01355384,
-            "atr_ratio": 0.9901,
-            "basis_pct": -0.049274,
-            "funding_rate": 1.48696644614e-05,
-            "oi_change_pct": 4.5821
+            "atr_current": 0.01327484,
+            "atr_prior": 0.01356783,
+            "atr_ratio": 0.9784,
+            "basis_pct": -0.060438,
+            "funding_rate": 7.53291922106e-05,
+            "oi_change_pct": 0.5582
           }
         }
       },
@@ -2665,15 +2677,15 @@
         "risk_multiplier": 0.5,
         "flags": [],
         "metrics": {
-          "move_pct": 1.1288,
-          "trend_efficiency": 0.0814,
+          "move_pct": 1.2545,
+          "trend_efficiency": 0.1032,
           "atr_method": "wilder_true_range",
-          "atr_current": 0.01342015,
-          "atr_prior": 0.01355384,
-          "atr_ratio": 0.9901,
-          "basis_pct": -0.049274,
-          "funding_rate": 1.48696644614e-05,
-          "oi_change_pct": 4.5821
+          "atr_current": 0.01327484,
+          "atr_prior": 0.01356783,
+          "atr_ratio": 0.9784,
+          "basis_pct": -0.060438,
+          "funding_rate": 7.53291922106e-05,
+          "oi_change_pct": 0.5582
         }
       },
       "provider": "okx",
@@ -2681,9 +2693,9 @@
         {
           "provider": "binance",
           "status": "error",
-          "latency_ms": 67346.31,
+          "latency_ms": 64603.56,
           "error": "required perpetual data unavailable: contract_klines, mark_price_klines, index_price_klines, contract_specs; component_errors: contract_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/klines; contract_specs=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/exchangeInfo; funding_rates=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/fundingRate; index_price_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/indexPriceKlines; mark_price_klines=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/markPriceKlines; open_interest=EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/futures/data/openInterestHist",
-          "consecutive_failures": 120,
+          "consecutive_failures": 121,
           "component_errors": {
             "contract_klines": "EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/klines",
             "mark_price_klines": "EmptyResponse: status=202; content_type=text/html; charset=UTF-8; response_length=0; attempts=4; endpoint=fapi2.binance.com/fapi/v1/markPriceKlines",
@@ -2697,22 +2709,22 @@
         {
           "provider": "okx",
           "status": "success",
-          "latency_ms": 7808.71,
+          "latency_ms": 6896.82,
           "market_data_freshness": {
             "status": "fresh",
-            "lag_minutes": 190.76,
+            "lag_minutes": 112.62,
             "max_lag_minutes": 252.0,
             "max_lag_intervals": 1.05,
             "component_lag_minutes": {
-              "contract_klines": 190.76,
-              "mark_price_klines": 190.76,
-              "index_price_klines": 190.76
+              "contract_klines": 112.62,
+              "mark_price_klines": 112.62,
+              "index_price_klines": 112.62
             }
           }
         }
       ],
       "provider_switch_reason": "fallback_after_1_failure(s)",
-      "provider_latency_ms": 7808.71,
+      "provider_latency_ms": 6896.82,
       "position_status": "normal",
       "reconciliation_uncertain": false,
       "risk_tier_health": {
@@ -2726,17 +2738,17 @@
         "remaining_stale_minutes": 1440.0,
         "expiry_risk": "normal",
         "consecutive_refresh_failures": 0,
-        "last_checked_at_epoch_ms": 1790925053322,
+        "last_checked_at_epoch_ms": 1790949163912,
         "last_refresh_failure_at_epoch_ms": null,
-        "retrieved_at_epoch_ms": 1790925053306,
+        "retrieved_at_epoch_ms": 1790949163896,
         "tier_version": "4dc57b2e1645e057",
         "tier_checksum": "4dc57b2e1645e057b01382eed9ba5ae28530473ad1b41a896f0126b5a669ffa0",
         "refresh_error_category": null
       }
     }
   },
-  "last_market_time": 1790913600000,
-  "updated_at_epoch_ms": 1790925053350,
+  "last_market_time": 1790942400000,
+  "updated_at_epoch_ms": 1790949163941,
   "last_errors": {},
   "data_status": "degraded",
   "notification_history": [
@@ -2862,37 +2874,37 @@
   ],
   "provider_health": {
     "BTCUSDT|binance": {
-      "consecutive_failures": 120,
-      "last_failure_at_epoch_ms": 1790924970407,
-      "cooldown_until_epoch_ms": 1790925870407,
+      "consecutive_failures": 121,
+      "last_failure_at_epoch_ms": 1790949085632,
+      "cooldown_until_epoch_ms": 1790949985632,
       "last_success_at_epoch_ms": null,
-      "last_latency_ms": 69118.13
+      "last_latency_ms": 65455.35
     },
     "BTCUSDT|okx": {
       "consecutive_failures": 0,
       "last_failure_at_epoch_ms": 1789465072726,
       "cooldown_until_epoch_ms": 0,
-      "last_success_at_epoch_ms": 1790924978153,
-      "last_latency_ms": 7702.23
+      "last_success_at_epoch_ms": 1790949092398,
+      "last_latency_ms": 6723.71
     },
     "ETHUSDT|binance": {
-      "consecutive_failures": 120,
-      "last_failure_at_epoch_ms": 1790925045499,
-      "cooldown_until_epoch_ms": 1790925945499,
+      "consecutive_failures": 121,
+      "last_failure_at_epoch_ms": 1790949157001,
+      "cooldown_until_epoch_ms": 1790950057001,
       "last_success_at_epoch_ms": null,
-      "last_latency_ms": 67346.31
+      "last_latency_ms": 64603.56
     },
     "ETHUSDT|okx": {
       "consecutive_failures": 0,
       "last_failure_at_epoch_ms": 1789465087597,
       "cooldown_until_epoch_ms": 0,
-      "last_success_at_epoch_ms": 1790925053350,
-      "last_latency_ms": 7808.71
+      "last_success_at_epoch_ms": 1790949163941,
+      "last_latency_ms": 6896.82
     }
   },
   "market_time_by_symbol": {
-    "BTCUSDT": 1790913600000,
-    "ETHUSDT": 1790913600000
+    "BTCUSDT": 1790942400000,
+    "ETHUSDT": 1790942400000
   },
   "market_state_by_symbol": {
     "BTCUSDT": {
@@ -2900,15 +2912,15 @@
       "risk_multiplier": 0.5,
       "flags": [],
       "metrics": {
-        "move_pct": 2.4034,
-        "trend_efficiency": 0.2546,
+        "move_pct": 2.8941,
+        "trend_efficiency": 0.3253,
         "atr_method": "wilder_true_range",
-        "atr_current": 0.01061634,
-        "atr_prior": 0.01014581,
-        "atr_ratio": 1.0464,
-        "basis_pct": -0.050637,
-        "funding_rate": 3.2181372956e-06,
-        "oi_change_pct": -1.7157
+        "atr_current": 0.01074578,
+        "atr_prior": 0.01034594,
+        "atr_ratio": 1.0386,
+        "basis_pct": -0.055656,
+        "funding_rate": 7.09670858217e-05,
+        "oi_change_pct": 1.1161
       }
     },
     "ETHUSDT": {
@@ -2916,23 +2928,23 @@
       "risk_multiplier": 0.5,
       "flags": [],
       "metrics": {
-        "move_pct": 1.1288,
-        "trend_efficiency": 0.0814,
+        "move_pct": 1.2545,
+        "trend_efficiency": 0.1032,
         "atr_method": "wilder_true_range",
-        "atr_current": 0.01342015,
-        "atr_prior": 0.01355384,
-        "atr_ratio": 0.9901,
-        "basis_pct": -0.049274,
-        "funding_rate": 1.48696644614e-05,
-        "oi_change_pct": 4.5821
+        "atr_current": 0.01327484,
+        "atr_prior": 0.01356783,
+        "atr_ratio": 0.9784,
+        "basis_pct": -0.060438,
+        "funding_rate": 7.53291922106e-05,
+        "oi_change_pct": 0.5582
       }
     }
   },
   "data_recovery_events": [],
   "signal_funnel": {
-    "evaluated_bars": 154,
+    "evaluated_bars": 156,
     "insufficient_history": 0,
-    "no_breakout": 152,
+    "no_breakout": 154,
     "raw_breakout_candidates": 2,
     "filter_rejections": 0,
     "market_state_rejections": 0,
@@ -2943,72 +2955,72 @@
     "contract_constraint_rejections": 0,
     "rejection_reasons": {},
     "last_evaluated_bar_by_symbol": {
-      "BTCUSDT": 1790899200000,
-      "ETHUSDT": 1790899200000
+      "BTCUSDT": 1790928000000,
+      "ETHUSDT": 1790928000000
     }
   },
   "last_signal_diagnostics_by_symbol": {
     "BTCUSDT": {
       "symbol": "BTCUSDT",
       "provider": "okx",
-      "signal_bar_time": 1790899200000,
+      "signal_bar_time": 1790928000000,
       "outcome": "no_breakout",
       "candidate_direction": null,
       "filter_stage": null,
       "reasons": [],
-      "price": 85466.9,
-      "n": 865.5198174352256,
-      "long_breakout_threshold": 87460.85198174353,
-      "short_breakout_threshold": 62421.74801825648,
-      "distance_to_long_breakout_pct": 2.333011,
-      "distance_to_short_breakout_pct": 26.963833,
+      "price": 86373.9,
+      "n": 868.3111377235999,
+      "long_breakout_threshold": 87461.13111377237,
+      "short_breakout_threshold": 62421.468886227645,
+      "distance_to_long_breakout_pct": 1.25875,
+      "distance_to_short_breakout_pct": 27.731098,
       "filter_metrics": {},
       "market_state": {
         "state": "range",
         "risk_multiplier": 0.5,
         "flags": [],
         "metrics": {
-          "move_pct": 2.4034,
-          "trend_efficiency": 0.2546,
+          "move_pct": 2.8941,
+          "trend_efficiency": 0.3253,
           "atr_method": "wilder_true_range",
-          "atr_current": 0.01061634,
-          "atr_prior": 0.01014581,
-          "atr_ratio": 1.0464,
-          "basis_pct": -0.050637,
-          "funding_rate": 3.2181372956e-06,
-          "oi_change_pct": -1.7157
+          "atr_current": 0.01074578,
+          "atr_prior": 0.01034594,
+          "atr_ratio": 1.0386,
+          "basis_pct": -0.055656,
+          "funding_rate": 7.09670858217e-05,
+          "oi_change_pct": 1.1161
         }
       }
     },
     "ETHUSDT": {
       "symbol": "ETHUSDT",
       "provider": "okx",
-      "signal_bar_time": 1790899200000,
+      "signal_bar_time": 1790928000000,
       "outcome": "no_breakout",
       "candidate_direction": null,
       "filter_stage": null,
       "reasons": [],
-      "price": 2718.12,
-      "n": 36.88604850557709,
-      "long_breakout_threshold": 2810.6486048505576,
-      "short_breakout_threshold": 1848.681395149442,
-      "distance_to_long_breakout_pct": 3.40414,
-      "distance_to_short_breakout_pct": 31.986763,
+      "price": 2745.0,
+      "n": 36.94109947144795,
+      "long_breakout_threshold": 2810.6541099471447,
+      "short_breakout_threshold": 1848.675890052855,
+      "distance_to_long_breakout_pct": 2.391771,
+      "distance_to_short_breakout_pct": 32.652973,
       "filter_metrics": {},
       "market_state": {
         "state": "range",
         "risk_multiplier": 0.5,
         "flags": [],
         "metrics": {
-          "move_pct": 1.1288,
-          "trend_efficiency": 0.0814,
+          "move_pct": 1.2545,
+          "trend_efficiency": 0.1032,
           "atr_method": "wilder_true_range",
-          "atr_current": 0.01342015,
-          "atr_prior": 0.01355384,
-          "atr_ratio": 0.9901,
-          "basis_pct": -0.049274,
-          "funding_rate": 1.48696644614e-05,
-          "oi_change_pct": 4.5821
+          "atr_current": 0.01327484,
+          "atr_prior": 0.01356783,
+          "atr_ratio": 0.9784,
+          "basis_pct": -0.060438,
+          "funding_rate": 7.53291922106e-05,
+          "oi_change_pct": 0.5582
         }
       }
     }
@@ -3107,7 +3119,7 @@
         "tdMode": "isolated",
         "instFamily": "BTC-USDT"
       },
-      "retrieved_at_epoch_ms": 1790924978108,
+      "retrieved_at_epoch_ms": 1790949092354,
       "tier_version": "5902a976be77b92a",
       "native_cap_unit": "contracts",
       "normalized_cap_unit": "base_asset",
@@ -3127,7 +3139,7 @@
         "tdMode": "isolated",
         "instFamily": "ETH-USDT"
       },
-      "retrieved_at_epoch_ms": 1790925053306,
+      "retrieved_at_epoch_ms": 1790949163896,
       "tier_version": "4dc57b2e1645e057",
       "native_cap_unit": "contracts",
       "normalized_cap_unit": "base_asset",
@@ -3153,9 +3165,9 @@
       "remaining_stale_minutes": 1440.0,
       "expiry_risk": "normal",
       "consecutive_refresh_failures": 0,
-      "last_checked_at_epoch_ms": 1790924978123,
+      "last_checked_at_epoch_ms": 1790949092370,
       "last_refresh_failure_at_epoch_ms": null,
-      "retrieved_at_epoch_ms": 1790924978108,
+      "retrieved_at_epoch_ms": 1790949092354,
       "tier_version": "5902a976be77b92a",
       "tier_checksum": "5902a976be77b92a35b03cd9ff611d4cba1bc1eb65420477a655a93d81f419a8",
       "refresh_error_category": null
@@ -3171,9 +3183,9 @@
       "remaining_stale_minutes": 1440.0,
       "expiry_risk": "normal",
       "consecutive_refresh_failures": 0,
-      "last_checked_at_epoch_ms": 1790925053322,
+      "last_checked_at_epoch_ms": 1790949163912,
       "last_refresh_failure_at_epoch_ms": null,
-      "retrieved_at_epoch_ms": 1790925053306,
+      "retrieved_at_epoch_ms": 1790949163896,
       "tier_version": "4dc57b2e1645e057",
       "tier_checksum": "4dc57b2e1645e057b01382eed9ba5ae28530473ad1b41a896f0126b5a669ffa0",
       "refresh_error_category": null

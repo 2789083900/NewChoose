@@ -2,7 +2,10 @@ name: CoinPulse Cloud Monitor
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # GitHub warns that scheduled runs are most likely to be delayed or
+    # dropped near the start of an hour. Keep the five-minute cadence while
+    # avoiding minute 0.
+    - cron: "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
   workflow_dispatch:
     inputs:
       test_push:

@@ -2,7 +2,13 @@ name: CoinPulse Monitor Health
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Keep an independent stale-heartbeat check, offset from minute 0 and
+    # from the scan schedule to reduce GitHub scheduler contention.
+    - cron: "4,19,34,49 * * * *"
+  workflow_run:
+    workflows: ["CoinPulse Cloud Monitor"]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -22,8 +28,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           # A queued health event must inspect the state just published by scan,
-          # not the older SHA captured when the event was created.
-          ref: ${{ github.ref_name }}
+          # not the older SHA captured when the event was created. workflow_run
+          # events also need the repository default branch, not the source SHA.
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 1
 
       - name: Set up Python
@@ -48,19 +55,20 @@ jobs:
           git add -f monitor_alert_state.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "chore: update monitor health alert state"
+          state_branch="${{ github.event.repository.default_branch }}"
           for attempt in 1 2 3; do
-            if ! git fetch origin "${GITHUB_REF_NAME}"; then
+            if ! git fetch origin "${state_branch}"; then
               echo "fetch conflict; retry ${attempt}/3"
               sleep $((attempt * 2))
               continue
             fi
-            if ! git rebase "origin/${GITHUB_REF_NAME}"; then
+            if ! git rebase "origin/${state_branch}"; then
               git rebase --abort || true
               echo "rebase conflict; retry ${attempt}/3"
               sleep $((attempt * 2))
               continue
             fi
-            if git push origin HEAD:${GITHUB_REF_NAME}; then exit 0; fi
+            if git push origin HEAD:${state_branch}; then exit 0; fi
             echo "push conflict; retry ${attempt}/3"
             sleep $((attempt * 2))
           done
@@ -73,6 +81,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           EXTERNAL_HEARTBEAT_URL: ${{ secrets.EXTERNAL_HEARTBEAT_URL }}
+          COINPULSE_STATE_BRANCH: ${{ github.event.repository.default_branch }}
+          TRIGGERING_WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          TRIGGERING_WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          TRIGGERING_WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         run: python workflow_diagnostics.py --github --output reports/monitor-diagnostics.json
 
       - name: Save secret-free monitor diagnostics

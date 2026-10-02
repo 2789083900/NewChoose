@@ -236,6 +236,18 @@ class DiagnosticsFixTests(unittest.TestCase):
         self.assertEqual(rows[-1]['created_to_started_seconds'],20)
         self.assertIsNone(rows[1]['previous_scheduled_created_gap_seconds'])
 
+    def test_schedule_cadence_reports_creation_gaps(self):
+        rows=diagnostics.summarize_runs([
+            {'id':1,'event':'schedule','created_at':'2026-09-23T08:00:00Z'},
+            {'id':2,'event':'workflow_run','created_at':'2026-09-23T08:03:00Z'},
+            {'id':3,'event':'schedule','created_at':'2026-09-23T08:05:00Z'},
+            {'id':4,'event':'schedule','created_at':'2026-09-23T10:05:00Z'}])
+        cadence=diagnostics.summarize_schedule_cadence(rows,300)
+        self.assertEqual(cadence['observed_schedule_count'],3)
+        self.assertEqual(cadence['max_created_gap_seconds'],7200)
+        self.assertEqual(cadence['gaps_over_twice_expected'],1)
+        self.assertEqual(cadence['gaps_over_one_hour'],1)
+
     def test_api_failure_sanitized_and_no_write_endpoint(self):
         def opener(request,timeout):
             self.assertEqual(request.get_method(),'GET')
@@ -263,10 +275,25 @@ class DiagnosticsFixTests(unittest.TestCase):
         for name in ['signal-monitor.yml','monitor-health.yml']:
             text=(root/'.github/workflows'/name).read_text(encoding='utf-8')
             checkout=text.split('- name: Checkout',1)[1].split('- name: Set up Python',1)[0]
-            self.assertIn('ref: ${{ github.ref_name }}',checkout)
+            expected_ref = ('ref: ${{ github.event.repository.default_branch }}'
+                            if name == 'monitor-health.yml'
+                            else 'ref: ${{ github.ref_name }}')
+            self.assertIn(expected_ref,checkout)
             self.assertIn('fetch-depth: 1',checkout)
             self.assertIn('group: coinpulse-state-writer',text)
             self.assertNotIn('ref: ${{ github.sha }}',checkout)
+
+    def test_scheduler_avoids_minute_zero_and_health_follows_scan(self):
+        root=Path(__file__).parent
+        scan=(root/'.github/workflows/signal-monitor.yml').read_text(encoding='utf-8')
+        health_text=(root/'.github/workflows/monitor-health.yml').read_text(encoding='utf-8')
+        self.assertIn('2,7,12,17,22,27,32,37,42,47,52,57 * * * *',scan)
+        self.assertIn('4,19,34,49 * * * *',health_text)
+        self.assertIn('workflow_run:',health_text)
+        self.assertIn('workflows: ["CoinPulse Cloud Monitor"]',health_text)
+        self.assertIn('types: [completed]',health_text)
+        self.assertIn('branches: [master]',health_text)
+        self.assertIn('ref: ${{ github.event.repository.default_branch }}',health_text)
 
     def test_diagnostics_distinguish_event_revision_and_local_head(self):
         from subprocess import CompletedProcess

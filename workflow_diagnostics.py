@@ -13,8 +13,8 @@ import urllib.request
 
 
 WORKFLOW_SCHEDULE_SECONDS = {
-    'signal-monitor.yml': 5 * 60,
-    'monitor-health.yml': 15 * 60,
+    'signal-monitor.yml': 60 * 60,
+    'monitor-health.yml': 30 * 60,
 }
 
 

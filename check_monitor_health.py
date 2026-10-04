@@ -18,8 +18,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 HEALTH_PATH = os.path.join(BASE_DIR, "monitor_health.json")
 ALERT_STATE_PATH = os.path.join(BASE_DIR, "monitor_alert_state.json")
 PERP_STATS_PATH = os.path.join(BASE_DIR, "perp_shadow_stats.json")
-DEFAULT_MAX_AGE_MINUTES = 35
-DEFAULT_MAX_PERP_AGE_MINUTES = 45
+DEFAULT_MAX_AGE_MINUTES = 120
+DEFAULT_MAX_PERP_AGE_MINUTES = 150
 
 
 def load_json(path, fallback):

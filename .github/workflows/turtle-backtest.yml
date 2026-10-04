@@ -26,7 +26,7 @@ permissions:
 
 concurrency:
   # All scheduled jobs that commit runtime/report artifacts share one writer
-  # lock, so a weekly backtest cannot race the 5-minute monitor push.
+  # lock, so a weekly backtest cannot race the hourly monitor push.
   group: coinpulse-state-writer
   cancel-in-progress: false
 

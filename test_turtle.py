@@ -51,10 +51,10 @@ class TurtleCoreTests(unittest.TestCase):
         )
         with open(workflow, encoding="utf-8") as file:
             text = file.read()
-        self.assertEqual(check_monitor_health.DEFAULT_MAX_AGE_MINUTES, 35)
-        self.assertEqual(check_monitor_health.DEFAULT_MAX_PERP_AGE_MINUTES, 45)
+        self.assertEqual(check_monitor_health.DEFAULT_MAX_AGE_MINUTES, 120)
+        self.assertEqual(check_monitor_health.DEFAULT_MAX_PERP_AGE_MINUTES, 150)
         self.assertIn(
-            "check_monitor_health.py --max-age-minutes 35 --max-perp-age-minutes 45",
+            "check_monitor_health.py --max-age-minutes 120 --max-perp-age-minutes 150",
             text,
         )
 
@@ -375,7 +375,13 @@ class TurtleCoreTests(unittest.TestCase):
                 file.write("before")
             with open(production_stats, "w", encoding="utf-8") as file:
                 file.write("before")
-            settled = sw.settle_trades(state, {}, trade_stats_path=os.path.join(directory, "trade_stats.json"))
+            isolated_state = os.path.join(directory, "state.json")
+            settled = sw.settle_trades(
+                state,
+                {},
+                trade_stats_path=os.path.join(directory, "trade_stats.json"),
+                state_path=isolated_state,
+            )
             with open(production_state, encoding="utf-8") as file:
                 self.assertEqual(file.read(), "before")
             with open(production_stats, encoding="utf-8") as file:

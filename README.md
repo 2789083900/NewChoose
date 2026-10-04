@@ -222,7 +222,7 @@ python signal_watch.py --test
 
 ## 云端部署（手机 App + 微信推送，不依赖电脑）
 
-如果你想在公司关电脑之后仍然正常收到信号，可以把 CoinPulse 发布到 GitHub，让云端每 5 分钟检查一次信号，网站也会自动生成一个手机能打开的公网地址。当前云端流程不依赖订单流服务；订单流仍然是可选的本地增强功能。
+如果你想在公司关电脑之后仍然正常收到信号，可以把 CoinPulse 发布到 GitHub，让云端每小时检查一次信号，网站也会自动生成一个手机能打开的公网地址。当前云端流程不依赖订单流服务；订单流仍然是可选的本地增强功能。
 
 1. 打开 <https://github.com>，注册或登录 GitHub 账号。
 2. 点击右上角 `+`，选择 `New repository`，仓库名填 `coinpulse`，可见性选 `Public`（免费），然后创建。
@@ -240,9 +240,9 @@ python signal_watch.py --test
 
 云端监控还会把新信号写入 `signal_records.json`，默认按信号确认后下一根 K 线开盘价进行影子成交，并在信号发出后的 24 小时和 48 小时分别记录 MFE（最大有利 excursion）、MAE（最大不利 excursion）和观察窗口收益；汇总结果写入 `signal_tracking_stats.json`。活跃记录最多保留 500 条，较早记录会先按信号月份归档到 `signal_archive/signals-YYYY-MM.json`，再从活跃文件移除，避免长期前瞻样本丢失。这些记录用于评估策略，不会自动下单，也不会改变入场规则。
 
-仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每 15 分钟检查 `monitor_health.json` 和 `perp_shadow_stats.json`。为容纳 GitHub Actions 的偶发调度延迟，普通监控超过 35 分钟没有心跳、最近一次扫描失败，或永续统计超过 45 分钟未生成时，会按故障组件变化发送一次失联告警；结合检查周期，实际检测延迟分别约为 35～50 分钟和 45～60 分钟。健康检查会把“扫描成功但没有候选信号”标为正常空闲，把扫描失败、心跳过期、行情覆盖不足和通知投递失败分别记录为可区分的状态；覆盖不足或通知失败属于降级，不会误报为监控失联。告警优先走 `SERVERCHAN_SENDKEY`，失败时自动用 `PUSHPLUS_TOKEN` 重试；两条通道都失败时保留状态转换，下一轮继续重试。全部恢复后发送一次恢复通知。状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。该 dead-man 检查也会读取 `risk_tier_health`：官方档位进入旧缓存降级、不可用或接近过期时发送一次状态转换告警，连续失败只在 1/3/6/12 次等级和剩余 120/60/0 分钟等级变化时再次提醒，恢复后发送一次恢复通知；档位降级属于研究模型提示，不会让健康工作流失败。该 dead-man 检查与主扫描工作流分离，但仍运行在 GitHub Actions 内。
+仓库还包含独立的 `CoinPulse Monitor Health` 工作流，每小时错峰检查 `monitor_health.json` 和 `perp_shadow_stats.json`。普通监控超过 120 分钟没有心跳、最近一次扫描失败，或永续统计超过 150 分钟未生成时，才会按故障组件变化发送一次失联告警；这与 4h 业务周期和 GitHub Actions 的调度容差对齐。健康检查会把“扫描成功但没有候选信号”标为正常空闲，把扫描失败、心跳过期、行情覆盖不足和通知投递失败分别记录为可区分的状态；覆盖不足或通知失败属于降级，不会误报为监控失联。告警优先走 `SERVERCHAN_SENDKEY`，失败时自动用 `PUSHPLUS_TOKEN` 重试；两条通道都失败时保留状态转换，下一轮继续重试。全部恢复后发送一次恢复通知。状态保存在 `monitor_alert_state.json`，不会在状态未变化时重复推送。健康记录还会保存当前多空单位、每个币种剩余容量和按止损估算的理论风险，供看板人工复核。该 dead-man 检查也会读取 `risk_tier_health`：官方档位进入旧缓存降级、不可用或接近过期时发送一次状态转换告警，连续失败只在 1/3/6/12 次等级和剩余 120/60/0 分钟等级变化时再次提醒，恢复后发送一次恢复通知；档位降级属于研究模型提示，不会让健康工作流失败。该 dead-man 检查与主扫描工作流分离，但仍运行在 GitHub Actions 内。
 
-如需监控 GitHub Actions 平台级调度中断，可在仓库 `Settings -> Secrets and variables -> Actions` 添加可选 secret `EXTERNAL_HEARTBEAT_URL`，值填外部监控服务提供的 HTTPS 心跳地址（例如 Healthchecks.io、Uptime Kuma 或自建接收端点）。主扫描只有在行情扫描、永续处理、两类状态校验和状态写回都成功后才发送一次 GET，并附带运行 ID 和提交 SHA；测试运行不会发送。心跳端点短暂失败不会阻断状态写回，但外部服务应把超过一个扫描周期（建议 10-15 分钟）未收到心跳视为故障。未配置该 secret 时步骤会跳过。
+如需监控 GitHub Actions 平台级调度中断，可在仓库 `Settings -> Secrets and variables -> Actions` 添加可选 secret `EXTERNAL_HEARTBEAT_URL`，值填外部监控服务提供的 HTTPS 心跳地址（例如 Healthchecks.io、Uptime Kuma 或自建接收端点）。主扫描只有在行情扫描、永续处理、两类状态校验和状态写回都成功后才发送一次 GET，并附带运行 ID 和提交 SHA；测试运行不会发送。未配置该 secret 时步骤会跳过。也可以使用独立的 `cron-job.org` 每小时调用 GitHub API 的 `workflow_dispatch`，让触发链路不依赖 GitHub 自身的自然 schedule：请求地址为 `https://api.github.com/repos/2789083900/NewChoose/actions/workflows/signal-monitor.yml/dispatches`，请求体为 `{"ref":"master"}`，认证使用仅授予该仓库 Actions 写权限的 PAT。PAT 只保存在 cron-job.org 的安全变量中，不要写进仓库文件、URL 或日志。
 
 推送消息会同时标明K线收盘时间、信号生成时间（UTC/北京时间）、生成延迟和影子成交窗口状态。默认仅在K线收盘后10分钟内发送交易消息；超过有效期的信号只保存为诊断记录，不推送，也不登记新的影子交易。
 
@@ -258,7 +258,7 @@ python signal_watch.py --test
 
 永续模块现在会根据最近 20 根合约 K 线及可用的资金费、基差、OI 变化标注市场状态：`trend` 正常风险，`range` 和 `volatility_expansion` 默认将新信号风险降至 50%，`extreme_risk`（基差/资金费/OI 触发阈值）暂停新开仓。状态、指标和触发标记会写入永续状态与推送；已有仓位仍按原止损、标记价和强平近似模型管理。
 
-永续统计还会按“币种 + 已闭合 K 线时间”去重记录 `signal_funnel`：已评估 K 线、历史不足、未突破、原始突破候选、确认过滤、市场状态拒绝、风险预算拒绝、重复信号和最终入场。`last_signal_diagnostics_by_symbol` 保留各币种最新收盘价、上下突破阈值、距阈值百分比、ATR/过滤指标和无交易原因，因此 5 分钟扫描不会把同一根 4h K 线重复算成多个观察样本。
+永续统计还会按“币种 + 已闭合 K 线时间”去重记录 `signal_funnel`：已评估 K 线、历史不足、未突破、原始突破候选、确认过滤、市场状态拒绝、风险预算拒绝、重复信号和最终入场。`last_signal_diagnostics_by_symbol` 保留各币种最新收盘价、上下突破阈值、距阈值百分比、ATR/过滤指标和无交易原因，因此每小时扫描也不会把同一根 4h K 线重复算成多个观察样本。
 
 公开行情请求会把空响应、非 JSON Content-Type、无效 JSON、HTTP 错误和网络错误分类，并记录状态码、Content-Type、响应长度、尝试次数与不含查询参数的端点。`provider_redundancy` 会单独标记多 provider 是否完整可用；例如 Binance 失败而 OKX 成功时研究任务继续，但 `data_status=degraded`、`provider_redundancy.status=degraded_redundancy`，恢复时会写入转换事件。
 

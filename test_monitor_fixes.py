@@ -107,7 +107,7 @@ class ReportingFixTests(unittest.TestCase):
             data=json.loads(Path(sw.HEALTH_PATH).read_text(encoding='utf-8'))
             self.assertEqual(data['push']['failed'],0)
             self.assertEqual(data['notification_summary']['expired_signals'],1)
-            state,reasons=health.classify_ordinary_monitor(data,1,35)
+            state,reasons=health.classify_ordinary_monitor(data,1,120)
             self.assertEqual(state,'signals_expired_before_dispatch')
             self.assertNotIn('notification_degraded',reasons)
             sw.write_monitor_health(status='ok',health_reasons=[],notifications=[])
@@ -115,7 +115,7 @@ class ReportingFixTests(unittest.TestCase):
             self.assertEqual(data['health_reasons'],[])
 
     def test_heartbeat_stale_still_takes_precedence(self):
-        state,reasons=health.classify_ordinary_monitor({'status':'degraded','health_reasons':['signals_expired_before_dispatch']},9005,35)
+        state,reasons=health.classify_ordinary_monitor({'status':'degraded','health_reasons':['signals_expired_before_dispatch']},9005,120)
         self.assertEqual(state,'heartbeat_stale')
         self.assertIn('signals_expired_before_dispatch',reasons)
 
@@ -287,8 +287,8 @@ class DiagnosticsFixTests(unittest.TestCase):
         root=Path(__file__).parent
         scan=(root/'.github/workflows/signal-monitor.yml').read_text(encoding='utf-8')
         health_text=(root/'.github/workflows/monitor-health.yml').read_text(encoding='utf-8')
-        self.assertIn('2,7,12,17,22,27,32,37,42,47,52,57 * * * *',scan)
-        self.assertIn('4,19,34,49 * * * *',health_text)
+        self.assertIn('12 * * * *',scan)
+        self.assertIn('27,57 * * * *',health_text)
         self.assertIn('workflow_run:',health_text)
         self.assertIn('workflows: ["CoinPulse Cloud Monitor"]',health_text)
         self.assertIn('types: [completed]',health_text)
@@ -320,7 +320,7 @@ class DiagnosticsFixTests(unittest.TestCase):
         self.assertIn("steps.validate_notifications.outcome == 'success'",text)
         self.assertIn('research_signal_archive',text)
         text=(root/'.github/workflows/monitor-health.yml').read_text(encoding='utf-8')
-        self.assertIn('--max-age-minutes 35 --max-perp-age-minutes 45',text)
+        self.assertIn('--max-age-minutes 120 --max-perp-age-minutes 150',text)
         self.assertIn('run: exit 1',text)
 
 

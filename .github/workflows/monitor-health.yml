@@ -2,9 +2,8 @@ name: CoinPulse Monitor Health
 
 on:
   schedule:
-    # Keep an independent stale-heartbeat check, offset from minute 0 and
-    # from the scan schedule to reduce GitHub scheduler contention.
-    - cron: "4,19,34,49 * * * *"
+    # Check twice per hour, offset from the scan schedule and minute 0.
+    - cron: "27,57 * * * *"
   workflow_run:
     workflows: ["CoinPulse Cloud Monitor"]
     types: [completed]
@@ -44,7 +43,7 @@ jobs:
         env:
           SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-        run: python check_monitor_health.py --max-age-minutes 35 --max-perp-age-minutes 45
+        run: python check_monitor_health.py --max-age-minutes 120 --max-perp-age-minutes 150
 
       - name: Save alert transition state
         shell: bash

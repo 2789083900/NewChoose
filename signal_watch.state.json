@@ -271,5 +271,6 @@
   "SOLUSDT|4h|early_warning|long|1790366400000": true,
   "LINKUSDT|4h|early_warning|long|1790481600000": true,
   "SOLUSDT|4h|early_warning|long|1790496000000": true,
-  "LINKUSDT|4h|early_warning|long|1790596800000": true
+  "LINKUSDT|4h|early_warning|long|1790596800000": true,
+  "ADAUSDT|4h|early_warning|long|1791158400000": true
 }

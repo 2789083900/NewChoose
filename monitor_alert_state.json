@@ -1,22 +1,14 @@
 {
-  "status": "stale",
-  "checked_at_epoch": 1791225345,
-  "health_age_seconds": 9426,
-  "perpetual_age_seconds": 9291,
-  "failed_components": [
-    "ordinary_monitor",
-    "perpetual_shadow"
-  ],
-  "advisory_components": [
-    "notifications"
-  ],
-  "ordinary_state": "heartbeat_stale",
-  "ordinary_reasons": [
-    "heartbeat_stale",
-    "notification_degraded"
-  ],
-  "risk_tier_status": "healthy",
-  "risk_tier_signature": "healthy||",
+  "status": "healthy",
+  "checked_at_epoch": 1791239830,
+  "health_age_seconds": 42,
+  "perpetual_age_seconds": 28,
+  "failed_components": [],
+  "advisory_components": [],
+  "ordinary_state": "idle",
+  "ordinary_reasons": [],
+  "risk_tier_status": "not_in_use",
+  "risk_tier_signature": "not_in_use||",
   "risk_tier_degraded_symbols": [],
   "risk_tier_unavailable_symbols": [],
   "last_health_status": "ok"

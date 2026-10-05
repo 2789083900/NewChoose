@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-10-05 07:00:12",
+  "updated_at": "2026-10-05 15:58:37",
   "scan": {
-    "run_id": "cfdf148db1cf",
+    "run_id": "b903710b16b0",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,65 +15,29 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1791158400000,
+    "latest_bar_time": 1791187200000,
     "freshness_schema_version": 2,
     "market_freshness": [
       {
-        "symbol": "ETHUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "AVAXUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "BNBUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
         "symbol": "BTCUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
       },
       {
-        "symbol": "ADAUSDT",
+        "symbol": "ETHUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -81,23 +45,11 @@
       {
         "symbol": "SOLUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "SUIUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -105,11 +57,47 @@
       {
         "symbol": "XRPUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "ADAUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1791187200000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "BNBUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1791187200000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1791187200000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -117,11 +105,23 @@
       {
         "symbol": "DOGEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "SUIUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1791187200000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -129,11 +129,11 @@
       {
         "symbol": "LINKUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -141,11 +141,11 @@
       {
         "symbol": "PEPEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1791158400000,
+        "bar_open_epoch_ms": 1791187200000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1791172800000,
-        "age_since_close_minutes": 180.2,
+        "bar_close_epoch_ms": 1791201600000,
+        "age_since_close_minutes": 238.6,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -153,9 +153,9 @@
     ],
     "data_freshness_status": "fresh",
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
-    "data_lag_minutes": 180.2,
+    "data_lag_minutes": 238.6,
     "max_closed_bar_overdue_minutes": 0.0,
-    "data_reference_close_epoch_ms": 1791172800000,
+    "data_reference_close_epoch_ms": 1791201600000,
     "data_freshness_scope": "formal_spot_scan",
     "candidate_signals": 1,
     "capacity_rejected": 0,
@@ -166,11 +166,17 @@
   },
   "push": {
     "attempted": 2,
-    "failed": 0,
-    "failures": []
+    "failed": 1,
+    "failures": [
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      }
+    ]
   },
   "status": "ok",
-  "updated_at_epoch": 1791183612,
+  "updated_at_epoch": 1791215917,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -208,8 +214,8 @@
     "action_reasons": [
       "正式样本统计过期或损坏"
     ],
-    "data_time": "2026-10-05 12:00:00 北京",
-    "data_lag_minutes": 180.2,
+    "data_time": "2026-10-05 20:00:00 北京",
+    "data_lag_minutes": 238.6,
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
     "data_freshness_status": "fresh",
     "max_closed_bar_overdue_minutes": 0.0,
@@ -219,7 +225,7 @@
       "pending_signals": 0,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-10-05 00:53:58",
+      "tracking_generated_at": "2026-10-05 07:00:16",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -237,8 +243,8 @@
       "round_failed": 0,
       "expired_signals": 0,
       "expired_notifications": 0,
-      "channel_attempts": 1,
-      "channel_failures": 0,
+      "channel_attempts": 2,
+      "channel_failures": 1,
       "pending": 0,
       "exhausted": 0
     },
@@ -246,14 +252,14 @@
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "cfdf148db1cf"
+    "run_id": "b903710b16b0"
   },
   "notification_summary": {
     "round_failed": 0,
     "expired_signals": 0,
     "expired_notifications": 0,
     "channel_attempts": 2,
-    "channel_failures": 0
+    "channel_failures": 1
   },
   "health_reasons": []
 }

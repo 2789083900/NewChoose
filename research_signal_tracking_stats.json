@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-09 08:58:59",
+  "generated_at": "2026-10-09 16:09:50",
   "total_signals": 29,
   "pending_signals": 3,
   "horizons": {
     "24h": {
-      "observed": 26,
+      "observed": 29,
       "wins": 15,
-      "losses": 11,
+      "losses": 14,
       "flats": 0,
-      "win_rate": 57.69,
-      "avg_return_pct": 0.542,
-      "avg_mfe_pct": 5.754,
-      "avg_mae_pct": -4.001
+      "win_rate": 51.72,
+      "avg_return_pct": 0.287,
+      "avg_mfe_pct": 5.335,
+      "avg_mae_pct": -3.899
     },
     "48h": {
       "observed": 26,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 0.618
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": -0.78
       },
       "48h": {
         "observed": 1,
@@ -130,11 +130,11 @@
     "BNBUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 0,
-        "losses": 1,
+        "losses": 2,
         "win_rate": 0.0,
-        "avg_return_pct": -0.481
+        "avg_return_pct": -0.842
       },
       "48h": {
         "observed": 1,
@@ -164,11 +164,11 @@
     "DOGEUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 2.796
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": 0.212
       },
       "48h": {
         "observed": 1,

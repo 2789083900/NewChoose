@@ -2401,7 +2401,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 2435.76,
@@ -2415,7 +2415,18 @@
         "observed_at": "2026-10-09 16:09:50",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 2435.76,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.207,
+        "mae_pct": -3.489,
+        "final_return_pct": -3.125,
+        "final_price": 2511.87,
+        "outcome": "LOSS",
+        "observed_until": 1791648000000,
+        "observed_at": "2026-10-10 18:32:43",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2480,7 +2491,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 731.4,
@@ -2494,7 +2505,18 @@
         "observed_at": "2026-10-09 16:09:50",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 731.4,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.969,
+        "mae_pct": -3.104,
+        "final_return_pct": -2.721,
+        "final_price": 751.3,
+        "outcome": "LOSS",
+        "observed_until": 1791648000000,
+        "observed_at": "2026-10-10 18:32:43",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2559,7 +2581,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 0.08268,
@@ -2573,7 +2595,18 @@
         "observed_at": "2026-10-09 16:09:50",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 0.08268,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.935,
+        "mae_pct": -4.874,
+        "final_return_pct": -4.306,
+        "final_price": 0.08624,
+        "outcome": "LOSS",
+        "observed_until": 1791648000000,
+        "observed_at": "2026-10-10 18:32:43",
+        "provider": "okx"
+      }
     }
   }
 ]

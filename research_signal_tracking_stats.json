@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-15 01:26:43",
-  "total_signals": 29,
-  "pending_signals": 0,
+  "generated_at": "2026-10-15 07:23:15",
+  "total_signals": 36,
+  "pending_signals": 7,
   "horizons": {
     "24h": {
       "observed": 29,
@@ -43,7 +43,7 @@
       }
     },
     "AVAXUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 4,
         "wins": 3,
@@ -60,7 +60,7 @@
       }
     },
     "SUIUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 6,
         "wins": 3,
@@ -111,7 +111,7 @@
       }
     },
     "ETHUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 1,
@@ -128,7 +128,7 @@
       }
     },
     "BNBUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 0,
@@ -145,7 +145,7 @@
       }
     },
     "ADAUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 1,
@@ -162,7 +162,7 @@
       }
     },
     "DOGEUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 1,
@@ -179,7 +179,7 @@
       }
     },
     "XRPUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 1,

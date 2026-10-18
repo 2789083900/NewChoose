@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-11 08:37:28",
+  "generated_at": "2026-10-18 07:30:16",
   "reproducibility": {
     "report_schema_version": 2,
-    "code_revision": "8afc270b9e754ab37a2070091563891787f19538",
-    "run_id": "34579094476",
-    "python_version": "3.12.14",
+    "code_revision": "b171091ca3e7837bd59b9a81a77f8f786c04823a",
+    "run_id": "39106961261",
+    "python_version": "3.12.15",
     "platform": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39"
   },
   "report_schema_version": 2,
@@ -33,50 +33,6 @@
     "directory": "backtest_data",
     "refresh_requested": false,
     "datasets": {
-      "BTCUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "BTCUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:06.472222Z",
-          "saved_at_ns": 1789110906472243802,
-          "sha256": "7ca9964814dfca6b636ce0009d283fa92200f484dfdbf45503bbf1bc353963af",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "BTCUSDT-4h-7ca9964814df.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "BTCUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:08.048114Z",
-          "saved_at_ns": 1789110908048139442,
-          "sha256": "a4efc935647645e2f2b943d626f16eaddba8118ea8e50628cfea0a5128a11351",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "BTCUSDT-1d-a4efc9356476.json"
-        }
-      },
       "ETHUSDT": {
         "4h": {
           "schema_version": 1,
@@ -121,16 +77,16 @@
           "file": "ETHUSDT-1d-40ac2762c801.json"
         }
       },
-      "BNBUSDT": {
+      "BTCUSDT": {
         "4h": {
           "schema_version": 1,
-          "symbol": "BNBUSDT",
+          "symbol": "BTCUSDT",
           "interval": "4h",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:06.116104Z",
-          "saved_at_ns": 1789110906116131338,
-          "sha256": "2a5d37ede5af781f1b0ebc74c0b4bf949eeebd1c70a849ead2e1f0de34eb1172",
+          "downloaded_at_utc": "2026-09-11T07:15:06.472222Z",
+          "saved_at_ns": 1789110906472243802,
+          "sha256": "7ca9964814dfca6b636ce0009d283fa92200f484dfdbf45503bbf1bc353963af",
           "quality": {
             "bars": 3600,
             "start_time": 1737259200000,
@@ -141,17 +97,17 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "BNBUSDT-4h-2a5d37ede5af.json"
+          "file": "BTCUSDT-4h-7ca9964814df.json"
         },
         "1d": {
           "schema_version": 1,
-          "symbol": "BNBUSDT",
+          "symbol": "BTCUSDT",
           "interval": "1d",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:07.552013Z",
-          "saved_at_ns": 1789110907552036432,
-          "sha256": "ecdb6d3f297789807c088713c063f2e51aea1d37cc2c44b0e26e1b01fd128b14",
+          "downloaded_at_utc": "2026-09-11T07:15:08.048114Z",
+          "saved_at_ns": 1789110908048139442,
+          "sha256": "a4efc935647645e2f2b943d626f16eaddba8118ea8e50628cfea0a5128a11351",
           "quality": {
             "bars": 820,
             "start_time": 1718236800000,
@@ -162,7 +118,7 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "BNBUSDT-1d-ecdb6d3f2977.json"
+          "file": "BTCUSDT-1d-a4efc9356476.json"
         }
       },
       "SOLUSDT": {
@@ -209,6 +165,50 @@
           "file": "SOLUSDT-1d-09f1fdad8505.json"
         }
       },
+      "BNBUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "BNBUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:06.116104Z",
+          "saved_at_ns": 1789110906116131338,
+          "sha256": "2a5d37ede5af781f1b0ebc74c0b4bf949eeebd1c70a849ead2e1f0de34eb1172",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "BNBUSDT-4h-2a5d37ede5af.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "BNBUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:07.552013Z",
+          "saved_at_ns": 1789110907552036432,
+          "sha256": "ecdb6d3f297789807c088713c063f2e51aea1d37cc2c44b0e26e1b01fd128b14",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "BNBUSDT-1d-ecdb6d3f2977.json"
+        }
+      },
       "LINKUSDT": {
         "4h": {
           "schema_version": 1,
@@ -253,50 +253,6 @@
           "file": "LINKUSDT-1d-9b1fe76d3241.json"
         }
       },
-      "XRPUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "XRPUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:00.019002Z",
-          "saved_at_ns": 1789111020019032405,
-          "sha256": "a6518e74fe37cfcdf674411f740cf1d30e44e84ef065ae152fe835778d0e1bc0",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "XRPUSDT-4h-a6518e74fe37.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "XRPUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:02.571674Z",
-          "saved_at_ns": 1789111022571694883,
-          "sha256": "e5f7a84cc594111c55bd91bd2ee577166dc336c7f1f103ccc3b8f9208b2856a5",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "XRPUSDT-1d-e5f7a84cc594.json"
-        }
-      },
       "ADAUSDT": {
         "4h": {
           "schema_version": 1,
@@ -339,6 +295,50 @@
             "continuous": true
           },
           "file": "ADAUSDT-1d-575aa666aad0.json"
+        }
+      },
+      "XRPUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "XRPUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:17:00.019002Z",
+          "saved_at_ns": 1789111020019032405,
+          "sha256": "a6518e74fe37cfcdf674411f740cf1d30e44e84ef065ae152fe835778d0e1bc0",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "XRPUSDT-4h-a6518e74fe37.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "XRPUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:17:02.571674Z",
+          "saved_at_ns": 1789111022571694883,
+          "sha256": "e5f7a84cc594111c55bd91bd2ee577166dc336c7f1f103ccc3b8f9208b2856a5",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "XRPUSDT-1d-e5f7a84cc594.json"
         }
       },
       "DOGEUSDT": {
@@ -558,6 +558,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -584,6 +585,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -610,6 +612,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -636,6 +639,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -662,6 +666,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -688,6 +693,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -714,6 +720,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -742,6 +749,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -768,6 +776,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -794,6 +803,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -820,6 +830,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -846,6 +857,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -872,6 +884,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -898,6 +911,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -926,6 +940,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -952,6 +967,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -978,6 +994,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1004,6 +1021,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1030,6 +1048,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1056,6 +1075,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1082,6 +1102,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1123,6 +1144,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 9,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -1155,6 +1177,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1181,6 +1204,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1207,6 +1231,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1241,6 +1266,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 10,
                 "sample_reliability": "actionable_sample",
                 "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -1273,6 +1299,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1299,6 +1326,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1325,6 +1353,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1358,6 +1387,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1384,6 +1414,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1410,6 +1441,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1436,6 +1468,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1462,6 +1495,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1488,6 +1522,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1514,6 +1549,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -1542,6 +1578,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1568,6 +1605,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1594,6 +1632,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1620,6 +1659,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1646,6 +1686,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1672,6 +1713,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1698,6 +1740,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -1726,6 +1769,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1752,6 +1796,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1778,6 +1823,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1804,6 +1850,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1830,6 +1877,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1856,6 +1904,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1882,6 +1931,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1923,6 +1973,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 6,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -1955,6 +2006,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -1981,6 +2033,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -2007,6 +2060,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -2041,6 +2095,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 7,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -2073,6 +2128,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -2099,6 +2155,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -2125,6 +2182,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -2158,6 +2216,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 15,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2184,6 +2243,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2210,6 +2270,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 15,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2236,6 +2297,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 15,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2262,6 +2324,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2288,6 +2351,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 15,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2314,6 +2378,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2342,6 +2407,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2368,6 +2434,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -2394,6 +2461,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2420,6 +2488,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2446,6 +2515,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -2472,6 +2542,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2498,6 +2569,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -2526,6 +2598,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2552,6 +2625,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2578,6 +2652,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2604,6 +2679,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2630,6 +2706,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2656,6 +2733,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2682,6 +2760,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 4,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -2723,6 +2802,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 9,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -2755,6 +2835,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -2781,6 +2862,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -2807,6 +2889,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -2841,6 +2924,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 12,
                 "sample_reliability": "actionable_sample",
                 "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -2873,6 +2957,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 3,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -2899,6 +2984,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 3,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -2925,6 +3011,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 3,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -2958,6 +3045,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -2984,6 +3072,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3010,6 +3099,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -3036,6 +3126,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -3062,6 +3153,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3088,6 +3180,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -3114,6 +3207,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3142,6 +3236,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -3168,6 +3263,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3194,6 +3290,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -3220,6 +3317,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -3246,6 +3344,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3272,6 +3371,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -3298,6 +3398,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3326,6 +3427,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3352,6 +3454,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3378,6 +3481,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3404,6 +3508,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3430,6 +3535,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3456,6 +3562,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3482,6 +3589,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3523,6 +3631,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 7,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -3555,6 +3664,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3581,6 +3691,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3607,6 +3718,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -3641,6 +3753,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 8,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -3673,6 +3786,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -3699,6 +3813,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -3725,6 +3840,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -3758,6 +3874,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3784,6 +3901,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3810,6 +3928,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3836,6 +3955,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3862,6 +3982,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3888,6 +4009,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3914,6 +4036,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3942,6 +4065,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -3968,6 +4092,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -3994,6 +4119,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4020,6 +4146,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4046,6 +4173,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4072,6 +4200,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4098,6 +4227,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4126,6 +4256,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4152,6 +4283,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4178,6 +4310,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4204,6 +4337,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4230,6 +4364,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4256,6 +4391,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4282,6 +4418,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4323,6 +4460,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 9,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4355,6 +4493,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -4381,6 +4520,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -4407,6 +4547,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -4441,6 +4582,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 10,
                 "sample_reliability": "actionable_sample",
                 "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4473,6 +4615,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4499,6 +4642,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4525,6 +4669,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -4558,6 +4703,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4584,6 +4730,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4610,6 +4757,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4636,6 +4784,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4662,6 +4811,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4688,6 +4838,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 12,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4714,6 +4865,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -4742,6 +4894,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4768,6 +4921,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -4794,6 +4948,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4820,6 +4975,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4846,6 +5002,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -4872,6 +5029,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 9,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -4898,6 +5056,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -4926,6 +5085,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -4952,6 +5112,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -4978,6 +5139,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -5004,6 +5166,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -5030,6 +5193,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -5056,6 +5220,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -5082,6 +5247,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -5123,6 +5289,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 8,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5155,6 +5322,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5181,6 +5349,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5207,6 +5376,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5241,6 +5411,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 9,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 9，至少需要 10 笔才作统计判断",
@@ -5273,6 +5444,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -5299,6 +5471,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -5325,6 +5498,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -5358,6 +5532,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5384,6 +5559,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5410,6 +5586,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5436,6 +5613,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5462,6 +5640,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5488,6 +5667,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5514,6 +5694,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 8,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 8，至少需要 10 笔才作统计判断",
@@ -5542,6 +5723,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5568,6 +5750,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5594,6 +5777,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5620,6 +5804,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5646,6 +5831,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5672,6 +5858,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5698,6 +5885,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -5726,6 +5914,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5752,6 +5941,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5778,6 +5968,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5804,6 +5995,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5830,6 +6022,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5856,6 +6049,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5882,6 +6076,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -5923,6 +6118,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 5,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -5955,6 +6151,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -5981,6 +6178,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -6007,6 +6205,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -6041,6 +6240,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 7,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -6073,6 +6273,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6099,6 +6300,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6125,6 +6327,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6158,6 +6361,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -6184,6 +6388,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -6210,6 +6415,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -6236,6 +6442,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -6262,6 +6469,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -6288,6 +6496,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -6314,6 +6523,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -6342,6 +6552,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6368,6 +6579,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6394,6 +6606,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6420,6 +6633,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6446,6 +6660,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6472,6 +6687,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6498,6 +6714,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6526,6 +6743,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6552,6 +6770,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -6578,6 +6797,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6604,6 +6824,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6630,6 +6851,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -6656,6 +6878,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6682,6 +6905,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -6723,6 +6947,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 4,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -6755,6 +6980,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6781,6 +7007,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6807,6 +7034,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -6841,6 +7069,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 5,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -6873,6 +7102,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6899,6 +7129,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6925,6 +7156,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -6958,6 +7190,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 14,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -6984,6 +7217,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7010,6 +7244,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 14,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7036,6 +7271,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 14,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7062,6 +7298,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7088,6 +7325,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 14,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7114,6 +7352,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 13,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7142,6 +7381,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7168,6 +7408,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7194,6 +7435,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7220,6 +7462,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7246,6 +7489,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7272,6 +7516,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 11,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7298,6 +7543,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 10,
           "sample_reliability": "actionable_sample",
           "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7326,6 +7572,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7352,6 +7599,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7378,6 +7626,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7404,6 +7653,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7430,6 +7680,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7456,6 +7707,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7482,6 +7734,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -7523,6 +7776,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 10,
                 "sample_reliability": "actionable_sample",
                 "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7555,6 +7809,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7581,6 +7836,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7607,6 +7863,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7641,6 +7898,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 11,
                 "sample_reliability": "actionable_sample",
                 "sample_reliability_note": "交易样本达到最低统计门槛",
@@ -7673,6 +7931,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7699,6 +7958,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7725,6 +7985,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -7758,6 +8019,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -7784,6 +8046,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -7810,6 +8073,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7836,6 +8100,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 7,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 7，至少需要 10 笔才作统计判断",
@@ -7862,6 +8127,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7888,6 +8154,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7914,6 +8181,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7942,6 +8210,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7968,6 +8237,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -7994,6 +8264,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -8020,6 +8291,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8046,6 +8318,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -8072,6 +8345,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -8098,6 +8372,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 5,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -8126,6 +8401,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8152,6 +8428,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8178,6 +8455,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8204,6 +8482,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8230,6 +8509,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8256,6 +8536,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8282,6 +8563,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 1,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8323,6 +8605,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 4,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 4，至少需要 10 笔才作统计判断",
@@ -8355,6 +8638,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8381,6 +8665,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8407,6 +8692,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -8441,6 +8727,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 5,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 5，至少需要 10 笔才作统计判断",
@@ -8473,6 +8760,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -8499,6 +8787,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -8525,6 +8814,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 0,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 0，至少需要 10 笔才作统计判断",
@@ -8558,6 +8848,7 @@
       "full": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8584,6 +8875,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8610,6 +8902,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8636,6 +8929,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8662,6 +8956,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8688,6 +8983,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8714,6 +9010,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 3270,
           "trades": 6,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 6，至少需要 10 笔才作统计判断",
@@ -8742,6 +9039,7 @@
       "in_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8768,6 +9066,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8794,6 +9093,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8820,6 +9120,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8846,6 +9147,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8872,6 +9174,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8898,6 +9201,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 2190,
           "trades": 2,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -8926,6 +9230,7 @@
       "out_of_sample": {
         "base": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -8952,6 +9257,7 @@
         },
         "adx_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -8978,6 +9284,7 @@
         },
         "volume_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9004,6 +9311,7 @@
         },
         "volatility_only": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9030,6 +9338,7 @@
         },
         "adx_volume": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9056,6 +9365,7 @@
         },
         "production_default": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9082,6 +9392,7 @@
         },
         "enhanced": {
           "bars": 3600,
+          "evaluated_bars": 1080,
           "trades": 3,
           "sample_reliability": "insufficient_sample",
           "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9123,6 +9434,7 @@
               "end_time": 1768348800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 1830,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -9155,6 +9467,7 @@
               "end_time": 1776124800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -9181,6 +9494,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -9207,6 +9521,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 1,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 1，至少需要 10 笔才作统计判断",
@@ -9241,6 +9556,7 @@
               "end_time": 1776124800000,
               "metrics": {
                 "bars": 3600,
+                "evaluated_bars": 2370,
                 "trades": 3,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 3，至少需要 10 笔才作统计判断",
@@ -9273,6 +9589,7 @@
               "end_time": 1783900800000,
               "baseline_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -9299,6 +9616,7 @@
               },
               "double_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -9325,6 +9643,7 @@
               },
               "quadruple_cost": {
                 "bars": 3600,
+                "evaluated_bars": 540,
                 "trades": 2,
                 "sample_reliability": "insufficient_sample",
                 "sample_reliability_note": "交易数 2，至少需要 10 笔才作统计判断",
@@ -9616,7 +9935,6 @@
     }
   },
   "portfolio": {
-    "variant": "production_default",
     "full": {
       "symbols": [
         "ADAUSDT",
@@ -9635,6 +9953,9 @@
       "wins": 13,
       "losses": 35,
       "trade_win_rate": 27.08,
+      "sample_reliability": "actionable_sample",
+      "sample_reliability_note": "组合交易样本达到最低统计门槛",
+      "max_consecutive_losses": 10,
       "ending_equity": 11569.15,
       "return": 15.69,
       "max_drawdown": -37.87,
@@ -9645,6 +9966,17 @@
       },
       "max_total_units_observed": 6,
       "max_direction_units_observed": 6,
+      "max_margin_used": 25430.86,
+      "margin_peak": 25430.86,
+      "margin_model": "spot_notional_proxy",
+      "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+      "max_long_exposure": 31208.02,
+      "max_short_exposure": 14951.86,
+      "max_direction_exposure": 31208.02,
+      "direction_exposure_peak": {
+        "long": 31208.02,
+        "short": 14951.86
+      },
       "risk_limits": {
         "max_symbol_units": 4,
         "max_total_units": 12,
@@ -22751,7 +23083,16 @@
           "time": 1789084800000,
           "equity": 11729.12
         }
-      ]
+      ],
+      "cost_sensitivity": {
+        "baseline_return": 15.69,
+        "double_cost_return": 4.57,
+        "quadruple_cost_return": -14.65,
+        "baseline_ending_equity": 11569.15,
+        "double_cost_ending_equity": 10457.15,
+        "quadruple_cost_ending_equity": 8535.32,
+        "quadruple_cost_turns_negative": true
+      }
     },
     "in_sample": {
       "symbols": [
@@ -22771,6 +23112,9 @@
       "wins": 8,
       "losses": 30,
       "trade_win_rate": 21.05,
+      "sample_reliability": "actionable_sample",
+      "sample_reliability_note": "组合交易样本达到最低统计门槛",
+      "max_consecutive_losses": 10,
       "ending_equity": 8450.48,
       "return": -15.5,
       "max_drawdown": -37.87,
@@ -22781,6 +23125,17 @@
       },
       "max_total_units_observed": 6,
       "max_direction_units_observed": 6,
+      "max_margin_used": 20622.53,
+      "margin_peak": 20622.53,
+      "margin_model": "spot_notional_proxy",
+      "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+      "max_long_exposure": 22791.37,
+      "max_short_exposure": 12942.06,
+      "max_direction_exposure": 22791.37,
+      "direction_exposure_peak": {
+        "long": 22791.37,
+        "short": 12942.06
+      },
       "risk_limits": {
         "max_symbol_units": 4,
         "max_total_units": 12,
@@ -31567,7 +31922,16 @@
           "time": 1773532800000,
           "equity": 8450.48
         }
-      ]
+      ],
+      "cost_sensitivity": {
+        "baseline_return": -15.5,
+        "double_cost_return": -21.83,
+        "quadruple_cost_return": -33.17,
+        "baseline_ending_equity": 8450.48,
+        "double_cost_ending_equity": 7816.73,
+        "quadruple_cost_ending_equity": 6683.33,
+        "quadruple_cost_turns_negative": false
+      }
     },
     "out_of_sample": {
       "symbols": [
@@ -31587,6 +31951,9 @@
       "wins": 5,
       "losses": 5,
       "trade_win_rate": 50.0,
+      "sample_reliability": "actionable_sample",
+      "sample_reliability_note": "组合交易样本达到最低统计门槛",
+      "max_consecutive_losses": 3,
       "ending_equity": 13690.51,
       "return": 36.91,
       "max_drawdown": -26.26,
@@ -31597,6 +31964,17 @@
       },
       "max_total_units_observed": 6,
       "max_direction_units_observed": 6,
+      "max_margin_used": 30093.97,
+      "margin_peak": 30093.97,
+      "margin_model": "spot_notional_proxy",
+      "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+      "max_long_exposure": 36930.45,
+      "max_short_exposure": 17693.5,
+      "max_direction_exposure": 36930.45,
+      "direction_exposure_peak": {
+        "long": 36930.45,
+        "short": 17693.5
+      },
       "risk_limits": {
         "max_symbol_units": 4,
         "max_total_units": 12,
@@ -35943,7 +36321,46 @@
           "time": 1789084800000,
           "equity": 13879.83
         }
-      ]
+      ],
+      "cost_sensitivity": {
+        "baseline_return": 36.91,
+        "double_cost_return": 33.78,
+        "quadruple_cost_return": 27.71,
+        "baseline_ending_equity": 13690.51,
+        "double_cost_ending_equity": 13377.91,
+        "quadruple_cost_ending_equity": 12771.06,
+        "quadruple_cost_turns_negative": false
+      }
+    },
+    "variant": "production_default",
+    "cost_sensitivity": {
+      "full": {
+        "baseline_return": 15.69,
+        "double_cost_return": 4.57,
+        "quadruple_cost_return": -14.65,
+        "baseline_ending_equity": 11569.15,
+        "double_cost_ending_equity": 10457.15,
+        "quadruple_cost_ending_equity": 8535.32,
+        "quadruple_cost_turns_negative": true
+      },
+      "in_sample": {
+        "baseline_return": -15.5,
+        "double_cost_return": -21.83,
+        "quadruple_cost_return": -33.17,
+        "baseline_ending_equity": 8450.48,
+        "double_cost_ending_equity": 7816.73,
+        "quadruple_cost_ending_equity": 6683.33,
+        "quadruple_cost_turns_negative": false
+      },
+      "out_of_sample": {
+        "baseline_return": 36.91,
+        "double_cost_return": 33.78,
+        "quadruple_cost_return": 27.71,
+        "baseline_ending_equity": 13690.51,
+        "double_cost_ending_equity": 13377.91,
+        "quadruple_cost_ending_equity": 12771.06,
+        "quadruple_cost_turns_negative": false
+      }
     },
     "rolling_validation": {
       "enabled": true,
@@ -35990,6 +36407,9 @@
               "wins": 5,
               "losses": 28,
               "trade_win_rate": 15.15,
+              "sample_reliability": "actionable_sample",
+              "sample_reliability_note": "组合交易样本达到最低统计门槛",
+              "max_consecutive_losses": 10,
               "ending_equity": 8445.47,
               "return": -15.55,
               "max_drawdown": -37.87,
@@ -36000,6 +36420,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 20622.53,
+              "margin_peak": 20622.53,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 22791.37,
+              "max_short_exposure": 12942.06,
+              "max_direction_exposure": 22791.37,
+              "direction_exposure_peak": {
+                "long": 22791.37,
+                "short": 12942.06
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -43372,6 +43803,9 @@
               "wins": 3,
               "losses": 3,
               "trade_win_rate": 50.0,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 6，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 2,
               "ending_equity": 10272.21,
               "return": 2.72,
               "max_drawdown": -22.52,
@@ -43382,6 +43816,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 16412.14,
+              "margin_peak": 16412.14,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 0.0,
+              "max_short_exposure": 15670.73,
+              "max_direction_exposure": 15670.73,
+              "direction_exposure_peak": {
+                "long": 0.0,
+                "short": 15670.73
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -45588,6 +46033,9 @@
               "wins": 3,
               "losses": 3,
               "trade_win_rate": 50.0,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 6，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 2,
               "ending_equity": 10164.43,
               "return": 1.64,
               "max_drawdown": -23.09,
@@ -45598,6 +46046,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 16333.18,
+              "margin_peak": 16333.18,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 0.0,
+              "max_short_exposure": 15600.59,
+              "max_direction_exposure": 15600.59,
+              "direction_exposure_peak": {
+                "long": 0.0,
+                "short": 15600.59
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -47804,6 +48263,9 @@
               "wins": 2,
               "losses": 4,
               "trade_win_rate": 33.33,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 6，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 3,
               "ending_equity": 9951.57,
               "return": -0.48,
               "max_drawdown": -24.21,
@@ -47814,6 +48276,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 16176.31,
+              "margin_peak": 16176.31,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 0.0,
+              "max_short_exposure": 15461.14,
+              "max_direction_exposure": 15461.14,
+              "direction_exposure_peak": {
+                "long": 0.0,
+                "short": 15461.14
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -50028,6 +50501,9 @@
               "wins": 8,
               "losses": 31,
               "trade_win_rate": 20.51,
+              "sample_reliability": "actionable_sample",
+              "sample_reliability_note": "组合交易样本达到最低统计门槛",
+              "max_consecutive_losses": 10,
               "ending_equity": 8344.21,
               "return": -16.56,
               "max_drawdown": -37.87,
@@ -50038,6 +50514,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 20622.53,
+              "margin_peak": 20622.53,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 22791.37,
+              "max_short_exposure": 12942.06,
+              "max_direction_exposure": 22791.37,
+              "direction_exposure_peak": {
+                "long": 22791.37,
+                "short": 12942.06
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -59570,6 +60057,9 @@
               "wins": 2,
               "losses": 3,
               "trade_win_rate": 40.0,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 5，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 2,
               "ending_equity": 11215.52,
               "return": 12.16,
               "max_drawdown": -24.34,
@@ -59580,6 +60070,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 19393.93,
+              "margin_peak": 19393.93,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 8671.99,
+              "max_short_exposure": 17918.84,
+              "max_direction_exposure": 17918.84,
+              "direction_exposure_peak": {
+                "long": 8671.99,
+                "short": 17918.84
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -61786,6 +62287,9 @@
               "wins": 2,
               "losses": 3,
               "trade_win_rate": 40.0,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 5，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 2,
               "ending_equity": 11070.89,
               "return": 10.71,
               "max_drawdown": -24.64,
@@ -61796,6 +62300,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 19298.6,
+              "margin_peak": 19298.6,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 8631.91,
+              "max_short_exposure": 17899.07,
+              "max_direction_exposure": 17899.07,
+              "direction_exposure_peak": {
+                "long": 8631.91,
+                "short": 17899.07
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,
@@ -64002,6 +64517,9 @@
               "wins": 2,
               "losses": 3,
               "trade_win_rate": 40.0,
+              "sample_reliability": "insufficient_sample",
+              "sample_reliability_note": "组合交易数 5，至少需要 10 笔才作统计判断",
+              "max_consecutive_losses": 2,
               "ending_equity": 10785.91,
               "return": 7.86,
               "max_drawdown": -25.26,
@@ -64012,6 +64530,17 @@
               },
               "max_total_units_observed": 6,
               "max_direction_units_observed": 6,
+              "max_margin_used": 19109.71,
+              "margin_peak": 19109.71,
+              "margin_model": "spot_notional_proxy",
+              "margin_model_note": "现货回测无真实保证金/清算机制；该值仅代表持仓入场名义金额峰值，不是永续清算保证金",
+              "max_long_exposure": 8552.12,
+              "max_short_exposure": 17859.64,
+              "max_direction_exposure": 17859.64,
+              "direction_exposure_peak": {
+                "long": 8552.12,
+                "short": 17859.64
+              },
               "risk_limits": {
                 "max_symbol_units": 4,
                 "max_total_units": 12,

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-18 18:41:21",
+  "generated_at": "2026-10-18 07:33:05",
   "report_schema_version": 1,
   "purpose": "比较快速研究队列与正式基线；S1包含盈利后跳过下一次突破；报告不会自动修改线上策略",
   "interval": "4h",
@@ -120,50 +120,6 @@
   "data_snapshot": {
     "directory": "backtest_data",
     "datasets": {
-      "ETHUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "ETHUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:06.149863Z",
-          "saved_at_ns": 1789110906149877593,
-          "sha256": "f4614533a64fba76ac89e2f8d4d85e26ae5658c00e1387cafd3ebeb6e8a98064",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ETHUSDT-4h-f4614533a64f.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "ETHUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:07.176115Z",
-          "saved_at_ns": 1789110907176130673,
-          "sha256": "40ac2762c80136cce806ca26bbf4ee152e670cf2f00e776f29b2873c6755aa15",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ETHUSDT-1d-40ac2762c801.json"
-        }
-      },
       "BTCUSDT": {
         "4h": {
           "schema_version": 1,
@@ -252,6 +208,50 @@
           "file": "SOLUSDT-1d-09f1fdad8505.json"
         }
       },
+      "ETHUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "ETHUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:06.149863Z",
+          "saved_at_ns": 1789110906149877593,
+          "sha256": "f4614533a64fba76ac89e2f8d4d85e26ae5658c00e1387cafd3ebeb6e8a98064",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ETHUSDT-4h-f4614533a64f.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "ETHUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:07.176115Z",
+          "saved_at_ns": 1789110907176130673,
+          "sha256": "40ac2762c80136cce806ca26bbf4ee152e670cf2f00e776f29b2873c6755aa15",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ETHUSDT-1d-40ac2762c801.json"
+        }
+      },
       "BNBUSDT": {
         "4h": {
           "schema_version": 1,
@@ -294,50 +294,6 @@
             "continuous": true
           },
           "file": "BNBUSDT-1d-ecdb6d3f2977.json"
-        }
-      },
-      "DOGEUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "DOGEUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:13.793570Z",
-          "saved_at_ns": 1789111033793592942,
-          "sha256": "b51ea83ebe130a8e8322fbd20be93e38aec2e2187adfc67d7a8ed95eb52d786d",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "DOGEUSDT-4h-b51ea83ebe13.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "DOGEUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:16.179616Z",
-          "saved_at_ns": 1789111036179646845,
-          "sha256": "f3c50de21aa1a70a59e1e9826d1f41733d0a64e80267fbdfbec39638c0e7ffe9",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "DOGEUSDT-1d-f3c50de21aa1.json"
         }
       },
       "XRPUSDT": {
@@ -472,16 +428,16 @@
           "file": "LINKUSDT-1d-9b1fe76d3241.json"
         }
       },
-      "AVAXUSDT": {
+      "DOGEUSDT": {
         "4h": {
           "schema_version": 1,
-          "symbol": "AVAXUSDT",
+          "symbol": "DOGEUSDT",
           "interval": "4h",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:19:26.814457Z",
-          "saved_at_ns": 1789111166814478584,
-          "sha256": "037f7dbd5b97766557b52cd23452fb293f74c4fb54262b986ff31708bf85fc25",
+          "downloaded_at_utc": "2026-09-11T07:17:13.793570Z",
+          "saved_at_ns": 1789111033793592942,
+          "sha256": "b51ea83ebe130a8e8322fbd20be93e38aec2e2187adfc67d7a8ed95eb52d786d",
           "quality": {
             "bars": 3600,
             "start_time": 1737259200000,
@@ -492,17 +448,17 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "AVAXUSDT-4h-037f7dbd5b97.json"
+          "file": "DOGEUSDT-4h-b51ea83ebe13.json"
         },
         "1d": {
           "schema_version": 1,
-          "symbol": "AVAXUSDT",
+          "symbol": "DOGEUSDT",
           "interval": "1d",
           "source": "binance-data",
           "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:19:28.123467Z",
-          "saved_at_ns": 1789111168123486223,
-          "sha256": "a8d37647ede71dc801bb2573b5429c1a6fb80ffbb860827e4b468f9d74178a99",
+          "downloaded_at_utc": "2026-09-11T07:17:16.179616Z",
+          "saved_at_ns": 1789111036179646845,
+          "sha256": "f3c50de21aa1a70a59e1e9826d1f41733d0a64e80267fbdfbec39638c0e7ffe9",
           "quality": {
             "bars": 820,
             "start_time": 1718236800000,
@@ -513,7 +469,7 @@
             "invalid_ohlc": 0,
             "continuous": true
           },
-          "file": "AVAXUSDT-1d-a8d37647ede7.json"
+          "file": "DOGEUSDT-1d-f3c50de21aa1.json"
         }
       },
       "SUIUSDT": {
@@ -558,6 +514,50 @@
             "continuous": true
           },
           "file": "SUIUSDT-1d-a93465a4b9aa.json"
+        }
+      },
+      "AVAXUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "AVAXUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:19:26.814457Z",
+          "saved_at_ns": 1789111166814478584,
+          "sha256": "037f7dbd5b97766557b52cd23452fb293f74c4fb54262b986ff31708bf85fc25",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "AVAXUSDT-4h-037f7dbd5b97.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "AVAXUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:19:28.123467Z",
+          "saved_at_ns": 1789111168123486223,
+          "sha256": "a8d37647ede71dc801bb2573b5429c1a6fb80ffbb860827e4b468f9d74178a99",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "AVAXUSDT-1d-a8d37647ede7.json"
         }
       },
       "PEPEUSDT": {

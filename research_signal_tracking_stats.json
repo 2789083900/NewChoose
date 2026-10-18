@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-18 18:04:20",
-  "total_signals": 36,
-  "pending_signals": 0,
+  "generated_at": "2026-10-18 20:37:54",
+  "total_signals": 40,
+  "pending_signals": 4,
   "horizons": {
     "24h": {
       "observed": 36,
@@ -145,7 +145,7 @@
       }
     },
     "ADAUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -162,7 +162,7 @@
       }
     },
     "DOGEUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -179,7 +179,7 @@
       }
     },
     "XRPUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -196,7 +196,7 @@
       }
     },
     "LINKUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 1,

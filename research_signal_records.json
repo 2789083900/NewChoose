@@ -3303,7 +3303,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1.2602,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.246,
+        "mae_pct": -4.888,
+        "final_return_pct": -3.246,
+        "final_price": 1.3011,
+        "outcome": "LOSS",
+        "observed_until": 1792440000000,
+        "observed_at": "2026-10-19 21:02:01",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3371,7 +3382,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.2119,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.094,
+        "mae_pct": -5.191,
+        "final_return_pct": -2.312,
+        "final_price": 0.2168,
+        "outcome": "LOSS",
+        "observed_until": 1792440000000,
+        "observed_at": "2026-10-19 21:02:01",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3439,7 +3461,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.07636,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.131,
+        "mae_pct": -5.134,
+        "final_return_pct": -3.745,
+        "final_price": 0.07922,
+        "outcome": "LOSS",
+        "observed_until": 1792440000000,
+        "observed_at": "2026-10-19 21:02:01",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3507,7 +3540,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 11.576,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.268,
+        "mae_pct": -5.987,
+        "final_return_pct": -2.609,
+        "final_price": 11.878,
+        "outcome": "LOSS",
+        "observed_until": 1792440000000,
+        "observed_at": "2026-10-19 21:02:01",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

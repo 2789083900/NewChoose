@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-19 15:34:11",
+  "generated_at": "2026-10-19 21:02:01",
   "total_signals": 40,
   "pending_signals": 4,
   "horizons": {
     "24h": {
-      "observed": 36,
+      "observed": 40,
       "wins": 15,
-      "losses": 21,
+      "losses": 25,
       "flats": 0,
-      "win_rate": 41.67,
-      "avg_return_pct": -0.431,
-      "avg_mfe_pct": 4.602,
-      "avg_mae_pct": -4.004
+      "win_rate": 37.5,
+      "avg_return_pct": -0.685,
+      "avg_mfe_pct": 4.16,
+      "avg_mae_pct": -4.133
     },
     "48h": {
       "observed": 36,
@@ -147,11 +147,11 @@
     "ADAUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -3.452
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -3.167
       },
       "48h": {
         "observed": 3,
@@ -164,11 +164,11 @@
     "DOGEUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -0.656
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -1.428
       },
       "48h": {
         "observed": 3,
@@ -181,11 +181,11 @@
     "XRPUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -2.534
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -2.712
       },
       "48h": {
         "observed": 3,
@@ -198,11 +198,11 @@
     "LINKUSDT": {
       "signals": 3,
       "24h": {
-        "observed": 2,
+        "observed": 3,
         "wins": 1,
-        "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.816
+        "losses": 2,
+        "win_rate": 33.33,
+        "avg_return_pct": -1.413
       },
       "48h": {
         "observed": 2,

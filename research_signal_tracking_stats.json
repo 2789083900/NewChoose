@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-23 10:01:13",
-  "total_signals": 40,
-  "pending_signals": 0,
+  "generated_at": "2026-10-23 15:02:12",
+  "total_signals": 41,
+  "pending_signals": 1,
   "horizons": {
     "24h": {
       "observed": 40,
@@ -77,7 +77,7 @@
       }
     },
     "PEPEUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 0,

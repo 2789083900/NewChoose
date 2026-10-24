@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2|pending_entry|1792857600000",
+      "title": "CoinPulse 永续 ETHUSDT signal_created",
+      "content": "永续做空 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：2315.26\n预定成交时间：2026-10-24 16:00:00 UTC / 2026-10-25 00:00:00 北京\n信号有效期至：2026-10-24 16:00:00 UTC / 2026-10-25 00:00:00 北京\n初始止损参考：2387.01059404\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：788.34603 · 预估最大亏损：48.87476676\n风险占用：0.50% · 组合剩余容量：2.50%\n标记价：2305.08 · 指数价：2306.46 · 基差：-0.059832%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "signal_created",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1792859786989,
+      "expires_epoch_ms": 1792860386989,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1792859788964,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1792859788964
+    },
+    {
       "event_id": "daily-health|2026-10-24",
       "title": "CoinPulse 每日运行摘要 2026-10-24",
       "content": "CoinPulse 每日运行摘要 2026-10-24\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-10-24 08:00:00 北京，各市场收盘距今最大 93.7 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\n正式样本：信号 20（待观察 0），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 1（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 0 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：正式样本统计过期或损坏\n运行编号：de14610ac923",

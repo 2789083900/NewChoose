@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2|open|1792857600000",
+      "title": "CoinPulse 永续 ETHUSDT entry_filled",
+      "content": "永续做空 · ETHUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n成交时间：2026-10-24 16:00:00 UTC / 2026-10-25 00:00:00 北京\n成交价：2303.56 · 数量：0.681\n止损：2375.310594039749 · 杠杆：2.0\n手续费：0.62748974\n滑点：0.0501% · 模型：volume_impact\n保证金：784.36218 · 预估最大亏损：48.87476676\n标记价：2338.42 · 指数价：2339.59 · 基差：-0.050009%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "entry_filled",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1792880974993,
+      "expires_epoch_ms": 1792967374993,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1792880977062,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1792880977062
+    },
+    {
       "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2|pending_entry|1792857600000",
       "title": "CoinPulse 永续 ETHUSDT signal_created",
       "content": "永续做空 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1792843200000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：2315.26\n预定成交时间：2026-10-24 16:00:00 UTC / 2026-10-25 00:00:00 北京\n信号有效期至：2026-10-24 16:00:00 UTC / 2026-10-25 00:00:00 北京\n初始止损参考：2387.01059404\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：788.34603 · 预估最大亏损：48.87476676\n风险占用：0.50% · 组合剩余容量：2.50%\n标记价：2305.08 · 指数价：2306.46 · 基差：-0.059832%\n研究影子信号：需人工确认，不会自动下单",

@@ -1,20 +1,19 @@
 {
-  "status": "stale",
-  "checked_at_epoch": 1792857930,
-  "health_age_seconds": 12380,
-  "perpetual_age_seconds": 12225,
-  "failed_components": [
-    "ordinary_monitor",
-    "perpetual_shadow"
+  "status": "degraded",
+  "checked_at_epoch": 1792859813,
+  "health_age_seconds": 162,
+  "perpetual_age_seconds": 25,
+  "failed_components": [],
+  "advisory_components": [
+    "scan_status"
   ],
-  "advisory_components": [],
-  "ordinary_state": "heartbeat_stale",
+  "ordinary_state": "signals_expired_before_dispatch",
   "ordinary_reasons": [
-    "heartbeat_stale"
+    "signals_expired_before_dispatch"
   ],
   "risk_tier_status": "healthy",
   "risk_tier_signature": "healthy||",
   "risk_tier_degraded_symbols": [],
   "risk_tier_unavailable_symbols": [],
-  "last_health_status": "ok"
+  "last_health_status": "degraded"
 }

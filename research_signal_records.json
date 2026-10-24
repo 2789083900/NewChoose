@@ -3663,7 +3663,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 5.059e-06,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.949,
+        "mae_pct": -14.548,
+        "final_return_pct": -13.382,
+        "final_price": 4.382e-06,
+        "outcome": "LOSS",
+        "observed_until": 1792843200000,
+        "observed_at": "2026-10-24 12:39:12",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

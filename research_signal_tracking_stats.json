@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-24 07:15:33",
+  "generated_at": "2026-10-24 12:39:12",
   "total_signals": 41,
   "pending_signals": 1,
   "horizons": {
     "24h": {
-      "observed": 40,
+      "observed": 41,
       "wins": 15,
-      "losses": 25,
+      "losses": 26,
       "flats": 0,
-      "win_rate": 37.5,
-      "avg_return_pct": -0.685,
-      "avg_mfe_pct": 4.16,
-      "avg_mae_pct": -4.133
+      "win_rate": 36.59,
+      "avg_return_pct": -0.995,
+      "avg_mfe_pct": 4.082,
+      "avg_mae_pct": -4.387
     },
     "48h": {
       "observed": 40,
@@ -79,11 +79,11 @@
     "PEPEUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 0,
-        "losses": 3,
+        "losses": 4,
         "win_rate": 0.0,
-        "avg_return_pct": -4.906
+        "avg_return_pct": -7.025
       },
       "48h": {
         "observed": 3,

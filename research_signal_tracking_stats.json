@@ -1,38 +1,38 @@
 {
-  "generated_at": "2026-10-25 11:20:14",
+  "generated_at": "2026-10-25 16:11:26",
   "total_signals": 47,
-  "pending_signals": 7,
+  "pending_signals": 6,
   "horizons": {
     "24h": {
+      "observed": 47,
+      "wins": 16,
+      "losses": 31,
+      "flats": 0,
+      "win_rate": 34.04,
+      "avg_return_pct": -0.998,
+      "avg_mfe_pct": 3.67,
+      "avg_mae_pct": -4.167
+    },
+    "48h": {
       "observed": 41,
       "wins": 15,
       "losses": 26,
       "flats": 0,
       "win_rate": 36.59,
-      "avg_return_pct": -0.995,
-      "avg_mfe_pct": 4.082,
-      "avg_mae_pct": -4.387
-    },
-    "48h": {
-      "observed": 40,
-      "wins": 15,
-      "losses": 25,
-      "flats": 0,
-      "win_rate": 37.5,
-      "avg_return_pct": 1.497,
-      "avg_mfe_pct": 7.119,
-      "avg_mae_pct": -5.549
+      "avg_return_pct": 1.173,
+      "avg_mfe_pct": 6.969,
+      "avg_mae_pct": -5.811
     }
   },
   "by_symbol": {
     "SOLUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 3,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 0.419
+        "losses": 1,
+        "win_rate": 75.0,
+        "avg_return_pct": -0.152
       },
       "48h": {
         "observed": 3,
@@ -62,11 +62,11 @@
     "SUIUSDT": {
       "signals": 8,
       "24h": {
-        "observed": 7,
-        "wins": 3,
+        "observed": 8,
+        "wins": 4,
         "losses": 4,
-        "win_rate": 42.86,
-        "avg_return_pct": -0.774
+        "win_rate": 50.0,
+        "avg_return_pct": -0.568
       },
       "48h": {
         "observed": 7,
@@ -86,11 +86,11 @@
         "avg_return_pct": -7.025
       },
       "48h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -4.302
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -6.172
       }
     },
     "BTCUSDT": {
@@ -113,10 +113,10 @@
     "ETHUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
+        "losses": 3,
+        "win_rate": 25.0,
         "avg_return_pct": -1.652
       },
       "48h": {
@@ -147,11 +147,11 @@
     "ADAUSDT": {
       "signals": 5,
       "24h": {
-        "observed": 4,
+        "observed": 5,
         "wins": 1,
-        "losses": 3,
-        "win_rate": 25.0,
-        "avg_return_pct": -3.167
+        "losses": 4,
+        "win_rate": 20.0,
+        "avg_return_pct": -2.74
       },
       "48h": {
         "observed": 4,
@@ -164,11 +164,11 @@
     "DOGEUSDT": {
       "signals": 5,
       "24h": {
-        "observed": 4,
+        "observed": 5,
         "wins": 1,
-        "losses": 3,
-        "win_rate": 25.0,
-        "avg_return_pct": -1.428
+        "losses": 4,
+        "win_rate": 20.0,
+        "avg_return_pct": -1.549
       },
       "48h": {
         "observed": 4,
@@ -198,11 +198,11 @@
     "LINKUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -1.413
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -1.159
       },
       "48h": {
         "observed": 3,

@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-25 11:20:14",
+  "generated_at": "2026-10-25 16:11:26",
   "total_signals": 22,
   "pending_signals": 2,
   "horizons": {
     "24h": {
-      "observed": 20,
+      "observed": 22,
       "wins": 9,
-      "losses": 11,
+      "losses": 13,
       "flats": 0,
-      "win_rate": 45.0,
-      "avg_return_pct": -0.502,
-      "avg_mfe_pct": 3.738,
-      "avg_mae_pct": -3.562
+      "win_rate": 40.91,
+      "avg_return_pct": -0.624,
+      "avg_mfe_pct": 3.432,
+      "avg_mae_pct": -3.507
     },
     "48h": {
       "observed": 20,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 0.618
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": -0.517
       },
       "48h": {
         "observed": 1,
@@ -180,7 +180,13 @@
     },
     "DOGEUSDT": {
       "signals": 1,
-      "24h": {},
+      "24h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -2.034
+      },
       "48h": {}
     }
   }

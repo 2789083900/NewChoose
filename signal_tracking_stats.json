@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-26 13:00:04",
+  "generated_at": "2026-10-26 19:15:25",
   "total_signals": 22,
-  "pending_signals": 2,
+  "pending_signals": 0,
   "horizons": {
     "24h": {
       "observed": 22,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.507
     },
     "48h": {
-      "observed": 20,
+      "observed": 22,
       "wins": 10,
-      "losses": 10,
+      "losses": 12,
       "flats": 0,
-      "win_rate": 50.0,
-      "avg_return_pct": -0.945,
-      "avg_mfe_pct": 5.044,
-      "avg_mae_pct": -5.3
+      "win_rate": 45.45,
+      "avg_return_pct": -1.027,
+      "avg_mfe_pct": 4.622,
+      "avg_mae_pct": -5.098
     }
   },
   "by_symbol": {
@@ -120,11 +120,11 @@
         "avg_return_pct": -0.517
       },
       "48h": {
-        "observed": 1,
+        "observed": 2,
         "wins": 1,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 0.1
+        "losses": 1,
+        "win_rate": 50.0,
+        "avg_return_pct": -0.431
       }
     },
     "PEPEUSDT": {
@@ -187,7 +187,13 @@
         "win_rate": 0.0,
         "avg_return_pct": -2.034
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -2.721
+      }
     }
   }
 }

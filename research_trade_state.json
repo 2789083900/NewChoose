@@ -59,10 +59,10 @@
   "SOLUSDT|4h|turtle|system1": "none",
   "BNBUSDT|4h|turtle|system1": "none",
   "XRPUSDT|4h|turtle|system1": "none",
-  "ADAUSDT|4h|turtle|system1": "none",
+  "ADAUSDT|4h|turtle|system1": "short",
   "DOGEUSDT|4h|turtle|system1": "none",
   "LINKUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1": "none",
+  "AVAXUSDT|4h|turtle|system1": "short",
   "SUIUSDT|4h|turtle|system1": "none",
   "PEPEUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1|blocked": false

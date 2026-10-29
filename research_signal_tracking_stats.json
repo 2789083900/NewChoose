@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-29 00:53:04",
-  "total_signals": 47,
-  "pending_signals": 0,
+  "generated_at": "2026-10-29 07:01:41",
+  "total_signals": 49,
+  "pending_signals": 2,
   "horizons": {
     "24h": {
       "observed": 47,
@@ -43,7 +43,7 @@
       }
     },
     "AVAXUSDT": {
-      "signals": 5,
+      "signals": 6,
       "24h": {
         "observed": 5,
         "wins": 3,
@@ -145,7 +145,7 @@
       }
     },
     "ADAUSDT": {
-      "signals": 5,
+      "signals": 6,
       "24h": {
         "observed": 5,
         "wins": 1,

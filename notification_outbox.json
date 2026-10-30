@@ -2,6 +2,34 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|scale_in|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2|open|1793318400000",
+      "title": "CoinPulse 永续 ETHUSDT scale_in",
+      "content": "永续做空 · ETHUSDT · 4h\n事件：scale_in\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n最新成交价：2232.18 · 总数量：0.672\n单位数：2 · 新止损：2304.409362466659\n标记价：2235.43 · 指数价：2236.46 · 基差：-0.046055%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "scale_in",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1793369277347,
+      "expires_epoch_ms": 1793455677347,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793369279373,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793369279373
+    },
+    {
       "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2|open|1793318400000",
       "title": "CoinPulse 永续 ETHUSDT entry_filled",
       "content": "永续做空 · ETHUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n成交时间：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n成交价：2251.36 · 数量：0.336\n止损：2323.589362466659 · 杠杆：2.0\n手续费：0.30258278\n滑点：0.0500% · 模型：volume_impact\n保证金：378.22848 · 预估最大亏损：24.31272628\n标记价：2236.61 · 指数价：2237.79 · 基差：-0.052731%\n研究影子信号：需人工确认，不会自动下单",

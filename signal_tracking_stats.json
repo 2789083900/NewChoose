@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-29 20:16:05",
-  "total_signals": 22,
-  "pending_signals": 0,
+  "generated_at": "2026-10-30 00:57:10",
+  "total_signals": 23,
+  "pending_signals": 1,
   "horizons": {
     "24h": {
       "observed": 22,
@@ -194,6 +194,11 @@
         "win_rate": 0.0,
         "avg_return_pct": -2.721
       }
+    },
+    "XRPUSDT": {
+      "signals": 1,
+      "24h": {},
+      "48h": {}
     }
   }
 }

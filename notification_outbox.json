@@ -2,6 +2,131 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2|pending_entry|1793318400000",
+      "title": "CoinPulse 永续 ETHUSDT signal_created",
+      "content": "永续做空 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n触发价：2281.02\n预定成交时间：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n信号有效期至：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n初始止损参考：2353.24936247\n杠杆：2.0 · 风险占比：0.25%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：383.21136 · 预估最大亏损：24.31272628\n风险占用：0.25% · 组合剩余容量：2.75%\n标记价：2252.46 · 指数价：2253.65 · 基差：-0.052803%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "signal_created",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1793304000000|short|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1793321978341,
+      "expires_epoch_ms": 1793322578341,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793321980650,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793321980650
+    },
+    {
+      "event_id": "spot-warning|SOLUSDT|4h|1793304000000|short|重点观察",
+      "title": "CoinPulse 观察预警 SOLUSDT 重点观察",
+      "content": "观察预警 SOLUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.002N\n现价：95.64（-6.64%）\n依据：距下破阈值约0.00N\n当前价 95.64 · 突破阈值 95.64 · N=1.83\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SOLUSDT",
+        "bar_time": 1793304000000
+      },
+      "created_epoch_ms": 1793321824300,
+      "expires_epoch_ms": 1793322424300,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793321826232,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793321826232
+    },
+    {
+      "event_id": "spot-warning|LINKUSDT|4h|1793304000000|short|重点观察",
+      "title": "CoinPulse 观察预警 LINKUSDT 重点观察",
+      "content": "观察预警 LINKUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.111N\n现价：10.62（-10.14%）\n依据：距下破阈值约0.11N\n当前价 10.62 · 突破阈值 10.59 · N=0.273867\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "LINKUSDT",
+        "bar_time": 1793304000000
+      },
+      "created_epoch_ms": 1793321822362,
+      "expires_epoch_ms": 1793322422362,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793321824292,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793321824292
+    },
+    {
+      "event_id": "spot-warning|DOGEUSDT|4h|1793304000000|short|接近突破",
+      "title": "CoinPulse 观察预警 DOGEUSDT 接近突破",
+      "content": "观察预警 DOGEUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.403N\n现价：0.075270（-5.64%）\n依据：距下破阈值约0.40N\n当前价 0.075270 · 突破阈值 0.074618 · N=0.001620\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "DOGEUSDT",
+        "bar_time": 1793304000000
+      },
+      "created_epoch_ms": 1793321820029,
+      "expires_epoch_ms": 1793322420029,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793321822358,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793321822358
+    },
+    {
+      "event_id": "spot-warning|ADAUSDT|4h|1793304000000|short|重点观察",
+      "title": "CoinPulse 观察预警 ADAUSDT 重点观察",
+      "content": "观察预警 ADAUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.118N\n现价：0.190400（-7.62%）\n依据：距下破阈值约0.12N\n当前价 0.190400 · 突破阈值 0.189748 · N=0.005521\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-10-30 00:00:00 UTC / 2026-10-30 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ADAUSDT",
+        "bar_time": 1793304000000
+      },
+      "created_epoch_ms": 1793321817958,
+      "expires_epoch_ms": 1793322417958,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793321820026,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793321820026
+    },
+    {
       "event_id": "daily-health|2026-10-29",
       "title": "CoinPulse 每日运行摘要 2026-10-29",
       "content": "CoinPulse 每日运行摘要 2026-10-29\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-10-29 12:00:00 北京，各市场收盘距今最大 181.5 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：2\n现货影子仓位：0，待成交：0\n正式样本：信号 22（待观察 0），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 0（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 2 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：信号过期未发送 2 条（非渠道失败）；正式样本统计过期或损坏\n运行编号：c14d33226fa4",

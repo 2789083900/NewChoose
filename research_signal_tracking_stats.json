@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-29 20:16:05",
-  "total_signals": 49,
-  "pending_signals": 2,
+  "generated_at": "2026-10-30 00:57:10",
+  "total_signals": 58,
+  "pending_signals": 11,
   "horizons": {
     "24h": {
       "observed": 47,
@@ -26,7 +26,7 @@
   },
   "by_symbol": {
     "SOLUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 4,
         "wins": 3,
@@ -43,7 +43,7 @@
       }
     },
     "AVAXUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 5,
         "wins": 3,
@@ -60,7 +60,7 @@
       }
     },
     "SUIUSDT": {
-      "signals": 8,
+      "signals": 9,
       "24h": {
         "observed": 8,
         "wins": 4,
@@ -94,7 +94,7 @@
       }
     },
     "BTCUSDT": {
-      "signals": 1,
+      "signals": 2,
       "24h": {
         "observed": 1,
         "wins": 1,
@@ -111,7 +111,7 @@
       }
     },
     "ETHUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 4,
         "wins": 1,
@@ -128,7 +128,7 @@
       }
     },
     "BNBUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 0,
@@ -145,7 +145,7 @@
       }
     },
     "ADAUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 5,
         "wins": 1,
@@ -179,7 +179,7 @@
       }
     },
     "XRPUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 4,
         "wins": 1,
@@ -196,7 +196,7 @@
       }
     },
     "LINKUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 4,
         "wins": 1,

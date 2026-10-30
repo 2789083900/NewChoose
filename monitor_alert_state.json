@@ -1,14 +1,17 @@
 {
-  "status": "degraded",
-  "checked_at_epoch": 1793344034,
-  "health_age_seconds": 179,
-  "perpetual_age_seconds": 30,
-  "failed_components": [],
+  "status": "stale",
+  "checked_at_epoch": 1793351109,
+  "health_age_seconds": 7253,
+  "perpetual_age_seconds": 7104,
+  "failed_components": [
+    "ordinary_monitor"
+  ],
   "advisory_components": [
     "notifications"
   ],
-  "ordinary_state": "notification_degraded",
+  "ordinary_state": "heartbeat_stale",
   "ordinary_reasons": [
+    "heartbeat_stale",
     "notification_degraded"
   ],
   "risk_tier_status": "healthy",

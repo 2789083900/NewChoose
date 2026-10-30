@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-10-30 00:57:10",
+  "generated_at": "2026-10-30 07:04:18",
   "total_signals": 58,
   "pending_signals": 11,
   "horizons": {
     "24h": {
-      "observed": 47,
-      "wins": 16,
+      "observed": 49,
+      "wins": 18,
       "losses": 31,
       "flats": 0,
-      "win_rate": 34.04,
-      "avg_return_pct": -0.998,
-      "avg_mfe_pct": 3.67,
-      "avg_mae_pct": -4.167
+      "win_rate": 36.73,
+      "avg_return_pct": -0.87,
+      "avg_mfe_pct": 3.819,
+      "avg_mae_pct": -4.228
     },
     "48h": {
       "observed": 47,
@@ -45,11 +45,11 @@
     "AVAXUSDT": {
       "signals": 7,
       "24h": {
-        "observed": 5,
-        "wins": 3,
+        "observed": 6,
+        "wins": 4,
         "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": 6.433
+        "win_rate": 66.67,
+        "avg_return_pct": 5.642
       },
       "48h": {
         "observed": 5,
@@ -147,11 +147,11 @@
     "ADAUSDT": {
       "signals": 7,
       "24h": {
-        "observed": 5,
-        "wins": 1,
+        "observed": 6,
+        "wins": 2,
         "losses": 4,
-        "win_rate": 20.0,
-        "avg_return_pct": -2.74
+        "win_rate": 33.33,
+        "avg_return_pct": -1.853
       },
       "48h": {
         "observed": 5,

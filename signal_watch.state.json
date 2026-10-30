@@ -249,7 +249,7 @@
   "TONUSDT|4h|turtle|system2": "none",
   "BTCUSDT|4h|turtle|system2": "none",
   "ETHUSDT|4h|turtle|system2": "none",
-  "XRPUSDT|4h|turtle|system2": "short",
+  "XRPUSDT|4h|turtle|system2": "none",
   "DOGEUSDT|4h|turtle|system2": "none",
   "AVAXUSDT|4h|turtle|system2": "none",
   "SOLUSDT|4h|turtle|system2": "none",
@@ -278,5 +278,6 @@
   "SOLUSDT|4h|early_warning|short|1793304000000": true,
   "LINKUSDT|4h|early_warning|short|1793304000000": true,
   "DOGEUSDT|4h|early_warning|short|1793304000000": true,
-  "ADAUSDT|4h|early_warning|short|1793304000000": true
+  "ADAUSDT|4h|early_warning|short|1793304000000": true,
+  "ETHUSDT|4h|early_warning|short|1793318400000": true
 }

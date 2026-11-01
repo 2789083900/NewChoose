@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-18 07:33:05",
+  "generated_at": "2026-11-01 09:32:46",
   "report_schema_version": 1,
   "purpose": "比较快速研究队列与正式基线；S1包含盈利后跳过下一次突破；报告不会自动修改线上策略",
   "interval": "4h",
@@ -164,50 +164,6 @@
           "file": "BTCUSDT-1d-a4efc9356476.json"
         }
       },
-      "SOLUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "SOLUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:06.139590Z",
-          "saved_at_ns": 1789110906139607402,
-          "sha256": "fe222910e62fdf285055ff0e5400a2d5312ff5320d1bebf6093fd71c17ab1138",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "SOLUSDT-4h-fe222910e62f.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "SOLUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:15:07.166481Z",
-          "saved_at_ns": 1789110907166506751,
-          "sha256": "09f1fdad8505e00e1d247f833e5c5753b1cdac2d4aa84288ca10ec6da7ba8175",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "SOLUSDT-1d-09f1fdad8505.json"
-        }
-      },
       "ETHUSDT": {
         "4h": {
           "schema_version": 1,
@@ -296,6 +252,50 @@
           "file": "BNBUSDT-1d-ecdb6d3f2977.json"
         }
       },
+      "SOLUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "SOLUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:06.139590Z",
+          "saved_at_ns": 1789110906139607402,
+          "sha256": "fe222910e62fdf285055ff0e5400a2d5312ff5320d1bebf6093fd71c17ab1138",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "SOLUSDT-4h-fe222910e62f.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "SOLUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:15:07.166481Z",
+          "saved_at_ns": 1789110907166506751,
+          "sha256": "09f1fdad8505e00e1d247f833e5c5753b1cdac2d4aa84288ca10ec6da7ba8175",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "SOLUSDT-1d-09f1fdad8505.json"
+        }
+      },
       "XRPUSDT": {
         "4h": {
           "schema_version": 1,
@@ -338,50 +338,6 @@
             "continuous": true
           },
           "file": "XRPUSDT-1d-e5f7a84cc594.json"
-        }
-      },
-      "ADAUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "ADAUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:06.741623Z",
-          "saved_at_ns": 1789111026741646995,
-          "sha256": "394dcbf87d5acabd8c18db4645d2b8213439430f0dd4d5acd9a0aff21394922b",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ADAUSDT-4h-394dcbf87d5a.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "ADAUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:17:09.292316Z",
-          "saved_at_ns": 1789111029292344410,
-          "sha256": "575aa666aad0a146503d38340a6ee93f4d0d87ce24daa3e663e06759b05955d1",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "ADAUSDT-1d-575aa666aad0.json"
         }
       },
       "LINKUSDT": {
@@ -428,6 +384,50 @@
           "file": "LINKUSDT-1d-9b1fe76d3241.json"
         }
       },
+      "ADAUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "ADAUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:17:06.741623Z",
+          "saved_at_ns": 1789111026741646995,
+          "sha256": "394dcbf87d5acabd8c18db4645d2b8213439430f0dd4d5acd9a0aff21394922b",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ADAUSDT-4h-394dcbf87d5a.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "ADAUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:17:09.292316Z",
+          "saved_at_ns": 1789111029292344410,
+          "sha256": "575aa666aad0a146503d38340a6ee93f4d0d87ce24daa3e663e06759b05955d1",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "ADAUSDT-1d-575aa666aad0.json"
+        }
+      },
       "DOGEUSDT": {
         "4h": {
           "schema_version": 1,
@@ -472,50 +472,6 @@
           "file": "DOGEUSDT-1d-f3c50de21aa1.json"
         }
       },
-      "SUIUSDT": {
-        "4h": {
-          "schema_version": 1,
-          "symbol": "SUIUSDT",
-          "interval": "4h",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:19:27.558008Z",
-          "saved_at_ns": 1789111167558040687,
-          "sha256": "d22bfcb0876ce6ee3b2801ae443a936bce83f7a89afb4e29a724b0ab7a515672",
-          "quality": {
-            "bars": 3600,
-            "start_time": 1737259200000,
-            "end_time": 1789084800000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "SUIUSDT-4h-d22bfcb0876c.json"
-        },
-        "1d": {
-          "schema_version": 1,
-          "symbol": "SUIUSDT",
-          "interval": "1d",
-          "source": "binance-data",
-          "market_type": "spot",
-          "downloaded_at_utc": "2026-09-11T07:19:29.097263Z",
-          "saved_at_ns": 1789111169097287991,
-          "sha256": "a93465a4b9aa775d8d570f2c7e60a9f110a87098bdca78720cf9e3b88b19e541",
-          "quality": {
-            "bars": 820,
-            "start_time": 1718236800000,
-            "end_time": 1788998400000,
-            "duplicate_bars": 0,
-            "out_of_order_bars": 0,
-            "missing_bars": 0,
-            "invalid_ohlc": 0,
-            "continuous": true
-          },
-          "file": "SUIUSDT-1d-a93465a4b9aa.json"
-        }
-      },
       "AVAXUSDT": {
         "4h": {
           "schema_version": 1,
@@ -558,6 +514,50 @@
             "continuous": true
           },
           "file": "AVAXUSDT-1d-a8d37647ede7.json"
+        }
+      },
+      "SUIUSDT": {
+        "4h": {
+          "schema_version": 1,
+          "symbol": "SUIUSDT",
+          "interval": "4h",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:19:27.558008Z",
+          "saved_at_ns": 1789111167558040687,
+          "sha256": "d22bfcb0876ce6ee3b2801ae443a936bce83f7a89afb4e29a724b0ab7a515672",
+          "quality": {
+            "bars": 3600,
+            "start_time": 1737259200000,
+            "end_time": 1789084800000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "SUIUSDT-4h-d22bfcb0876c.json"
+        },
+        "1d": {
+          "schema_version": 1,
+          "symbol": "SUIUSDT",
+          "interval": "1d",
+          "source": "binance-data",
+          "market_type": "spot",
+          "downloaded_at_utc": "2026-09-11T07:19:29.097263Z",
+          "saved_at_ns": 1789111169097287991,
+          "sha256": "a93465a4b9aa775d8d570f2c7e60a9f110a87098bdca78720cf9e3b88b19e541",
+          "quality": {
+            "bars": 820,
+            "start_time": 1718236800000,
+            "end_time": 1788998400000,
+            "duplicate_bars": 0,
+            "out_of_order_bars": 0,
+            "missing_bars": 0,
+            "invalid_ohlc": 0,
+            "continuous": true
+          },
+          "file": "SUIUSDT-1d-a93465a4b9aa.json"
         }
       },
       "PEPEUSDT": {

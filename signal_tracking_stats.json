@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-10-31 21:30:21",
+  "generated_at": "2026-11-01 01:07:03",
   "total_signals": 23,
-  "pending_signals": 1,
+  "pending_signals": 0,
   "horizons": {
     "24h": {
       "observed": 23,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.482
     },
     "48h": {
-      "observed": 22,
+      "observed": 23,
       "wins": 10,
-      "losses": 12,
+      "losses": 13,
       "flats": 0,
-      "win_rate": 45.45,
-      "avg_return_pct": -1.027,
-      "avg_mfe_pct": 4.622,
-      "avg_mae_pct": -5.098
+      "win_rate": 43.48,
+      "avg_return_pct": -1.029,
+      "avg_mfe_pct": 4.554,
+      "avg_mae_pct": -5.004
     }
   },
   "by_symbol": {
@@ -204,7 +204,13 @@
         "win_rate": 0.0,
         "avg_return_pct": -1.503
       },
-      "48h": {}
+      "48h": {
+        "observed": 1,
+        "wins": 0,
+        "losses": 1,
+        "win_rate": 0.0,
+        "avg_return_pct": -1.083
+      }
     }
   }
 }

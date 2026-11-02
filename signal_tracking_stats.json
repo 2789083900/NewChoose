@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-02 15:42:32",
-  "total_signals": 23,
-  "pending_signals": 0,
+  "generated_at": "2026-11-02 23:28:37",
+  "total_signals": 24,
+  "pending_signals": 1,
   "horizons": {
     "24h": {
       "observed": 23,
@@ -77,7 +77,7 @@
       }
     },
     "SOLUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 3,

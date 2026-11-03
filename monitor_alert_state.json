@@ -1,14 +1,18 @@
 {
-  "status": "degraded",
-  "checked_at_epoch": 1793662289,
-  "health_age_seconds": 175,
-  "perpetual_age_seconds": 27,
-  "failed_components": [],
+  "status": "stale",
+  "checked_at_epoch": 1793678742,
+  "health_age_seconds": 16628,
+  "perpetual_age_seconds": 16480,
+  "failed_components": [
+    "ordinary_monitor",
+    "perpetual_shadow"
+  ],
   "advisory_components": [
     "scan_status"
   ],
-  "ordinary_state": "signals_expired_before_dispatch",
+  "ordinary_state": "heartbeat_stale",
   "ordinary_reasons": [
+    "heartbeat_stale",
     "signals_expired_before_dispatch"
   ],
   "risk_tier_status": "healthy",

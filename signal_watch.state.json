@@ -279,5 +279,9 @@
   "LINKUSDT|4h|early_warning|short|1793304000000": true,
   "DOGEUSDT|4h|early_warning|short|1793304000000": true,
   "ADAUSDT|4h|early_warning|short|1793304000000": true,
-  "ETHUSDT|4h|early_warning|short|1793318400000": true
+  "ETHUSDT|4h|early_warning|short|1793318400000": true,
+  "ADAUSDT|4h|early_warning|short|1793908800000": true,
+  "XRPUSDT|4h|early_warning|short|1793908800000": true,
+  "DOGEUSDT|4h|early_warning|short|1793908800000": true,
+  "SOLUSDT|4h|early_warning|short|1793908800000": true
 }

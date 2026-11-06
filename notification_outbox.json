@@ -2,6 +2,124 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "daily-health|2026-11-06",
+      "title": "CoinPulse 每日运行摘要 2026-11-06",
+      "content": "CoinPulse 每日运行摘要 2026-11-06\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-11-06 08:00:00 北京，各市场收盘距今最大 91.3 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：4\n现货影子仓位：0，待成交：0\n正式样本：信号 24（待观察 0），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 0（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 0 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：正式样本统计过期或损坏\n运行编号：61ea3d1f680c",
+      "metadata": {
+        "kind": "daily_health",
+        "date": "2026-11-06"
+      },
+      "created_epoch_ms": 1793928680464,
+      "expires_epoch_ms": 1794015080464,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793928682435,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793928682435
+    },
+    {
+      "event_id": "spot-warning|XRPUSDT|4h|1793908800000|short|接近突破",
+      "title": "CoinPulse 观察预警 XRPUSDT 接近突破",
+      "content": "观察预警 XRPUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.396N\n现价：1.21（-7.51%）\n依据：距下破阈值约0.40N\n当前价 1.21 · 突破阈值 1.20 · N=0.023673\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-06 00:00:00 UTC / 2026-11-06 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "XRPUSDT",
+        "bar_time": 1793908800000
+      },
+      "created_epoch_ms": 1793928678488,
+      "expires_epoch_ms": 1793929278488,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793928680444,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793928680444
+    },
+    {
+      "event_id": "spot-warning|SOLUSDT|4h|1793908800000|short|接近突破",
+      "title": "CoinPulse 观察预警 SOLUSDT 接近突破",
+      "content": "观察预警 SOLUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.406N\n现价：89.33（-6.57%）\n依据：距下破阈值约0.41N\n当前价 89.33 · 突破阈值 88.57 · N=1.86\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-06 00:00:00 UTC / 2026-11-06 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "SOLUSDT",
+        "bar_time": 1793908800000
+      },
+      "created_epoch_ms": 1793928676727,
+      "expires_epoch_ms": 1793929276727,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793928678484,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793928678484
+    },
+    {
+      "event_id": "spot-warning|DOGEUSDT|4h|1793908800000|short|重点观察",
+      "title": "CoinPulse 观察预警 DOGEUSDT 重点观察",
+      "content": "观察预警 DOGEUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.139N\n现价：0.071170（-7.67%）\n依据：距下破阈值约0.14N\n当前价 0.071170 · 突破阈值 0.070954 · N=0.001556\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-06 00:00:00 UTC / 2026-11-06 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "DOGEUSDT",
+        "bar_time": 1793908800000
+      },
+      "created_epoch_ms": 1793928674926,
+      "expires_epoch_ms": 1793929274926,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793928676723,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793928676723
+    },
+    {
+      "event_id": "spot-warning|ADAUSDT|4h|1793908800000|short|接近突破",
+      "title": "CoinPulse 观察预警 ADAUSDT 接近突破",
+      "content": "观察预警 ADAUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.236N\n现价：0.180900（-8.31%）\n依据：距下破阈值约0.24N\n当前价 0.180900 · 突破阈值 0.179684 · N=0.005159\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-06 00:00:00 UTC / 2026-11-06 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ADAUSDT",
+        "bar_time": 1793908800000
+      },
+      "created_epoch_ms": 1793928673066,
+      "expires_epoch_ms": 1793929273066,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1793928674922,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1793928674922
+    },
+    {
       "event_id": "daily-health|2026-11-05",
       "title": "CoinPulse 每日运行摘要 2026-11-05",
       "content": "CoinPulse 每日运行摘要 2026-11-05\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-11-05 08:00:00 北京，各市场收盘距今最大 208.0 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：0\n现货影子仓位：0，待成交：0\n正式样本：信号 24（待观察 0），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 0（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 0 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：正式样本统计过期或损坏\n运行编号：b570289f2260",

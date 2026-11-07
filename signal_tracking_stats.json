@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-07 02:46:24",
+  "generated_at": "2026-11-07 10:00:00",
   "total_signals": 25,
   "pending_signals": 1,
   "horizons": {
     "24h": {
-      "observed": 24,
-      "wins": 9,
+      "observed": 25,
+      "wins": 10,
       "losses": 15,
       "flats": 0,
-      "win_rate": 37.5,
-      "avg_return_pct": -0.704,
-      "avg_mfe_pct": 3.301,
-      "avg_mae_pct": -3.437
+      "win_rate": 40.0,
+      "avg_return_pct": -0.641,
+      "avg_mfe_pct": 3.284,
+      "avg_mae_pct": -3.357
     },
     "48h": {
       "observed": 24,
@@ -198,11 +198,11 @@
     "XRPUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
-        "wins": 0,
+        "observed": 2,
+        "wins": 1,
         "losses": 1,
-        "win_rate": 0.0,
-        "avg_return_pct": -1.503
+        "win_rate": 50.0,
+        "avg_return_pct": -0.317
       },
       "48h": {
         "observed": 1,

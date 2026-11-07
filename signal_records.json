@@ -2061,7 +2061,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1.1859,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.875,
+        "mae_pct": -1.45,
+        "final_return_pct": 0.869,
+        "final_price": 1.1756,
+        "outcome": "WIN",
+        "observed_until": 1794038400000,
+        "observed_at": "2026-11-07 09:59:58",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

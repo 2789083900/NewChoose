@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|XRPUSDT|4h|1794153600000|short|重点观察",
+      "title": "CoinPulse 观察预警 XRPUSDT 重点观察",
+      "content": "观察预警 XRPUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.187N\n现价：1.15（-0.88%）\n依据：距下破阈值约0.19N\n当前价 1.15 · 突破阈值 1.15 · N=0.023085\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-08 20:00:00 UTC / 2026-11-09 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "XRPUSDT",
+        "bar_time": 1794153600000
+      },
+      "created_epoch_ms": 1794181263924,
+      "expires_epoch_ms": 1794181863924,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794181265910,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794181265910
+    },
+    {
       "event_id": "spot-warning|XRPUSDT|4h|1794139200000|short|接近突破",
       "title": "CoinPulse 观察预警 XRPUSDT 接近突破",
       "content": "观察预警 XRPUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.371N\n现价：1.16（-0.22%）\n依据：距下破阈值约0.37N\n当前价 1.16 · 突破阈值 1.15 · N=0.023206\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-08 16:00:00 UTC / 2026-11-09 00:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

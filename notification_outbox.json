@@ -2,6 +2,90 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1794312000000|short|system2|open|1794326400000",
+      "title": "CoinPulse 永续 ETHUSDT entry_filled",
+      "content": "永续做空 · ETHUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1794312000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n成交时间：2026-11-10 16:00:00 UTC / 2026-11-11 00:00:00 北京\n成交价：2021.41 · 数量：0.671\n止损：2093.408655126327 · 杠杆：2.0\n手续费：0.54254644\n滑点：0.0501% · 模型：volume_impact\n保证金：678.183055 · 预估最大亏损：48.33829390\n标记价：2043.34 · 指数价：2044.64 · 基差：-0.063581%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "entry_filled",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1794312000000|short|system2",
+        "symbol": "ETHUSDT"
+      },
+      "created_epoch_ms": 1794352662510,
+      "expires_epoch_ms": 1794439062510,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794352664280,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794352664280
+    },
+    {
+      "event_id": "perp-notify|entry_filled|perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2|open|1794326400000",
+      "title": "CoinPulse 永续 BTCUSDT entry_filled",
+      "content": "永续做空 · BTCUSDT · 4h\n事件：entry_filled\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n成交时间：2026-11-10 16:00:00 UTC / 2026-11-11 00:00:00 北京\n成交价：73140.8 · 数量：0.014\n止损：74865.47675912411 · 杠杆：2.0\n手续费：0.40958848\n滑点：0.0501% · 模型：volume_impact\n保证金：511.9856 · 预估最大亏损：24.17017092\n标记价：73440.4 · 指数价：73468.4 · 基差：-0.038112%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "entry_filled",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2",
+        "symbol": "BTCUSDT"
+      },
+      "created_epoch_ms": 1794352660719,
+      "expires_epoch_ms": 1794439060719,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794352662506,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794352662506
+    },
+    {
+      "event_id": "spot-warning|BNBUSDT|4h|1794326400000|short|接近突破",
+      "title": "CoinPulse 观察预警 BNBUSDT 接近突破",
+      "content": "观察预警 BNBUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.32N\n现价：675.21（-1.88%）\n依据：距下破阈值约0.32N\n当前价 675.21 · 突破阈值 672.44 · N=8.66\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-10 20:00:00 UTC / 2026-11-11 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "BNBUSDT",
+        "bar_time": 1794326400000
+      },
+      "created_epoch_ms": 1794352520969,
+      "expires_epoch_ms": 1794353120969,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794352522715,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794352522715
+    },
+    {
       "event_id": "perp-notify|signal_created|perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1794312000000|short|system2|pending_entry|1794326400000",
       "title": "CoinPulse 永续 ETHUSDT signal_created",
       "content": "永续做空 · ETHUSDT · 4h\n事件：signal_created\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|ETHUSDT|4h|1794312000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：trend · 风险系数：100%\n触发价：2051.9\n预定成交时间：2026-11-10 16:00:00 UTC / 2026-11-11 00:00:00 北京\n信号有效期至：2026-11-10 16:00:00 UTC / 2026-11-11 00:00:00 北京\n初始止损参考：2123.89865513\n杠杆：2.0 · 风险占比：0.50%\n状态：等待下一根合约 K 线开盘影子成交\n预估保证金：688.41245 · 预估最大亏损：48.34034185\n风险占用：0.50% · 组合剩余容量：2.25%\n标记价：2022.33 · 指数价：2023.85 · 基差：-0.075104%\n研究影子信号：需人工确认，不会自动下单",

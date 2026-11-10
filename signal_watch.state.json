@@ -247,12 +247,12 @@
   "PEPEUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "TONUSDT|4h|turtle|system2": "none",
-  "BTCUSDT|4h|turtle|system2": "none",
-  "ETHUSDT|4h|turtle|system2": "none",
-  "XRPUSDT|4h|turtle|system2": "none",
+  "BTCUSDT|4h|turtle|system2": "short",
+  "ETHUSDT|4h|turtle|system2": "short",
+  "XRPUSDT|4h|turtle|system2": "short",
   "DOGEUSDT|4h|turtle|system2": "none",
   "AVAXUSDT|4h|turtle|system2": "none",
-  "SOLUSDT|4h|turtle|system2": "none",
+  "SOLUSDT|4h|turtle|system2": "short",
   "ADAUSDT|4h|turtle|system2": "none",
   "BNBUSDT|4h|turtle|system2": "none",
   "LINKUSDT|4h|turtle|system2": "none",
@@ -287,5 +287,7 @@
   "XRPUSDT|4h|early_warning|short|1793995200000": true,
   "XRPUSDT|4h|early_warning|short|1794052800000": true,
   "XRPUSDT|4h|early_warning|short|1794139200000": true,
-  "XRPUSDT|4h|early_warning|short|1794153600000": true
+  "XRPUSDT|4h|early_warning|short|1794153600000": true,
+  "DOGEUSDT|4h|early_warning|short|1794312000000": true,
+  "ADAUSDT|4h|early_warning|short|1794312000000": true
 }

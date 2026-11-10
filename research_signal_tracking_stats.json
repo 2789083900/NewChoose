@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-10 09:44:04",
-  "total_signals": 60,
-  "pending_signals": 0,
+  "generated_at": "2026-11-10 17:46:15",
+  "total_signals": 64,
+  "pending_signals": 4,
   "horizons": {
     "24h": {
       "observed": 60,
@@ -26,7 +26,7 @@
   },
   "by_symbol": {
     "SOLUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 6,
         "wins": 3,
@@ -94,7 +94,7 @@
       }
     },
     "BTCUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 2,
         "wins": 2,
@@ -111,7 +111,7 @@
       }
     },
     "ETHUSDT": {
-      "signals": 5,
+      "signals": 6,
       "24h": {
         "observed": 5,
         "wins": 2,
@@ -179,7 +179,7 @@
       }
     },
     "XRPUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 6,
         "wins": 2,

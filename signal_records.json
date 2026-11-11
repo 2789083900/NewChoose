@@ -2151,7 +2151,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 73205.4,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.653,
+        "mae_pct": -1.748,
+        "final_return_pct": -1.093,
+        "final_price": 74005.5,
+        "outcome": "LOSS",
+        "observed_until": 1794412800000,
+        "observed_at": "2026-11-11 21:54:41",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -2219,7 +2230,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 2023.62,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.69,
+        "mae_pct": -3.335,
+        "final_return_pct": -2.571,
+        "final_price": 2075.65,
+        "outcome": "LOSS",
+        "observed_until": 1794412800000,
+        "observed_at": "2026-11-11 21:54:41",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -2287,7 +2309,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 82.28,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.912,
+        "mae_pct": -3.816,
+        "final_return_pct": -3.111,
+        "final_price": 84.84,
+        "outcome": "LOSS",
+        "observed_until": 1794412800000,
+        "observed_at": "2026-11-11 21:54:41",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -2355,7 +2388,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1.0419,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 0.278,
+        "mae_pct": -3.628,
+        "final_return_pct": -2.966,
+        "final_price": 1.0728,
+        "outcome": "LOSS",
+        "observed_until": 1794412800000,
+        "observed_at": "2026-11-11 21:54:41",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

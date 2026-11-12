@@ -2149,7 +2149,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 73205.4,
@@ -2163,7 +2163,18 @@
         "observed_at": "2026-11-11 21:54:41",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 73205.4,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.687,
+        "mae_pct": -2.183,
+        "final_return_pct": 2.033,
+        "final_price": 71716.8,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:07",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2228,7 +2239,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 2023.62,
@@ -2242,7 +2253,18 @@
         "observed_at": "2026-11-11 21:54:41",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 2023.62,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.984,
+        "mae_pct": -3.98,
+        "final_return_pct": 0.699,
+        "final_price": 2009.48,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:07",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2307,7 +2329,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 82.28,
@@ -2321,7 +2343,18 @@
         "observed_at": "2026-11-11 21:54:41",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 82.28,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.224,
+        "mae_pct": -4.327,
+        "final_return_pct": 0.681,
+        "final_price": 81.72,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:07",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -2386,7 +2419,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 1.0419,
@@ -2400,6 +2433,221 @@
         "observed_at": "2026-11-11 21:54:41",
         "provider": "okx"
       },
+      "48h": {
+        "entry_price": 1.0419,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.447,
+        "mae_pct": -3.724,
+        "final_return_pct": 1.392,
+        "final_price": 1.0274,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:07",
+        "provider": "okx"
+      }
+    }
+  },
+  {
+    "id": "BNBUSDT|4h|1794484800000|short|system2",
+    "run_id": "ad2d825970d2",
+    "symbol": "BNBUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 662.3,
+    "entry_trigger": 662.3,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:55",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:55 UTC / 2026-11-13 02:52:55 北京",
+      "generated_epoch": 1794509575155,
+      "delay_minutes": 172.9,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 8.661128369149983,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 8.661128369149983,
+      "breakout_trigger": 662.3,
+      "stop": 679.6222567382999,
+      "next_add": 657.969435815425,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "BTCUSDT|4h|1794484800000|short|system2",
+    "run_id": "ad2d825970d2",
+    "symbol": "BTCUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 72727.27,
+    "entry_trigger": 72727.27,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:55",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:55 UTC / 2026-11-13 02:52:55 北京",
+      "generated_epoch": 1794509575131,
+      "delay_minutes": 172.9,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 862.9440867322959,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 862.9440867322959,
+      "breakout_trigger": 72727.27,
+      "stop": 74453.1581734646,
+      "next_add": 72295.79795663386,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "DOGEUSDT|4h|1794484800000|short|system2",
+    "run_id": "ad2d825970d2",
+    "symbol": "DOGEUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 0.06612,
+    "entry_trigger": 0.06612,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:55",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:55 UTC / 2026-11-13 02:52:55 北京",
+      "generated_epoch": 1794509575016,
+      "delay_minutes": 172.9,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system2",
+    "n": 0.001504007938359588,
+    "provider": "binance-history",
+    "strategy_version": "turtle-baseline-v1",
+    "cohort_id": "spot_formal_baseline_v1",
+    "parameter_snapshot": {
+      "system": "system2",
+      "n": 0.001504007938359588,
+      "breakout_trigger": 0.06612,
+      "stop": 0.06912801587671917,
+      "next_add": 0.0653679960308202,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
       "48h": null
     }
   }

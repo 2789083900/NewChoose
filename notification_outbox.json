@@ -2,6 +2,98 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "perp-notify|scale_in|perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2|open|1794326400000",
+      "title": "CoinPulse 永续 BTCUSDT scale_in",
+      "content": "永续做空 · BTCUSDT · 4h\n事件：scale_in\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n最新成交价：71738.5 · 总数量：0.0557\n单位数：4 · 新止损：73463.17675912411\n标记价：71692.9 · 指数价：71718.8 · 基差：-0.036113%\n研究影子信号：需人工确认，不会自动下单",
+      "metadata": {
+        "market_type": "linear_perpetual",
+        "event_type": "scale_in",
+        "trade_id": "perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2",
+        "symbol": "BTCUSDT"
+      },
+      "created_epoch_ms": 1794509737925,
+      "expires_epoch_ms": 1794596137925,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794509740133,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794509740133
+    },
+    {
+      "event_id": "spot-warning|LINKUSDT|4h|1794484800000|short|接近突破",
+      "title": "CoinPulse 观察预警 LINKUSDT 接近突破",
+      "content": "观察预警 LINKUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.229N\n现价：9.97（-5.02%）\n依据：距下破阈值约0.23N\n当前价 9.97 · 突破阈值 9.91 · N=0.263051\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "LINKUSDT",
+        "bar_time": 1794484800000
+      },
+      "created_epoch_ms": 1794509582607,
+      "expires_epoch_ms": 1794510182607,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794509584713,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794509584713
+    },
+    {
+      "event_id": "spot-warning|ETHUSDT|4h|1794484800000|short|重点观察",
+      "title": "CoinPulse 观察预警 ETHUSDT 重点观察",
+      "content": "观察预警 ETHUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.188N\n现价：2,009.10（-3.19%）\n依据：距下破阈值约0.19N\n当前价 2,009.10 · 突破阈值 2,002.48 · N=35.24\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ETHUSDT",
+        "bar_time": 1794484800000
+      },
+      "created_epoch_ms": 1794509580569,
+      "expires_epoch_ms": 1794510180569,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794509582603,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794509582603
+    },
+    {
+      "event_id": "spot-warning|ADAUSDT|4h|1794484800000|short|重点观察",
+      "title": "CoinPulse 观察预警 ADAUSDT 重点观察",
+      "content": "观察预警 ADAUSDT 4h · 重点观察\n方向：向下做空 · 距突破约 0.183N\n现价：0.170600（-4.48%）\n依据：距下破阈值约0.18N\n当前价 0.170600 · 突破阈值 0.169715 · N=0.004846\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ADAUSDT",
+        "bar_time": 1794484800000
+      },
+      "created_epoch_ms": 1794509578624,
+      "expires_epoch_ms": 1794510178624,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794509580557,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794509580557
+    },
+    {
       "event_id": "spot-warning|LINKUSDT|4h|1794456000000|short|接近突破",
       "title": "CoinPulse 观察预警 LINKUSDT 接近突破",
       "content": "观察预警 LINKUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.438N\n现价：10.11（-2.36%）\n依据：距下破阈值约0.44N\n当前价 10.11 · 突破阈值 9.99 · N=0.263198\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-12 08:00:00 UTC / 2026-11-12 16:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

@@ -5461,7 +5461,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 73205.4,
@@ -5475,7 +5475,18 @@
         "observed_at": "2026-11-11 21:54:43",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 73205.4,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.687,
+        "mae_pct": -2.183,
+        "final_return_pct": 2.033,
+        "final_price": 71716.8,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:10",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -5540,7 +5551,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 2023.62,
@@ -5554,7 +5565,18 @@
         "observed_at": "2026-11-11 21:54:43",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 2023.62,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.984,
+        "mae_pct": -3.98,
+        "final_return_pct": 0.699,
+        "final_price": 2009.48,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:10",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -5619,7 +5641,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 82.28,
@@ -5633,7 +5655,18 @@
         "observed_at": "2026-11-11 21:54:43",
         "provider": "okx"
       },
-      "48h": null
+      "48h": {
+        "entry_price": 82.28,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.224,
+        "mae_pct": -4.327,
+        "final_return_pct": 0.681,
+        "final_price": 81.72,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:10",
+        "provider": "okx"
+      }
     }
   },
   {
@@ -5698,7 +5731,7 @@
     },
     "notification_status": "expired",
     "notification_event_id": null,
-    "status": "diagnostic_expired",
+    "status": "complete",
     "horizons": {
       "24h": {
         "entry_price": 1.0419,
@@ -5712,6 +5745,357 @@
         "observed_at": "2026-11-11 21:54:43",
         "provider": "okx"
       },
+      "48h": {
+        "entry_price": 1.0419,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.447,
+        "mae_pct": -3.724,
+        "final_return_pct": 1.392,
+        "final_price": 1.0274,
+        "outcome": "WIN",
+        "observed_until": 1794499200000,
+        "observed_at": "2026-11-12 18:53:10",
+        "provider": "okx"
+      }
+    }
+  },
+  {
+    "id": "BTCUSDT|4h|1794484800000|short|system1",
+    "run_id": "ad2d825970d2",
+    "symbol": "BTCUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 72727.3,
+    "entry_trigger": 72727.3,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:56",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:56 UTC / 2026-11-13 02:52:56 北京",
+      "generated_epoch": 1794509576264,
+      "delay_minutes": 172.9,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 854.351796572151,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 854.351796572151,
+      "breakout_trigger": 72727.3,
+      "stop": 74436.0035931443,
+      "next_add": 72300.12410171393,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "BNBUSDT|4h|1794484800000|short|system1",
+    "run_id": "ad2d825970d2",
+    "symbol": "BNBUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 662.21,
+    "entry_trigger": 662.21,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:56",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:56 UTC / 2026-11-13 02:52:56 北京",
+      "generated_epoch": 1794509576911,
+      "delay_minutes": 172.9,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 8.568451397250396,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 8.568451397250396,
+      "breakout_trigger": 662.21,
+      "stop": 679.3469027945008,
+      "next_add": 657.9257743013749,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "XRPUSDT|4h|1794484800000|short|system1",
+    "run_id": "ad2d825970d2",
+    "symbol": "XRPUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 1.0311,
+    "entry_trigger": 1.0311,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:57",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:57 UTC / 2026-11-13 02:52:57 北京",
+      "generated_epoch": 1794509577272,
+      "delay_minutes": 173.0,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 0.022667982517100203,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 0.022667982517100203,
+      "breakout_trigger": 1.0311,
+      "stop": 1.0764359650342004,
+      "next_add": 1.0197660087414497,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "DOGEUSDT|4h|1794484800000|short|system1",
+    "run_id": "ad2d825970d2",
+    "symbol": "DOGEUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 0.06612,
+    "entry_trigger": 0.06612,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:57",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:57 UTC / 2026-11-13 02:52:57 北京",
+      "generated_epoch": 1794509577689,
+      "delay_minutes": 173.0,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 0.0014449190035559667,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 0.0014449190035559667,
+      "breakout_trigger": 0.06612,
+      "stop": 0.06900983800711193,
+      "next_add": 0.06539754049822201,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
+      "48h": null
+    }
+  },
+  {
+    "id": "SUIUSDT|4h|1794484800000|short|system1",
+    "run_id": "ad2d825970d2",
+    "symbol": "SUIUSDT",
+    "interval": "4h",
+    "direction": "short",
+    "entry_price": 0.7993,
+    "entry_trigger": 0.7993,
+    "entry_model": "next_bar_open",
+    "signal_bar_time": 1794484800000,
+    "signal_time": "2026-11-12 18:52:58",
+    "timing": {
+      "bar_close_time": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "bar_close_epoch": 1794499200000,
+      "generated_time": "2026-11-12 18:52:58 UTC / 2026-11-13 02:52:58 北京",
+      "generated_epoch": 1794509578390,
+      "delay_minutes": 173.0,
+      "shadow_entry_deadline": "2026-11-12 16:00:00 UTC / 2026-11-13 00:00:00 北京",
+      "shadow_entry_status": "late",
+      "grace_minutes": 10.0
+    },
+    "dispatch_started_epoch": null,
+    "dispatch_completed_epoch": null,
+    "strategy_type": "turtle",
+    "market_type": "spot",
+    "system": "system1",
+    "n": 0.025116283367852862,
+    "provider": "okx",
+    "strategy_version": "turtle_s1_4h_research_v1",
+    "cohort_id": "spot_s1_4h_research_v1",
+    "parameter_snapshot": {
+      "system": "system1",
+      "n": 0.025116283367852862,
+      "breakout_trigger": 0.7993,
+      "stop": 0.8495325667357058,
+      "next_add": 0.7867418583160736,
+      "risk_fraction": 0.01,
+      "filters": {
+        "closed_candles_only": true,
+        "higher_timeframe": true,
+        "higher_ema_period": 200,
+        "breakout_buffer_n": 0.1,
+        "require_higher_timeframe": true,
+        "adx_enabled": false,
+        "adx_period": 14,
+        "adx_min": 20,
+        "volume_confirmation": true,
+        "volume_period": 20,
+        "volume_min_ratio": 1.0,
+        "volatility_filter": true,
+        "min_atr_pct": 0.002,
+        "max_atr_pct": 0.12,
+        "anomaly_filter": true,
+        "max_gap_pct": 0.1,
+        "max_range_pct": 0.2,
+        "liquidity_filter": false,
+        "min_quote_volume": 0
+      },
+      "execution_model": "signal_close_next_bar_open"
+    },
+    "notification_status": "expired",
+    "notification_event_id": null,
+    "status": "diagnostic_expired",
+    "horizons": {
+      "24h": null,
       "48h": null
     }
   }

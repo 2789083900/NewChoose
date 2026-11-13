@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-13 00:17:35",
-  "total_signals": 32,
-  "pending_signals": 3,
+  "generated_at": "2026-11-13 07:53:40",
+  "total_signals": 37,
+  "pending_signals": 8,
   "horizons": {
     "24h": {
       "observed": 29,
@@ -26,7 +26,7 @@
   },
   "by_symbol": {
     "BNBUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -43,7 +43,7 @@
       }
     },
     "BTCUSDT": {
-      "signals": 4,
+      "signals": 5,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -60,7 +60,7 @@
       }
     },
     "LINKUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -111,7 +111,7 @@
       }
     },
     "ETHUSDT": {
-      "signals": 3,
+      "signals": 4,
       "24h": {
         "observed": 3,
         "wins": 1,
@@ -179,7 +179,7 @@
       }
     },
     "DOGEUSDT": {
-      "signals": 2,
+      "signals": 3,
       "24h": {
         "observed": 1,
         "wins": 0,

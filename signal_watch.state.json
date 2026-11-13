@@ -247,15 +247,15 @@
   "PEPEUSDT|4h|div": "none",
   "TONUSDT|4h|div": "none",
   "TONUSDT|4h|turtle|system2": "none",
-  "BTCUSDT|4h|turtle|system2": "none",
-  "ETHUSDT|4h|turtle|system2": "none",
+  "BTCUSDT|4h|turtle|system2": "short",
+  "ETHUSDT|4h|turtle|system2": "short",
   "XRPUSDT|4h|turtle|system2": "none",
-  "DOGEUSDT|4h|turtle|system2": "none",
+  "DOGEUSDT|4h|turtle|system2": "short",
   "AVAXUSDT|4h|turtle|system2": "none",
   "SOLUSDT|4h|turtle|system2": "none",
   "ADAUSDT|4h|turtle|system2": "none",
-  "BNBUSDT|4h|turtle|system2": "none",
-  "LINKUSDT|4h|turtle|system2": "none",
+  "BNBUSDT|4h|turtle|system2": "short",
+  "LINKUSDT|4h|turtle|system2": "short",
   "SUIUSDT|4h|turtle|system2": "none",
   "PEPEUSDT|4h|turtle|system2": "none",
   "schema_version": 2,
@@ -298,5 +298,6 @@
   "ADAUSDT|4h|early_warning|short|1794484800000": true,
   "SUIUSDT|4h|early_warning|short|1794484800000": true,
   "ETHUSDT|4h|early_warning|short|1794484800000": true,
-  "BTCUSDT|4h|early_warning|short|1794513600000": true
+  "BTCUSDT|4h|early_warning|short|1794513600000": true,
+  "ADAUSDT|4h|early_warning|short|1794528000000": true
 }

@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|BTCUSDT|4h|1794513600000|short|接近突破",
+      "title": "CoinPulse 观察预警 BTCUSDT 接近突破",
+      "content": "观察预警 BTCUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.338N\n现价：71,460.00（-3.45%）\n依据：距下破阈值约0.34N\n当前价 71,460.00 · 突破阈值 71,169.05 · N=859.71\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-13 00:00:00 UTC / 2026-11-13 08:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "BTCUSDT",
+        "bar_time": 1794513600000
+      },
+      "created_epoch_ms": 1794529049487,
+      "expires_epoch_ms": 1794529649487,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794529051430,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794529051430
+    },
+    {
       "event_id": "perp-notify|scale_in|perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2|open|1794326400000",
       "title": "CoinPulse 永续 BTCUSDT scale_in",
       "content": "永续做空 · BTCUSDT · 4h\n事件：scale_in\nProvider：okx\n交易ID：perp|btc_eth_4h_baseline_v1|BTCUSDT|4h|1794312000000|short|system2\n策略版本：perp_turtle_system2_v1 · Cohort：btc_eth_4h_baseline_v1\n市场状态：range · 风险系数：50%\n最新成交价：71738.5 · 总数量：0.0557\n单位数：4 · 新止损：73463.17675912411\n标记价：71692.9 · 指数价：71718.8 · 基差：-0.036113%\n研究影子信号：需人工确认，不会自动下单",

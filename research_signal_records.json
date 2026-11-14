@@ -6218,7 +6218,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 68960.9,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.406,
+        "mae_pct": -1.825,
+        "final_return_pct": 3.219,
+        "final_price": 66741.3,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6286,7 +6297,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1934.6,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 3.066,
+        "mae_pct": -2.812,
+        "final_return_pct": 2.598,
+        "final_price": 1884.33,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6354,7 +6376,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 78.46,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 4.537,
+        "mae_pct": -5.009,
+        "final_return_pct": 4.308,
+        "final_price": 75.08,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6422,7 +6455,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 633.46,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.958,
+        "mae_pct": -2.548,
+        "final_return_pct": 2.794,
+        "final_price": 615.76,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6490,7 +6534,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1.0062,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.177,
+        "mae_pct": -3.737,
+        "final_return_pct": 1.58,
+        "final_price": 0.9903,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6558,7 +6613,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.06365,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.592,
+        "mae_pct": -4.65,
+        "final_return_pct": 1.603,
+        "final_price": 0.06263,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6626,7 +6692,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 9.737,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 2.177,
+        "mae_pct": -5.227,
+        "final_return_pct": 1.808,
+        "final_price": 9.561,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -6694,7 +6771,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.7746,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 1.162,
+        "mae_pct": -6.997,
+        "final_return_pct": 0.219,
+        "final_price": 0.7729,
+        "outcome": "WIN",
+        "observed_until": 1794628800000,
+        "observed_at": "2026-11-14 10:28:04",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

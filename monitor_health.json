@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-11-14 03:10:46",
+  "updated_at": "2026-11-14 10:27:59",
   "scan": {
-    "run_id": "8bde8b0f0f37",
+    "run_id": "f05313d253d8",
     "expected_markets": 11,
     "configured_markets": 12,
     "disabled_markets": 1,
@@ -15,53 +15,29 @@
     "failed_markets": 0,
     "coverage_pct": 100.0,
     "minimum_coverage_pct": 80.0,
-    "latest_bar_time": 1794600000000,
+    "latest_bar_time": 1794628800000,
     "freshness_schema_version": 2,
     "market_freshness": [
       {
-        "symbol": "BNBUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
         "symbol": "SOLUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
       },
       {
-        "symbol": "ADAUSDT",
+        "symbol": "BNBUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "LINKUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -69,11 +45,23 @@
       {
         "symbol": "DOGEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "ADAUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1794628800000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -81,47 +69,11 @@
       {
         "symbol": "SUIUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "AVAXUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "XRPUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
-        "missing_closed_bars": 0,
-        "closed_bar_overdue_minutes": 0.0,
-        "status": "fresh"
-      },
-      {
-        "symbol": "ETHUSDT",
-        "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
-        "interval_ms": 14400000,
-        "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -129,11 +81,59 @@
       {
         "symbol": "BTCUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "ETHUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1794628800000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "LINKUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1794628800000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "XRPUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1794628800000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
+        "missing_closed_bars": 0,
+        "closed_bar_overdue_minutes": 0.0,
+        "status": "fresh"
+      },
+      {
+        "symbol": "AVAXUSDT",
+        "interval": "4h",
+        "bar_open_epoch_ms": 1794628800000,
+        "interval_ms": 14400000,
+        "scope": "formal_spot",
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -141,11 +141,11 @@
       {
         "symbol": "PEPEUSDT",
         "interval": "4h",
-        "bar_open_epoch_ms": 1794600000000,
+        "bar_open_epoch_ms": 1794628800000,
         "interval_ms": 14400000,
         "scope": "formal_spot",
-        "bar_close_epoch_ms": 1794614400000,
-        "age_since_close_minutes": 190.7,
+        "bar_close_epoch_ms": 1794643200000,
+        "age_since_close_minutes": 148.0,
         "missing_closed_bars": 0,
         "closed_bar_overdue_minutes": 0.0,
         "status": "fresh"
@@ -153,11 +153,11 @@
     ],
     "data_freshness_status": "fresh",
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
-    "data_lag_minutes": 190.7,
+    "data_lag_minutes": 148.0,
     "max_closed_bar_overdue_minutes": 0.0,
-    "data_reference_close_epoch_ms": 1794614400000,
+    "data_reference_close_epoch_ms": 1794643200000,
     "data_freshness_scope": "formal_spot_scan",
-    "candidate_signals": 1,
+    "candidate_signals": 6,
     "capacity_rejected": 0,
     "providers": [
       "binance-history"
@@ -165,18 +165,48 @@
     "failures": []
   },
   "push": {
-    "attempted": 3,
-    "failed": 1,
+    "attempted": 12,
+    "failed": 7,
     "failures": [
       {
         "channel": "Server酱",
         "ok": false,
         "error_category": "HTTPError"
+      },
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      },
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      },
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      },
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      },
+      {
+        "channel": "Server酱",
+        "ok": false,
+        "error_category": "HTTPError"
+      },
+      {
+        "channel": "PushPlus",
+        "ok": false,
+        "error_category": "RuntimeError"
       }
     ]
   },
-  "status": "ok",
-  "updated_at_epoch": 1794625846,
+  "status": "degraded",
+  "updated_at_epoch": 1794652079,
   "portfolio": {
     "open_trades": 0,
     "awaiting_fill": 0,
@@ -212,10 +242,12 @@
     "system_status": "degraded",
     "action_required": true,
     "action_reasons": [
+      "本轮通知失败 1 条",
+      "通知积压 1 条、重试耗尽 0 条",
       "正式样本统计过期或损坏"
     ],
-    "data_time": "2026-11-14 08:00:00 北京",
-    "data_lag_minutes": 190.7,
+    "data_time": "2026-11-14 16:00:00 北京",
+    "data_lag_minutes": 148.0,
     "data_lag_basis": "max_age_since_confirmed_bar_close; not transport_delay",
     "data_freshness_status": "fresh",
     "max_closed_bar_overdue_minutes": 0.0,
@@ -225,7 +257,7 @@
       "pending_signals": 8,
       "closed_trades": 5,
       "open_trades": 0,
-      "tracking_generated_at": "2026-11-13 22:35:16",
+      "tracking_generated_at": "2026-11-14 03:10:50",
       "trade_stats_generated_at": "2026-09-20 21:04:42",
       "sources": {
         "tracking_stats": "ok",
@@ -240,26 +272,28 @@
       "tracking_generated_at": "2026-09-20 21:04:42"
     },
     "notifications": {
-      "round_failed": 0,
+      "round_failed": 1,
       "expired_signals": 0,
       "expired_notifications": 0,
-      "channel_attempts": 1,
-      "channel_failures": 0,
-      "pending": 0,
+      "channel_attempts": 12,
+      "channel_failures": 7,
+      "pending": 1,
       "exhausted": 0
     },
     "portfolio": {
       "open_trades": 0,
       "awaiting_fill": 0
     },
-    "run_id": "8bde8b0f0f37"
+    "run_id": "f05313d253d8"
   },
   "notification_summary": {
-    "round_failed": 0,
+    "round_failed": 1,
     "expired_signals": 0,
     "expired_notifications": 0,
-    "channel_attempts": 3,
-    "channel_failures": 1
+    "channel_attempts": 12,
+    "channel_failures": 7
   },
-  "health_reasons": []
+  "health_reasons": [
+    "notification_delivery_failed"
+  ]
 }

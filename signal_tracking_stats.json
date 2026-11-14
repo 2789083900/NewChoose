@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-14 03:10:50",
+  "generated_at": "2026-11-14 10:28:04",
   "total_signals": 37,
   "pending_signals": 8,
   "horizons": {
     "24h": {
-      "observed": 32,
-      "wins": 13,
+      "observed": 37,
+      "wins": 18,
       "losses": 19,
       "flats": 0,
-      "win_rate": 40.62,
-      "avg_return_pct": -0.571,
-      "avg_mfe_pct": 3.103,
-      "avg_mae_pct": -3.117
+      "win_rate": 48.65,
+      "avg_return_pct": -0.169,
+      "avg_mfe_pct": 3.068,
+      "avg_mae_pct": -3.157
     },
     "48h": {
       "observed": 29,
@@ -28,11 +28,11 @@
     "BNBUSDT": {
       "signals": 5,
       "24h": {
-        "observed": 4,
-        "wins": 2,
+        "observed": 5,
+        "wins": 3,
         "losses": 2,
-        "win_rate": 50.0,
-        "avg_return_pct": 0.876
+        "win_rate": 60.0,
+        "avg_return_pct": 1.26
       },
       "48h": {
         "observed": 3,
@@ -45,11 +45,11 @@
     "BTCUSDT": {
       "signals": 5,
       "24h": {
-        "observed": 4,
-        "wins": 2,
+        "observed": 5,
+        "wins": 3,
         "losses": 2,
-        "win_rate": 50.0,
-        "avg_return_pct": 0.434
+        "win_rate": 60.0,
+        "avg_return_pct": 0.991
       },
       "48h": {
         "observed": 3,
@@ -62,11 +62,11 @@
     "LINKUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
-        "wins": 1,
+        "observed": 4,
+        "wins": 2,
         "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -1.756
+        "win_rate": 50.0,
+        "avg_return_pct": -0.865
       },
       "48h": {
         "observed": 3,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
-        "wins": 1,
+        "observed": 4,
+        "wins": 2,
         "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -1.202
+        "win_rate": 50.0,
+        "avg_return_pct": -0.252
       },
       "48h": {
         "observed": 3,
@@ -181,11 +181,11 @@
     "DOGEUSDT": {
       "signals": 3,
       "24h": {
-        "observed": 2,
-        "wins": 1,
+        "observed": 3,
+        "wins": 2,
         "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.765
+        "win_rate": 66.67,
+        "avg_return_pct": 0.024
       },
       "48h": {
         "observed": 1,

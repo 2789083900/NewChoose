@@ -14,7 +14,7 @@
       "created_epoch_ms": 1794652077320,
       "expires_epoch_ms": 1794652677320,
       "attempts": 1,
-      "status": "pending",
+      "status": "expired",
       "last_attempt_epoch_ms": 1794652079582,
       "last_results": [
         {

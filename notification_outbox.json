@@ -2,6 +2,29 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-warning|ETHUSDT|4h|1794672000000|short|接近突破",
+      "title": "CoinPulse 观察预警 ETHUSDT 接近突破",
+      "content": "观察预警 ETHUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.391N\n现价：1,835.09（-6.08%）\n依据：距下破阈值约0.39N\n当前价 1,835.09 · 突破阈值 1,820.80 · N=36.58\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-14 20:00:00 UTC / 2026-11-15 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ETHUSDT",
+        "bar_time": 1794672000000
+      },
+      "created_epoch_ms": 1794691584912,
+      "expires_epoch_ms": 1794692184912,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1794691587033,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1794691587033
+    },
+    {
       "event_id": "spot-warning|SUIUSDT|4h|1794628800000|short|接近突破",
       "title": "CoinPulse 观察预警 SUIUSDT 接近突破",
       "content": "观察预警 SUIUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.258N\n现价：0.769500（-3.41%）\n依据：距下破阈值约0.26N\n当前价 0.769500 · 突破阈值 0.762974 · N=0.025263\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-14 08:00:00 UTC / 2026-11-14 16:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",

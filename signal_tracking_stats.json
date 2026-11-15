@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-15 17:04:27",
+  "generated_at": "2026-11-15 21:44:58",
   "total_signals": 49,
   "pending_signals": 12,
   "horizons": {
     "24h": {
-      "observed": 43,
-      "wins": 24,
-      "losses": 19,
+      "observed": 47,
+      "wins": 26,
+      "losses": 21,
       "flats": 0,
-      "win_rate": 55.81,
-      "avg_return_pct": 0.269,
-      "avg_mfe_pct": 3.783,
-      "avg_mae_pct": -2.765
+      "win_rate": 55.32,
+      "avg_return_pct": 0.207,
+      "avg_mfe_pct": 4.004,
+      "avg_mae_pct": -2.722
     },
     "48h": {
       "observed": 37,
@@ -62,11 +62,11 @@
     "LINKUSDT": {
       "signals": 5,
       "24h": {
-        "observed": 4,
+        "observed": 5,
         "wins": 2,
-        "losses": 2,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.865
+        "losses": 3,
+        "win_rate": 40.0,
+        "avg_return_pct": -1.06
       },
       "48h": {
         "observed": 4,
@@ -79,11 +79,11 @@
     "SOLUSDT": {
       "signals": 6,
       "24h": {
-        "observed": 5,
-        "wins": 3,
+        "observed": 6,
+        "wins": 4,
         "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": -0.706
+        "win_rate": 66.67,
+        "avg_return_pct": -0.464
       },
       "48h": {
         "observed": 5,
@@ -164,11 +164,11 @@
     "SUIUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
-        "wins": 1,
+        "observed": 4,
+        "wins": 2,
         "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -1.996
+        "win_rate": 50.0,
+        "avg_return_pct": -1.487
       },
       "48h": {
         "observed": 3,
@@ -198,11 +198,11 @@
     "XRPUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 1,
-        "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -1.2
+        "losses": 3,
+        "win_rate": 25.0,
+        "avg_return_pct": -1.102
       },
       "48h": {
         "observed": 3,

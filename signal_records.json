@@ -3705,7 +3705,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 9.072,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.489,
+        "mae_pct": -3.395,
+        "final_return_pct": -1.841,
+        "final_price": 9.239,
+        "outcome": "LOSS",
+        "observed_until": 1794772800000,
+        "observed_at": "2026-11-15 21:44:56",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3773,7 +3784,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 72.25,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 6.74,
+        "mae_pct": -1.412,
+        "final_return_pct": 0.747,
+        "final_price": 71.71,
+        "outcome": "WIN",
+        "observed_until": 1794772800000,
+        "observed_at": "2026-11-15 21:44:56",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3841,7 +3863,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.7258,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 6.944,
+        "mae_pct": -1.529,
+        "final_return_pct": 0.041,
+        "final_price": 0.7255,
+        "outcome": "WIN",
+        "observed_until": 1794772800000,
+        "observed_at": "2026-11-15 21:44:56",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -3909,7 +3942,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.9534,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 6.346,
+        "mae_pct": -2.738,
+        "final_return_pct": -0.808,
+        "final_price": 0.9611,
+        "outcome": "LOSS",
+        "observed_until": 1794772800000,
+        "observed_at": "2026-11-15 21:44:56",
+        "provider": "okx"
+      },
       "48h": null
     }
   },

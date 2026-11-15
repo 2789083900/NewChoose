@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-14 21:26:30",
-  "total_signals": 47,
-  "pending_signals": 15,
+  "generated_at": "2026-11-15 01:51:43",
+  "total_signals": 49,
+  "pending_signals": 17,
   "horizons": {
     "24h": {
       "observed": 37,
@@ -43,7 +43,7 @@
       }
     },
     "BTCUSDT": {
-      "signals": 6,
+      "signals": 7,
       "24h": {
         "observed": 5,
         "wins": 3,
@@ -111,7 +111,7 @@
       }
     },
     "ETHUSDT": {
-      "signals": 5,
+      "signals": 6,
       "24h": {
         "observed": 4,
         "wins": 2,

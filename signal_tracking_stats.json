@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-15 01:51:43",
+  "generated_at": "2026-11-15 09:18:05",
   "total_signals": 49,
-  "pending_signals": 17,
+  "pending_signals": 12,
   "horizons": {
     "24h": {
       "observed": 37,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.157
     },
     "48h": {
-      "observed": 32,
-      "wins": 18,
+      "observed": 37,
+      "wins": 23,
       "losses": 14,
       "flats": 0,
-      "win_rate": 56.25,
-      "avg_return_pct": 0.111,
-      "avg_mfe_pct": 4.552,
-      "avg_mae_pct": -4.407
+      "win_rate": 62.16,
+      "avg_return_pct": 0.962,
+      "avg_mfe_pct": 5.485,
+      "avg_mae_pct": -4.273
     }
   },
   "by_symbol": {
@@ -35,11 +35,11 @@
         "avg_return_pct": 1.26
       },
       "48h": {
-        "observed": 4,
-        "wins": 3,
+        "observed": 5,
+        "wins": 4,
         "losses": 1,
-        "win_rate": 75.0,
-        "avg_return_pct": 3.51
+        "win_rate": 80.0,
+        "avg_return_pct": 4.043
       }
     },
     "BTCUSDT": {
@@ -52,11 +52,11 @@
         "avg_return_pct": 0.991
       },
       "48h": {
-        "observed": 4,
-        "wins": 3,
+        "observed": 5,
+        "wins": 4,
         "losses": 1,
-        "win_rate": 75.0,
-        "avg_return_pct": 2.204
+        "win_rate": 80.0,
+        "avg_return_pct": 2.963
       }
     },
     "LINKUSDT": {
@@ -69,11 +69,11 @@
         "avg_return_pct": -0.865
       },
       "48h": {
-        "observed": 3,
-        "wins": 1,
+        "observed": 4,
+        "wins": 2,
         "losses": 2,
-        "win_rate": 33.33,
-        "avg_return_pct": -3.205
+        "win_rate": 50.0,
+        "avg_return_pct": -0.819
       }
     },
     "SOLUSDT": {
@@ -120,11 +120,11 @@
         "avg_return_pct": -0.252
       },
       "48h": {
-        "observed": 3,
-        "wins": 2,
+        "observed": 4,
+        "wins": 3,
         "losses": 1,
-        "win_rate": 66.67,
-        "avg_return_pct": -0.055
+        "win_rate": 75.0,
+        "avg_return_pct": 1.453
       }
     },
     "PEPEUSDT": {
@@ -188,11 +188,11 @@
         "avg_return_pct": 0.024
       },
       "48h": {
-        "observed": 2,
-        "wins": 1,
+        "observed": 3,
+        "wins": 2,
         "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": 2.048
+        "win_rate": 66.67,
+        "avg_return_pct": 3.879
       }
     },
     "XRPUSDT": {

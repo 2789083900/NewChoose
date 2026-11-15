@@ -6993,7 +6993,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 65746.1,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.698,
+        "mae_pct": -0.677,
+        "final_return_pct": 1.519,
+        "final_price": 64747.7,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7061,7 +7072,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1841.32,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 7.078,
+        "mae_pct": -0.921,
+        "final_return_pct": 1.645,
+        "final_price": 1811.03,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7129,7 +7151,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 73.87,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.786,
+        "mae_pct": -0.108,
+        "final_return_pct": 3.56,
+        "final_price": 71.24,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7197,7 +7230,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 598.66,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.482,
+        "mae_pct": -0.162,
+        "final_return_pct": 1.351,
+        "final_price": 590.57,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7265,7 +7309,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.9719,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.128,
+        "mae_pct": -0.782,
+        "final_return_pct": 1.43,
+        "final_price": 0.958,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7333,7 +7388,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.1573,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 9.345,
+        "mae_pct": -0.191,
+        "final_return_pct": 2.543,
+        "final_price": 0.1533,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7401,7 +7467,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.06112,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 9.408,
+        "mae_pct": -0.016,
+        "final_return_pct": 4.254,
+        "final_price": 0.05852,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7469,7 +7546,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 9.275,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 7.558,
+        "mae_pct": -1.132,
+        "final_return_pct": 0.755,
+        "final_price": 9.205,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7537,7 +7625,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 7.674,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 12.145,
+        "mae_pct": -0.104,
+        "final_return_pct": 6.529,
+        "final_price": 7.173,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7605,7 +7704,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.7416,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.927,
+        "mae_pct": -0.175,
+        "final_return_pct": 2.899,
+        "final_price": 0.7201,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -7673,7 +7783,18 @@
     "notification_event_id": null,
     "status": "diagnostic_expired",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 4.0474e-06,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.843,
+        "mae_pct": -0.625,
+        "final_return_pct": 3.387,
+        "final_price": 3.9103e-06,
+        "outcome": "WIN",
+        "observed_until": 1794758400000,
+        "observed_at": "2026-11-15 17:04:27",
+        "provider": "okx"
+      },
       "48h": null
     }
   },

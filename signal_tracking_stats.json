@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-15 09:18:05",
+  "generated_at": "2026-11-15 17:04:27",
   "total_signals": 49,
   "pending_signals": 12,
   "horizons": {
     "24h": {
-      "observed": 37,
-      "wins": 18,
+      "observed": 43,
+      "wins": 24,
       "losses": 19,
       "flats": 0,
-      "win_rate": 48.65,
-      "avg_return_pct": -0.169,
-      "avg_mfe_pct": 3.068,
-      "avg_mae_pct": -3.157
+      "win_rate": 55.81,
+      "avg_return_pct": 0.269,
+      "avg_mfe_pct": 3.783,
+      "avg_mae_pct": -2.765
     },
     "48h": {
       "observed": 37,
@@ -28,11 +28,11 @@
     "BNBUSDT": {
       "signals": 6,
       "24h": {
-        "observed": 5,
-        "wins": 3,
+        "observed": 6,
+        "wins": 4,
         "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": 1.26
+        "win_rate": 66.67,
+        "avg_return_pct": 1.275
       },
       "48h": {
         "observed": 5,
@@ -45,11 +45,11 @@
     "BTCUSDT": {
       "signals": 7,
       "24h": {
-        "observed": 5,
-        "wins": 3,
+        "observed": 6,
+        "wins": 4,
         "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": 0.991
+        "win_rate": 66.67,
+        "avg_return_pct": 1.079
       },
       "48h": {
         "observed": 5,
@@ -96,11 +96,11 @@
     "AVAXUSDT": {
       "signals": 3,
       "24h": {
-        "observed": 2,
-        "wins": 1,
+        "observed": 3,
+        "wins": 2,
         "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": 8.982
+        "win_rate": 66.67,
+        "avg_return_pct": 8.164
       },
       "48h": {
         "observed": 2,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 6,
       "24h": {
-        "observed": 4,
-        "wins": 2,
+        "observed": 5,
+        "wins": 3,
         "losses": 2,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.252
+        "win_rate": 60.0,
+        "avg_return_pct": 0.128
       },
       "48h": {
         "observed": 4,
@@ -147,11 +147,11 @@
     "ADAUSDT": {
       "signals": 2,
       "24h": {
-        "observed": 1,
-        "wins": 0,
+        "observed": 2,
+        "wins": 1,
         "losses": 1,
-        "win_rate": 0.0,
-        "avg_return_pct": -8.192
+        "win_rate": 50.0,
+        "avg_return_pct": -2.825
       },
       "48h": {
         "observed": 1,
@@ -181,11 +181,11 @@
     "DOGEUSDT": {
       "signals": 4,
       "24h": {
-        "observed": 3,
-        "wins": 2,
+        "observed": 4,
+        "wins": 3,
         "losses": 1,
-        "win_rate": 66.67,
-        "avg_return_pct": 0.024
+        "win_rate": 75.0,
+        "avg_return_pct": 1.081
       },
       "48h": {
         "observed": 3,

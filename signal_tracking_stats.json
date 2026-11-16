@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-15 21:44:58",
+  "generated_at": "2026-11-16 01:59:40",
   "total_signals": 49,
   "pending_signals": 12,
   "horizons": {
     "24h": {
-      "observed": 47,
+      "observed": 49,
       "wins": 26,
-      "losses": 21,
+      "losses": 23,
       "flats": 0,
-      "win_rate": 55.32,
-      "avg_return_pct": 0.207,
-      "avg_mfe_pct": 4.004,
-      "avg_mae_pct": -2.722
+      "win_rate": 53.06,
+      "avg_return_pct": 0.084,
+      "avg_mfe_pct": 3.976,
+      "avg_mae_pct": -2.763
     },
     "48h": {
       "observed": 37,
@@ -45,11 +45,11 @@
     "BTCUSDT": {
       "signals": 7,
       "24h": {
-        "observed": 6,
+        "observed": 7,
         "wins": 4,
-        "losses": 2,
-        "win_rate": 66.67,
-        "avg_return_pct": 1.079
+        "losses": 3,
+        "win_rate": 57.14,
+        "avg_return_pct": 0.66
       },
       "48h": {
         "observed": 5,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 6,
       "24h": {
-        "observed": 5,
+        "observed": 6,
         "wins": 3,
-        "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": 0.128
+        "losses": 3,
+        "win_rate": 50.0,
+        "avg_return_pct": -0.521
       },
       "48h": {
         "observed": 4,

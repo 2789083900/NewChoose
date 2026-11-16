@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-16 09:34:35",
+  "generated_at": "2026-11-16 20:25:12",
   "total_signals": 49,
-  "pending_signals": 12,
+  "pending_signals": 2,
   "horizons": {
     "24h": {
       "observed": 49,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -2.763
     },
     "48h": {
-      "observed": 37,
-      "wins": 23,
-      "losses": 14,
+      "observed": 47,
+      "wins": 31,
+      "losses": 16,
       "flats": 0,
-      "win_rate": 62.16,
-      "avg_return_pct": 0.962,
-      "avg_mfe_pct": 5.485,
-      "avg_mae_pct": -4.273
+      "win_rate": 65.96,
+      "avg_return_pct": 1.151,
+      "avg_mfe_pct": 5.907,
+      "avg_mae_pct": -3.619
     }
   },
   "by_symbol": {
@@ -35,11 +35,11 @@
         "avg_return_pct": 1.275
       },
       "48h": {
-        "observed": 5,
-        "wins": 4,
+        "observed": 6,
+        "wins": 5,
         "losses": 1,
-        "win_rate": 80.0,
-        "avg_return_pct": 4.043
+        "win_rate": 83.33,
+        "avg_return_pct": 3.69
       }
     },
     "BTCUSDT": {
@@ -52,11 +52,11 @@
         "avg_return_pct": 0.66
       },
       "48h": {
-        "observed": 5,
-        "wins": 4,
+        "observed": 6,
+        "wins": 5,
         "losses": 1,
-        "win_rate": 80.0,
-        "avg_return_pct": 2.963
+        "win_rate": 83.33,
+        "avg_return_pct": 2.794
       }
     },
     "LINKUSDT": {
@@ -69,11 +69,11 @@
         "avg_return_pct": -1.06
       },
       "48h": {
-        "observed": 4,
+        "observed": 5,
         "wins": 2,
-        "losses": 2,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.819
+        "losses": 3,
+        "win_rate": 40.0,
+        "avg_return_pct": -0.94
       }
     },
     "SOLUSDT": {
@@ -86,11 +86,11 @@
         "avg_return_pct": -0.464
       },
       "48h": {
-        "observed": 5,
-        "wins": 3,
+        "observed": 6,
+        "wins": 4,
         "losses": 2,
-        "win_rate": 60.0,
-        "avg_return_pct": -0.329
+        "win_rate": 66.67,
+        "avg_return_pct": -0.113
       }
     },
     "AVAXUSDT": {
@@ -103,11 +103,11 @@
         "avg_return_pct": 8.164
       },
       "48h": {
-        "observed": 2,
-        "wins": 1,
+        "observed": 3,
+        "wins": 2,
         "losses": 1,
-        "win_rate": 50.0,
-        "avg_return_pct": 7.344
+        "win_rate": 66.67,
+        "avg_return_pct": 7.337
       }
     },
     "ETHUSDT": {
@@ -120,11 +120,11 @@
         "avg_return_pct": -0.521
       },
       "48h": {
-        "observed": 4,
-        "wins": 3,
+        "observed": 5,
+        "wins": 4,
         "losses": 1,
-        "win_rate": 75.0,
-        "avg_return_pct": 1.453
+        "win_rate": 80.0,
+        "avg_return_pct": 1.393
       }
     },
     "PEPEUSDT": {
@@ -154,11 +154,11 @@
         "avg_return_pct": -2.825
       },
       "48h": {
-        "observed": 1,
-        "wins": 0,
+        "observed": 2,
+        "wins": 1,
         "losses": 1,
-        "win_rate": 0.0,
-        "avg_return_pct": -4.692
+        "win_rate": 50.0,
+        "avg_return_pct": -0.725
       }
     },
     "SUIUSDT": {
@@ -171,11 +171,11 @@
         "avg_return_pct": -1.487
       },
       "48h": {
-        "observed": 3,
-        "wins": 2,
+        "observed": 4,
+        "wins": 3,
         "losses": 1,
-        "win_rate": 66.67,
-        "avg_return_pct": 2.193
+        "win_rate": 75.0,
+        "avg_return_pct": 1.693
       }
     },
     "DOGEUSDT": {
@@ -188,11 +188,11 @@
         "avg_return_pct": 1.081
       },
       "48h": {
-        "observed": 3,
-        "wins": 2,
+        "observed": 4,
+        "wins": 3,
         "losses": 1,
-        "win_rate": 66.67,
-        "avg_return_pct": 3.879
+        "win_rate": 75.0,
+        "avg_return_pct": 3.887
       }
     },
     "XRPUSDT": {
@@ -205,11 +205,11 @@
         "avg_return_pct": -1.102
       },
       "48h": {
-        "observed": 3,
+        "observed": 4,
         "wins": 2,
-        "losses": 1,
-        "win_rate": 66.67,
-        "avg_return_pct": 0.69
+        "losses": 2,
+        "win_rate": 50.0,
+        "avg_return_pct": 0.34
       }
     }
   }

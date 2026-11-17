@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-16 20:25:12",
+  "generated_at": "2026-11-17 03:48:21",
   "total_signals": 90,
-  "pending_signals": 2,
+  "pending_signals": 0,
   "horizons": {
     "24h": {
       "observed": 90,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -3.43
     },
     "48h": {
-      "observed": 88,
+      "observed": 90,
       "wins": 49,
-      "losses": 39,
+      "losses": 41,
       "flats": 0,
-      "win_rate": 55.68,
-      "avg_return_pct": 1.706,
-      "avg_mfe_pct": 6.576,
-      "avg_mae_pct": -4.237
+      "win_rate": 54.44,
+      "avg_return_pct": 1.623,
+      "avg_mfe_pct": 6.503,
+      "avg_mae_pct": -4.238
     }
   },
   "by_symbol": {
@@ -103,11 +103,11 @@
         "avg_return_pct": 1.131
       },
       "48h": {
-        "observed": 6,
+        "observed": 7,
         "wins": 6,
-        "losses": 0,
-        "win_rate": 100.0,
-        "avg_return_pct": 3.305
+        "losses": 1,
+        "win_rate": 85.71,
+        "avg_return_pct": 2.672
       }
     },
     "ETHUSDT": {
@@ -120,11 +120,11 @@
         "avg_return_pct": -0.918
       },
       "48h": {
-        "observed": 8,
+        "observed": 9,
         "wins": 4,
-        "losses": 4,
-        "win_rate": 50.0,
-        "avg_return_pct": 0.114
+        "losses": 5,
+        "win_rate": 44.44,
+        "avg_return_pct": -0.224
       }
     },
     "BNBUSDT": {

@@ -1,17 +1,12 @@
 {
-  "status": "stale",
-  "checked_at_epoch": 1795113708,
-  "health_age_seconds": 20639,
-  "perpetual_age_seconds": 20504,
-  "failed_components": [
-    "ordinary_monitor",
-    "perpetual_shadow"
-  ],
+  "status": "healthy",
+  "checked_at_epoch": 1795123879,
+  "health_age_seconds": 180,
+  "perpetual_age_seconds": 31,
+  "failed_components": [],
   "advisory_components": [],
-  "ordinary_state": "heartbeat_stale",
-  "ordinary_reasons": [
-    "heartbeat_stale"
-  ],
+  "ordinary_state": "active",
+  "ordinary_reasons": [],
   "risk_tier_status": "healthy",
   "risk_tier_signature": "healthy||",
   "risk_tier_degraded_symbols": [],

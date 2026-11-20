@@ -309,5 +309,6 @@
   "XRPUSDT|4h|early_warning|short|1794628800000": true,
   "SUIUSDT|4h|early_warning|short|1794628800000": true,
   "ETHUSDT|4h|early_warning|short|1794672000000": true,
-  "BTCUSDT|4h|early_warning|short|1795104000000": true
+  "BTCUSDT|4h|early_warning|short|1795104000000": true,
+  "BTCUSDT|4h|early_warning|short|1795118400000": true
 }

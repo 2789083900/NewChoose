@@ -2,6 +2,172 @@
   "schema_version": 1,
   "events": [
     {
+      "event_id": "spot-signal|SUIUSDT|4h|1795190400000|short",
+      "title": "CoinPulse SUIUSDT 海龟突破做空",
+      "content": "快速研究队列 SUIUSDT 4h\nsystem1 · 突破做空\n现价 0.641200（-10.40%）\n依据：海龟S1 20/10向下突破 · N=0.022833\nsystem1 做空，突破触发价 ≈ 0.649100\n止损 0.694767（2N）\n每 0.5N 至 0.637683 加 1 单位，首单位 2,189.77，最多4单位；10周期反向突破 0.854000 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 8.1 分钟\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n信号生成：2026-11-20 20:08:05 UTC / 2026-11-21 04:08:05 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多4单位\n性质：S1 4h 独立研究信号，不属于正式 S2 样本\n动作：仅观察并积累完整影子交易，不据此自动升级策略\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "SUIUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205295747,
+      "expires_epoch_ms": 1795205400000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205297569,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205297569
+    },
+    {
+      "event_id": "spot-signal|ETHUSDT|4h|1795190400000|short",
+      "title": "CoinPulse ETHUSDT 海龟突破做空",
+      "content": "海龟突破信号 ETHUSDT 4h\nsystem2 · 突破做空\n现价 1,607.97（-9.20%）\n依据：海龟S2 55/20向下突破 · N=38.41\nsystem2 做空，突破触发价 ≈ 1,650.00\n止损 1,726.82（2N）\n每 0.5N 至 1,630.79 加 1 单位，首单位 1.30，最多4单位；20周期反向突破 2,450.00 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 8.1 分钟\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n信号生成：2026-11-20 20:08:03 UTC / 2026-11-21 04:08:03 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多1单位\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "ETHUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205293826,
+      "expires_epoch_ms": 1795205400000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205295694,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": false,
+          "error_category": "HTTPError"
+        },
+        {
+          "channel": "PushPlus",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205295694
+    },
+    {
+      "event_id": "spot-signal|DOGEUSDT|4h|1795190400000|short",
+      "title": "CoinPulse DOGEUSDT 海龟突破做空",
+      "content": "海龟突破信号 DOGEUSDT 4h\nsystem2 · 突破做空\n现价 0.053160（-9.36%）\n依据：海龟S2 55/20向下突破 · N=0.001473\nsystem2 做空，突破触发价 ≈ 0.053510\n止损 0.056456（2N）\n每 0.5N 至 0.052773 加 1 单位，首单位 33,944.01，最多4单位；20周期反向突破 0.078340 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 8.1 分钟\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n信号生成：2026-11-20 20:08:03 UTC / 2026-11-21 04:08:03 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多2单位\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "DOGEUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205292269,
+      "expires_epoch_ms": 1795205400000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205293815,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205293815
+    },
+    {
+      "event_id": "spot-signal|BTCUSDT|4h|1795190400000|short",
+      "title": "CoinPulse BTCUSDT 海龟突破做空",
+      "content": "海龟突破信号 BTCUSDT 4h\nsystem2 · 突破做空\n现价 58,558.66（-6.11%）\n依据：海龟S2 55/20向下突破 · N=999.34\nsystem2 做空，突破触发价 ≈ 59,388.00\n止损 61,386.67（2N）\n每 0.5N 至 58,888.33 加 1 单位，首单位 0.050033，最多4单位；20周期反向突破 81,196.01 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 8.1 分钟\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n信号生成：2026-11-20 20:08:03 UTC / 2026-11-21 04:08:03 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多3单位\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "BTCUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205290621,
+      "expires_epoch_ms": 1795205400000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205292167,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205292167
+    },
+    {
+      "event_id": "spot-signal|BNBUSDT|4h|1795190400000|short",
+      "title": "CoinPulse BNBUSDT 海龟突破做空",
+      "content": "海龟突破信号 BNBUSDT 4h\nsystem2 · 突破做空\n现价 535.64（-8.10%）\n依据：海龟S2 55/20向下突破 · N=9.43\nsystem2 做空，突破触发价 ≈ 545.79\n止损 564.64（2N）\n每 0.5N 至 541.08 加 1 单位，首单位 5.30，最多4单位；20周期反向突破 723.42 全平\n影子成交：下一根4h K线开盘价（实际成交价以开盘行情为准）\n执行状态：窗口内，可按下一根K线开盘观察 · 信号延迟 8.1 分钟\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n信号生成：2026-11-20 20:08:03 UTC / 2026-11-21 04:08:03 北京\n数据口径：现货K线；执行建议：币安现货观察，不是永续合约指令\n规则：首单位2N止损风险=账户1% · 每0.5N加1单位 · 最多4单位\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "symbol": "BNBUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205289002,
+      "expires_epoch_ms": 1795205400000,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205290611,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205290611
+    },
+    {
+      "event_id": "spot-warning|AVAXUSDT|4h|1795190400000|short|接近突破",
+      "title": "CoinPulse 观察预警 AVAXUSDT 接近突破",
+      "content": "观察预警 AVAXUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.344N\n现价：6.49（-7.47%）\n依据：距下破阈值约0.34N\n当前价 6.49 · 突破阈值 6.41 · N=0.221526\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "AVAXUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205287523,
+      "expires_epoch_ms": 1795205887523,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205288997,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205288997
+    },
+    {
+      "event_id": "spot-warning|ADAUSDT|4h|1795190400000|short|接近突破",
+      "title": "CoinPulse 观察预警 ADAUSDT 接近突破",
+      "content": "观察预警 ADAUSDT 4h · 接近突破\n方向：向下做空 · 距突破约 0.209N\n现价：0.139600（-8.70%）\n依据：距下破阈值约0.21N\n当前价 0.139600 · 突破阈值 0.138640 · N=0.004602\n性质：观察预警，不是交易信号，不登记影子交易样本\n动作：等待正式突破和全部过滤条件通过，不追价\nK线收盘：2026-11-20 20:00:00 UTC / 2026-11-21 04:00:00 北京\n看板：https://2789083900.github.io/NewChoose/",
+      "metadata": {
+        "market_type": "spot",
+        "kind": "early_warning",
+        "symbol": "ADAUSDT",
+        "bar_time": 1795190400000
+      },
+      "created_epoch_ms": 1795205285961,
+      "expires_epoch_ms": 1795205885961,
+      "attempts": 1,
+      "status": "delivered",
+      "last_attempt_epoch_ms": 1795205287518,
+      "last_results": [
+        {
+          "channel": "Server酱",
+          "ok": true
+        }
+      ],
+      "delivered_epoch_ms": 1795205287518
+    },
+    {
       "event_id": "daily-health|2026-11-20",
       "title": "CoinPulse 每日运行摘要 2026-11-20",
       "content": "CoinPulse 每日运行摘要 2026-11-20\n系统状态：降级，需要处理\n最旧收盘参考时间：2026-11-20 08:00:00 北京，各市场收盘距今最大 188.0 分钟（不是接口延迟）\nK线时效：fresh；应有收盘K线逾期最大 0.0 分钟\n现货扫描：11/11，覆盖率 100.0%\n数据源：binance-history\n候选信号：1\n现货影子仓位：0，待成交：0\n正式样本：信号 49（待观察 0），已结算交易 5，持仓 0\nS1快速研究：持仓 0，已结算 1，胜率 0.0%，待观察 0（仅研究，不计入正式样本）\n通知链路：本轮投递失败 0 条，信号过期未发送 0 条，通知过期 0 条，积压 0 条，重试耗尽 0 条\n用户处理：正式样本统计过期或损坏\n运行编号：22b86f145635",

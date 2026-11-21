@@ -1,247 +1,6 @@
 {
   "schema_version": 2,
-  "open_trades": [
-    {
-      "id": "BTCUSDT|4h|2026-11-20 20:08:04",
-      "run_id": "87c5f0a4f0fd",
-      "symbol": "BTCUSDT",
-      "interval": "4h",
-      "direction": "short",
-      "entry": 58558.3,
-      "entry_trigger": 59396.5,
-      "signal_price": 58558.5,
-      "entry_model": "next_bar_open",
-      "stop": 59064.972582185874,
-      "target": null,
-      "opened_at": "2026-11-20 20:08:04",
-      "entry_ts": 1795190400000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "gross_pnl_pct": null,
-      "net_pnl_pct": null,
-      "fees_pct": null,
-      "slippage_pct": null,
-      "closed_at": null,
-      "fee_rate": 0.001,
-      "slippage_rate": 0.0005,
-      "strategy_type": "turtle",
-      "system": "system1",
-      "n": 999.4406794234112,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 4,
-      "units": 4,
-      "unit_quantity": 0.05002798167955858,
-      "unit_entries": [
-        {
-          "price": 58558.3,
-          "n": 999.4406794234112
-        },
-        {
-          "price": 58051.62741781413,
-          "n": 1013.3451643717412
-        },
-        {
-          "price": 57544.95483562826,
-          "n": 1013.3451643717412
-        },
-        {
-          "price": 57038.28225344239,
-          "n": 1013.3451643717412
-        }
-      ],
-      "latest_entry": 57038.28225344239,
-      "next_add": null,
-      "exit_period": 10,
-      "bar_time": 1795190400000,
-      "entry_filled": true,
-      "last_managed_bar": 1795233600000,
-      "fill_price": 58558.3,
-      "fill_deviation_pct": -1.4112,
-      "entry_bar_time": 1795204800000
-    },
-    {
-      "id": "BNBUSDT|4h|2026-11-20 20:08:04",
-      "run_id": "87c5f0a4f0fd",
-      "symbol": "BNBUSDT",
-      "interval": "4h",
-      "direction": "short",
-      "entry": 535.23,
-      "entry_trigger": 545.69,
-      "signal_price": 535.42,
-      "entry_model": "next_bar_open",
-      "stop": 540.0441760655198,
-      "target": null,
-      "opened_at": "2026-11-20 20:08:04",
-      "entry_ts": 1795190400000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "gross_pnl_pct": null,
-      "net_pnl_pct": null,
-      "fees_pct": null,
-      "slippage_pct": null,
-      "closed_at": null,
-      "fee_rate": 0.001,
-      "slippage_rate": 0.0005,
-      "strategy_type": "turtle",
-      "system": "system1",
-      "n": 9.474882719963091,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 4,
-      "units": 4,
-      "unit_quantity": 5.277110174108284,
-      "unit_entries": [
-        {
-          "price": 535.23,
-          "n": 9.474882719963091
-        },
-        {
-          "price": 530.4158239344804,
-          "n": 9.628352131039312
-        },
-        {
-          "price": 525.6016478689608,
-          "n": 9.628352131039312
-        },
-        {
-          "price": 520.7874718034411,
-          "n": 9.628352131039312
-        }
-      ],
-      "latest_entry": 520.7874718034411,
-      "next_add": null,
-      "exit_period": 10,
-      "bar_time": 1795190400000,
-      "entry_filled": true,
-      "last_managed_bar": 1795233600000,
-      "fill_price": 535.23,
-      "fill_deviation_pct": -1.9168,
-      "entry_bar_time": 1795204800000
-    },
-    {
-      "id": "DOGEUSDT|4h|2026-11-20 20:08:05",
-      "run_id": "87c5f0a4f0fd",
-      "symbol": "DOGEUSDT",
-      "interval": "4h",
-      "direction": "short",
-      "entry": 0.05314,
-      "entry_trigger": 0.05351,
-      "signal_price": 0.05317,
-      "entry_model": "next_bar_open",
-      "stop": 0.053891720076048755,
-      "target": null,
-      "opened_at": "2026-11-20 20:08:05",
-      "entry_ts": 1795190400000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "gross_pnl_pct": null,
-      "net_pnl_pct": null,
-      "fees_pct": null,
-      "slippage_pct": null,
-      "closed_at": null,
-      "fee_rate": 0.001,
-      "slippage_rate": 0.0005,
-      "strategy_type": "turtle",
-      "system": "system1",
-      "n": 0.0014464190415086249,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 4,
-      "units": 4,
-      "unit_quantity": 34568.12898968038,
-      "unit_entries": [
-        {
-          "price": 0.05314,
-          "n": 0.0014464190415086249
-        },
-        {
-          "price": 0.05240862043482179,
-          "n": 0.0014627591303564172
-        },
-        {
-          "price": 0.051677240869643586,
-          "n": 0.0014627591303564172
-        },
-        {
-          "price": 0.050939081134175196,
-          "n": 0.0014763194709367803
-        }
-      ],
-      "latest_entry": 0.050939081134175196,
-      "next_add": null,
-      "exit_period": 10,
-      "bar_time": 1795190400000,
-      "entry_filled": true,
-      "last_managed_bar": 1795233600000,
-      "fill_price": 0.05314,
-      "fill_deviation_pct": -0.6915,
-      "entry_bar_time": 1795204800000
-    },
-    {
-      "id": "SUIUSDT|4h|2026-11-20 20:08:05",
-      "run_id": "87c5f0a4f0fd",
-      "symbol": "SUIUSDT",
-      "interval": "4h",
-      "direction": "short",
-      "entry": 0.6407,
-      "entry_trigger": 0.6491,
-      "signal_price": 0.6412,
-      "entry_model": "next_bar_open",
-      "stop": 0.6522090682315013,
-      "target": null,
-      "opened_at": "2026-11-20 20:08:05",
-      "entry_ts": 1795190400000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "gross_pnl_pct": null,
-      "net_pnl_pct": null,
-      "fees_pct": null,
-      "slippage_pct": null,
-      "closed_at": null,
-      "fee_rate": 0.001,
-      "slippage_rate": 0.0005,
-      "strategy_type": "turtle",
-      "system": "system1",
-      "n": 0.022833457671578777,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 4,
-      "units": 4,
-      "unit_quantity": 2189.7690975745613,
-      "unit_entries": [
-        {
-          "price": 0.6407,
-          "n": 0.022833457671578777
-        },
-        {
-          "price": 0.6291909317684988,
-          "n": 0.023018136463002433
-        },
-        {
-          "price": 0.6176818635369976,
-          "n": 0.023018136463002433
-        },
-        {
-          "price": 0.6061727953054964,
-          "n": 0.023018136463002433
-        }
-      ],
-      "latest_entry": 0.6061727953054964,
-      "next_add": null,
-      "exit_period": 10,
-      "bar_time": 1795190400000,
-      "entry_filled": true,
-      "last_managed_bar": 1795233600000,
-      "fill_price": 0.6407,
-      "fill_deviation_pct": -1.2941,
-      "entry_bar_time": 1795204800000
-    }
-  ],
+  "open_trades": [],
   "closed_trades": [
     {
       "id": "AVAXUSDT|4h|2026-09-20 16:04:02",
@@ -352,6 +111,258 @@
       "exit": 1646.7667051032945,
       "exit_ts": 1795233600000,
       "quantity": 3.899794054555195
+    },
+    {
+      "id": "BTCUSDT|4h|2026-11-20 20:08:04",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "BTCUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 57798.2911267212,
+      "entry_trigger": 59396.5,
+      "signal_price": 58558.5,
+      "entry_model": "next_bar_open",
+      "stop": 59064.972582185874,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:04",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -2.49,
+      "gross_pnl_pct": -2.1916,
+      "net_pnl_pct": -2.4916,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 12:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 999.4406794234112,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 4,
+      "unit_quantity": 0.05002798167955858,
+      "unit_entries": [
+        {
+          "price": 58558.3,
+          "n": 999.4406794234112
+        },
+        {
+          "price": 58051.62741781413,
+          "n": 1013.3451643717412
+        },
+        {
+          "price": 57544.95483562826,
+          "n": 1013.3451643717412
+        },
+        {
+          "price": 57038.28225344239,
+          "n": 1013.3451643717412
+        }
+      ],
+      "latest_entry": 57038.28225344239,
+      "next_add": null,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795262400000,
+      "fill_price": 58558.3,
+      "fill_deviation_pct": -1.4112,
+      "entry_bar_time": 1795204800000,
+      "exit": 59064.972582185874,
+      "exit_ts": 1795262400000,
+      "quantity": 0.20011192671823433
+    },
+    {
+      "id": "BNBUSDT|4h|2026-11-20 20:08:04",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "BNBUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 528.0087359017206,
+      "entry_trigger": 545.69,
+      "signal_price": 535.42,
+      "entry_model": "next_bar_open",
+      "stop": 540.0441760655198,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:04",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -2.58,
+      "gross_pnl_pct": -2.2794,
+      "net_pnl_pct": -2.5794,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 12:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 9.474882719963091,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 4,
+      "unit_quantity": 5.277110174108284,
+      "unit_entries": [
+        {
+          "price": 535.23,
+          "n": 9.474882719963091
+        },
+        {
+          "price": 530.4158239344804,
+          "n": 9.628352131039312
+        },
+        {
+          "price": 525.6016478689608,
+          "n": 9.628352131039312
+        },
+        {
+          "price": 520.7874718034411,
+          "n": 9.628352131039312
+        }
+      ],
+      "latest_entry": 520.7874718034411,
+      "next_add": null,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795262400000,
+      "fill_price": 535.23,
+      "fill_deviation_pct": -1.9168,
+      "entry_bar_time": 1795204800000,
+      "exit": 540.0441760655198,
+      "exit_ts": 1795262400000,
+      "quantity": 21.108440696433135
+    },
+    {
+      "id": "DOGEUSDT|4h|2026-11-20 20:08:05",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "DOGEUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 0.05204123560966015,
+      "entry_trigger": 0.05351,
+      "signal_price": 0.05317,
+      "entry_model": "next_bar_open",
+      "stop": 0.053891720076048755,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:05",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -3.86,
+      "gross_pnl_pct": -3.5558,
+      "net_pnl_pct": -3.8558,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 08:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 0.0014464190415086249,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 4,
+      "unit_quantity": 34568.12898968038,
+      "unit_entries": [
+        {
+          "price": 0.05314,
+          "n": 0.0014464190415086249
+        },
+        {
+          "price": 0.05240862043482179,
+          "n": 0.0014627591303564172
+        },
+        {
+          "price": 0.051677240869643586,
+          "n": 0.0014627591303564172
+        },
+        {
+          "price": 0.050939081134175196,
+          "n": 0.0014763194709367803
+        }
+      ],
+      "latest_entry": 0.050939081134175196,
+      "next_add": null,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795262400000,
+      "fill_price": 0.05314,
+      "fill_deviation_pct": -0.6915,
+      "entry_bar_time": 1795204800000,
+      "exit": 0.053891720076048755,
+      "exit_ts": 1795248000000,
+      "quantity": 138272.51595872152
+    },
+    {
+      "id": "SUIUSDT|4h|2026-11-20 20:08:05",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "SUIUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 0.6234363976527482,
+      "entry_trigger": 0.6491,
+      "signal_price": 0.6412,
+      "entry_model": "next_bar_open",
+      "stop": 0.6522090682315013,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:05",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -4.92,
+      "gross_pnl_pct": -4.6152,
+      "net_pnl_pct": -4.9152,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 12:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 0.022833457671578777,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 4,
+      "unit_quantity": 2189.7690975745613,
+      "unit_entries": [
+        {
+          "price": 0.6407,
+          "n": 0.022833457671578777
+        },
+        {
+          "price": 0.6291909317684988,
+          "n": 0.023018136463002433
+        },
+        {
+          "price": 0.6176818635369976,
+          "n": 0.023018136463002433
+        },
+        {
+          "price": 0.6061727953054964,
+          "n": 0.023018136463002433
+        }
+      ],
+      "latest_entry": 0.6061727953054964,
+      "next_add": null,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795262400000,
+      "fill_price": 0.6407,
+      "fill_deviation_pct": -1.2941,
+      "entry_bar_time": 1795204800000,
+      "exit": 0.6522090682315013,
+      "exit_ts": 1795262400000,
+      "quantity": 8759.076390298245
     }
   ],
   "BTCUSDT|4h|turtle|system1": "none",
@@ -366,5 +377,9 @@
   "SUIUSDT|4h|turtle|system1": "none",
   "PEPEUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1|blocked": false,
-  "ETHUSDT|4h|turtle|system1|blocked": false
+  "ETHUSDT|4h|turtle|system1|blocked": false,
+  "BTCUSDT|4h|turtle|system1|blocked": false,
+  "BNBUSDT|4h|turtle|system1|blocked": false,
+  "DOGEUSDT|4h|turtle|system1|blocked": false,
+  "SUIUSDT|4h|turtle|system1|blocked": false
 }

@@ -1,18 +1,18 @@
 {
-  "generated_at": "2026-09-20 21:04:42",
-  "total": 1,
+  "generated_at": "2026-11-21 09:43:41",
+  "total": 2,
   "wins": 0,
-  "losses": 1,
-  "open_count": 0,
+  "losses": 2,
+  "open_count": 4,
   "win_rate": 0.0,
-  "total_pnl_pct": -3.56,
-  "total_gross_pnl_pct": -3.25,
-  "total_fees_pct": 0.2,
-  "total_slippage_pct": 0.1,
-  "shadow_fills": 1,
-  "avg_fill_deviation_pct": 5.3652,
+  "total_pnl_pct": -7.52,
+  "total_gross_pnl_pct": -6.91,
+  "total_fees_pct": 0.4,
+  "total_slippage_pct": 0.2,
+  "shadow_fills": 2,
+  "avg_fill_deviation_pct": 1.4287,
   "avg_win": 0,
-  "avg_loss": -3.56,
+  "avg_loss": -3.76,
   "payoff": 0.0,
   "by_symbol": [
     {
@@ -21,6 +21,13 @@
       "wins": 0,
       "losses": 1,
       "pnl": -3.56
+    },
+    {
+      "symbol": "ETHUSDT",
+      "total": 1,
+      "wins": 0,
+      "losses": 1,
+      "pnl": -3.96
     }
   ],
   "trades": [
@@ -74,6 +81,65 @@
       "exit": 11.038599941135276,
       "exit_ts": 1789920000000,
       "quantity": 269.2514382083689
+    },
+    {
+      "id": "ETHUSDT|4h|2026-11-20 20:08:04",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "ETHUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 1588.6306924219032,
+      "entry_trigger": 1649.29,
+      "signal_price": 1607.98,
+      "entry_model": "next_bar_open",
+      "stop": 1646.7667051032945,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:04",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -3.96,
+      "gross_pnl_pct": -3.6595,
+      "net_pnl_pct": -3.9595,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 04:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 38.46356958896097,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 3,
+      "unit_quantity": 1.2999313515183983,
+      "unit_entries": [
+        {
+          "price": 1607.93,
+          "n": 38.46356958896097
+        },
+        {
+          "price": 1588.664705271489,
+          "n": 38.53058945702184
+        },
+        {
+          "price": 1569.2973719942206,
+          "n": 38.734666554536965
+        }
+      ],
+      "latest_entry": 1569.2973719942206,
+      "next_add": 1588.664705271489,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795233600000,
+      "fill_price": 1607.93,
+      "fill_deviation_pct": -2.5077,
+      "entry_bar_time": 1795204800000,
+      "exit": 1646.7667051032945,
+      "exit_ts": 1795233600000,
+      "quantity": 3.899794054555195
     }
   ]
 }

@@ -11,7 +11,7 @@
       "entry_trigger": 59396.5,
       "signal_price": 58558.5,
       "entry_model": "next_bar_open",
-      "stop": 60557.18135884683,
+      "stop": 59064.972582185874,
       "target": null,
       "opened_at": "2026-11-20 20:08:04",
       "entry_ts": 1795190400000,
@@ -31,74 +31,34 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 0.05002798167955858,
       "unit_entries": [
         {
           "price": 58558.3,
           "n": 999.4406794234112
-        }
-      ],
-      "latest_entry": 58558.3,
-      "next_add": 59058.02033971171,
-      "exit_period": 10,
-      "bar_time": 1795190400000,
-      "entry_filled": true,
-      "last_managed_bar": 1795204800000,
-      "fill_price": 58558.3,
-      "fill_deviation_pct": -1.4112,
-      "entry_bar_time": 1795204800000
-    },
-    {
-      "id": "ETHUSDT|4h|2026-11-20 20:08:04",
-      "run_id": "87c5f0a4f0fd",
-      "symbol": "ETHUSDT",
-      "interval": "4h",
-      "direction": "short",
-      "entry": 1607.93,
-      "entry_trigger": 1649.29,
-      "signal_price": 1607.98,
-      "entry_model": "next_bar_open",
-      "stop": 1665.7258841855328,
-      "target": null,
-      "opened_at": "2026-11-20 20:08:04",
-      "entry_ts": 1795190400000,
-      "status": "open",
-      "result": null,
-      "pnl_pct": null,
-      "gross_pnl_pct": null,
-      "net_pnl_pct": null,
-      "fees_pct": null,
-      "slippage_pct": null,
-      "closed_at": null,
-      "fee_rate": 0.001,
-      "slippage_rate": 0.0005,
-      "strategy_type": "turtle",
-      "system": "system1",
-      "n": 38.46356958896097,
-      "stop_n": 2.0,
-      "add_n": 0.5,
-      "max_units": 4,
-      "units": 2,
-      "unit_quantity": 1.2999313515183983,
-      "unit_entries": [
-        {
-          "price": 1607.93,
-          "n": 38.46356958896097
         },
         {
-          "price": 1588.664705271489,
-          "n": 38.53058945702184
+          "price": 58051.62741781413,
+          "n": 1013.3451643717412
+        },
+        {
+          "price": 57544.95483562826,
+          "n": 1013.3451643717412
+        },
+        {
+          "price": 57038.28225344239,
+          "n": 1013.3451643717412
         }
       ],
-      "latest_entry": 1588.664705271489,
-      "next_add": 1607.93,
+      "latest_entry": 57038.28225344239,
+      "next_add": null,
       "exit_period": 10,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
-      "fill_price": 1607.93,
-      "fill_deviation_pct": -2.5077,
+      "last_managed_bar": 1795233600000,
+      "fill_price": 58558.3,
+      "fill_deviation_pct": -1.4112,
       "entry_bar_time": 1795204800000
     },
     {
@@ -111,7 +71,7 @@
       "entry_trigger": 545.69,
       "signal_price": 535.42,
       "entry_model": "next_bar_open",
-      "stop": 554.1797654399262,
+      "stop": 540.0441760655198,
       "target": null,
       "opened_at": "2026-11-20 20:08:04",
       "entry_ts": 1795190400000,
@@ -131,20 +91,32 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 5.277110174108284,
       "unit_entries": [
         {
           "price": 535.23,
           "n": 9.474882719963091
+        },
+        {
+          "price": 530.4158239344804,
+          "n": 9.628352131039312
+        },
+        {
+          "price": 525.6016478689608,
+          "n": 9.628352131039312
+        },
+        {
+          "price": 520.7874718034411,
+          "n": 9.628352131039312
         }
       ],
-      "latest_entry": 535.23,
-      "next_add": 539.9674413599815,
+      "latest_entry": 520.7874718034411,
+      "next_add": null,
       "exit_period": 10,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 535.23,
       "fill_deviation_pct": -1.9168,
       "entry_bar_time": 1795204800000
@@ -159,7 +131,7 @@
       "entry_trigger": 0.05351,
       "signal_price": 0.05317,
       "entry_model": "next_bar_open",
-      "stop": 0.05603283808301725,
+      "stop": 0.053891720076048755,
       "target": null,
       "opened_at": "2026-11-20 20:08:05",
       "entry_ts": 1795190400000,
@@ -179,20 +151,32 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 34568.12898968038,
       "unit_entries": [
         {
           "price": 0.05314,
           "n": 0.0014464190415086249
+        },
+        {
+          "price": 0.05240862043482179,
+          "n": 0.0014627591303564172
+        },
+        {
+          "price": 0.051677240869643586,
+          "n": 0.0014627591303564172
+        },
+        {
+          "price": 0.050939081134175196,
+          "n": 0.0014763194709367803
         }
       ],
-      "latest_entry": 0.05314,
-      "next_add": 0.05386320952075431,
+      "latest_entry": 0.050939081134175196,
+      "next_add": null,
       "exit_period": 10,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 0.05314,
       "fill_deviation_pct": -0.6915,
       "entry_bar_time": 1795204800000
@@ -207,7 +191,7 @@
       "entry_trigger": 0.6491,
       "signal_price": 0.6412,
       "entry_model": "next_bar_open",
-      "stop": 0.6863669153431576,
+      "stop": 0.6522090682315013,
       "target": null,
       "opened_at": "2026-11-20 20:08:05",
       "entry_ts": 1795190400000,
@@ -227,20 +211,32 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 2189.7690975745613,
       "unit_entries": [
         {
           "price": 0.6407,
           "n": 0.022833457671578777
+        },
+        {
+          "price": 0.6291909317684988,
+          "n": 0.023018136463002433
+        },
+        {
+          "price": 0.6176818635369976,
+          "n": 0.023018136463002433
+        },
+        {
+          "price": 0.6061727953054964,
+          "n": 0.023018136463002433
         }
       ],
-      "latest_entry": 0.6407,
-      "next_add": 0.6521167288357894,
+      "latest_entry": 0.6061727953054964,
+      "next_add": null,
       "exit_period": 10,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 0.6407,
       "fill_deviation_pct": -1.2941,
       "entry_bar_time": 1795204800000
@@ -297,6 +293,65 @@
       "exit": 11.038599941135276,
       "exit_ts": 1789920000000,
       "quantity": 269.2514382083689
+    },
+    {
+      "id": "ETHUSDT|4h|2026-11-20 20:08:04",
+      "run_id": "87c5f0a4f0fd",
+      "symbol": "ETHUSDT",
+      "interval": "4h",
+      "direction": "short",
+      "entry": 1588.6306924219032,
+      "entry_trigger": 1649.29,
+      "signal_price": 1607.98,
+      "entry_model": "next_bar_open",
+      "stop": 1646.7667051032945,
+      "target": null,
+      "opened_at": "2026-11-20 20:08:04",
+      "entry_ts": 1795190400000,
+      "status": "closed",
+      "result": "止损",
+      "pnl_pct": -3.96,
+      "gross_pnl_pct": -3.6595,
+      "net_pnl_pct": -3.9595,
+      "fees_pct": 0.2,
+      "slippage_pct": 0.1,
+      "closed_at": "2026-11-21 04:00:00",
+      "fee_rate": 0.001,
+      "slippage_rate": 0.0005,
+      "strategy_type": "turtle",
+      "system": "system1",
+      "n": 38.46356958896097,
+      "stop_n": 2.0,
+      "add_n": 0.5,
+      "max_units": 4,
+      "units": 3,
+      "unit_quantity": 1.2999313515183983,
+      "unit_entries": [
+        {
+          "price": 1607.93,
+          "n": 38.46356958896097
+        },
+        {
+          "price": 1588.664705271489,
+          "n": 38.53058945702184
+        },
+        {
+          "price": 1569.2973719942206,
+          "n": 38.734666554536965
+        }
+      ],
+      "latest_entry": 1569.2973719942206,
+      "next_add": 1588.664705271489,
+      "exit_period": 10,
+      "bar_time": 1795190400000,
+      "entry_filled": true,
+      "last_managed_bar": 1795233600000,
+      "fill_price": 1607.93,
+      "fill_deviation_pct": -2.5077,
+      "entry_bar_time": 1795204800000,
+      "exit": 1646.7667051032945,
+      "exit_ts": 1795233600000,
+      "quantity": 3.899794054555195
     }
   ],
   "BTCUSDT|4h|turtle|system1": "none",
@@ -310,5 +365,6 @@
   "AVAXUSDT|4h|turtle|system1": "none",
   "SUIUSDT|4h|turtle|system1": "none",
   "PEPEUSDT|4h|turtle|system1": "none",
-  "AVAXUSDT|4h|turtle|system1|blocked": false
+  "AVAXUSDT|4h|turtle|system1|blocked": false,
+  "ETHUSDT|4h|turtle|system1|blocked": false
 }

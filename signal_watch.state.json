@@ -10,7 +10,7 @@
       "entry_trigger": 545.79,
       "signal_price": 535.64,
       "entry_model": "next_bar_open",
-      "stop": 554.4942937155964,
+      "stop": 540.4409936642614,
       "target": null,
       "opened_at": "2026-11-20 20:08:03",
       "entry_ts": 1795190400000,
@@ -30,20 +30,32 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 4,
       "unit_quantity": 5.30383166340934,
       "unit_entries": [
         {
           "price": 535.64,
           "n": 9.427146857798208
+        },
+        {
+          "price": 530.8390063357384,
+          "n": 9.60198732852309
+        },
+        {
+          "price": 526.0380126714768,
+          "n": 9.60198732852309
+        },
+        {
+          "price": 521.2370190072153,
+          "n": 9.60198732852309
         }
       ],
-      "latest_entry": 535.64,
-      "next_add": 540.353573428899,
+      "latest_entry": 521.2370190072153,
+      "next_add": null,
       "exit_period": 20,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 535.64,
       "fill_deviation_pct": -1.8597,
       "entry_bar_time": 1795204800000
@@ -58,7 +70,7 @@
       "entry_trigger": 59388.0,
       "signal_price": 58558.66,
       "entry_model": "next_bar_open",
-      "stop": 60557.334881142895,
+      "stop": 59577.101348747405,
       "target": null,
       "opened_at": "2026-11-20 20:08:03",
       "entry_ts": 1795190400000,
@@ -78,20 +90,28 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 3,
-      "units": 1,
+      "units": 3,
       "unit_quantity": 0.05003314993522985,
       "unit_entries": [
         {
           "price": 58558.66,
           "n": 999.3374405714459
+        },
+        {
+          "price": 58049.43932562631,
+          "n": 1018.4413487473983
+        },
+        {
+          "price": 57540.21865125261,
+          "n": 1018.4413487473983
         }
       ],
-      "latest_entry": 58558.66,
-      "next_add": 59058.328720285725,
+      "latest_entry": 57540.21865125261,
+      "next_add": null,
       "exit_period": 20,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 58558.66,
       "fill_deviation_pct": -1.3965,
       "entry_bar_time": 1795204800000
@@ -106,7 +126,7 @@
       "entry_trigger": 0.05351,
       "signal_price": 0.05316,
       "entry_model": "next_bar_open",
-      "stop": 0.05610602755246342,
+      "stop": 0.05540109945256535,
       "target": null,
       "opened_at": "2026-11-20 20:08:03",
       "entry_ts": 1795190400000,
@@ -126,20 +146,24 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 2,
-      "units": 1,
+      "units": 2,
       "unit_quantity": 33944.01383530231,
       "unit_entries": [
         {
           "price": 0.05316,
           "n": 0.0014730137762317083
+        },
+        {
+          "price": 0.052412966849144885,
+          "n": 0.0014940663017102313
         }
       ],
-      "latest_entry": 0.05316,
-      "next_add": 0.053896506888115855,
+      "latest_entry": 0.052412966849144885,
+      "next_add": null,
       "exit_period": 20,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 0.05316,
       "fill_deviation_pct": -0.6541,
       "entry_bar_time": 1795204800000
@@ -187,7 +211,7 @@
       "exit_period": 20,
       "bar_time": 1795190400000,
       "entry_filled": true,
-      "last_managed_bar": 1795204800000,
+      "last_managed_bar": 1795233600000,
       "fill_price": 1607.98,
       "fill_deviation_pct": -2.5467,
       "entry_bar_time": 1795204800000

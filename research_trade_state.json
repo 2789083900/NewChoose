@@ -7,11 +7,11 @@
       "symbol": "BTCUSDT",
       "interval": "4h",
       "direction": "short",
-      "entry": 59396.5,
+      "entry": 58558.3,
       "entry_trigger": 59396.5,
       "signal_price": 58558.5,
       "entry_model": "next_bar_open",
-      "stop": 61395.381358846826,
+      "stop": 60557.18135884683,
       "target": null,
       "opened_at": "2026-11-20 20:08:04",
       "entry_ts": 1795190400000,
@@ -35,16 +35,19 @@
       "unit_quantity": 0.05002798167955858,
       "unit_entries": [
         {
-          "price": 59396.5,
+          "price": 58558.3,
           "n": 999.4406794234112
         }
       ],
-      "latest_entry": 59396.5,
-      "next_add": 59896.220339711705,
+      "latest_entry": 58558.3,
+      "next_add": 59058.02033971171,
       "exit_period": 10,
       "bar_time": 1795190400000,
-      "entry_filled": false,
-      "last_managed_bar": 1795190400000
+      "entry_filled": true,
+      "last_managed_bar": 1795204800000,
+      "fill_price": 58558.3,
+      "fill_deviation_pct": -1.4112,
+      "entry_bar_time": 1795204800000
     },
     {
       "id": "ETHUSDT|4h|2026-11-20 20:08:04",
@@ -52,11 +55,11 @@
       "symbol": "ETHUSDT",
       "interval": "4h",
       "direction": "short",
-      "entry": 1649.29,
+      "entry": 1607.93,
       "entry_trigger": 1649.29,
       "signal_price": 1607.98,
       "entry_model": "next_bar_open",
-      "stop": 1726.2171391779218,
+      "stop": 1665.7258841855328,
       "target": null,
       "opened_at": "2026-11-20 20:08:04",
       "entry_ts": 1795190400000,
@@ -76,20 +79,27 @@
       "stop_n": 2.0,
       "add_n": 0.5,
       "max_units": 4,
-      "units": 1,
+      "units": 2,
       "unit_quantity": 1.2999313515183983,
       "unit_entries": [
         {
-          "price": 1649.29,
+          "price": 1607.93,
           "n": 38.46356958896097
+        },
+        {
+          "price": 1588.664705271489,
+          "n": 38.53058945702184
         }
       ],
-      "latest_entry": 1649.29,
-      "next_add": 1668.5217847944805,
+      "latest_entry": 1588.664705271489,
+      "next_add": 1607.93,
       "exit_period": 10,
       "bar_time": 1795190400000,
-      "entry_filled": false,
-      "last_managed_bar": 1795190400000
+      "entry_filled": true,
+      "last_managed_bar": 1795204800000,
+      "fill_price": 1607.93,
+      "fill_deviation_pct": -2.5077,
+      "entry_bar_time": 1795204800000
     },
     {
       "id": "BNBUSDT|4h|2026-11-20 20:08:04",
@@ -97,11 +107,11 @@
       "symbol": "BNBUSDT",
       "interval": "4h",
       "direction": "short",
-      "entry": 545.69,
+      "entry": 535.23,
       "entry_trigger": 545.69,
       "signal_price": 535.42,
       "entry_model": "next_bar_open",
-      "stop": 564.6397654399262,
+      "stop": 554.1797654399262,
       "target": null,
       "opened_at": "2026-11-20 20:08:04",
       "entry_ts": 1795190400000,
@@ -125,16 +135,19 @@
       "unit_quantity": 5.277110174108284,
       "unit_entries": [
         {
-          "price": 545.69,
+          "price": 535.23,
           "n": 9.474882719963091
         }
       ],
-      "latest_entry": 545.69,
-      "next_add": 550.4274413599816,
+      "latest_entry": 535.23,
+      "next_add": 539.9674413599815,
       "exit_period": 10,
       "bar_time": 1795190400000,
-      "entry_filled": false,
-      "last_managed_bar": 1795190400000
+      "entry_filled": true,
+      "last_managed_bar": 1795204800000,
+      "fill_price": 535.23,
+      "fill_deviation_pct": -1.9168,
+      "entry_bar_time": 1795204800000
     },
     {
       "id": "DOGEUSDT|4h|2026-11-20 20:08:05",
@@ -142,11 +155,11 @@
       "symbol": "DOGEUSDT",
       "interval": "4h",
       "direction": "short",
-      "entry": 0.05351,
+      "entry": 0.05314,
       "entry_trigger": 0.05351,
       "signal_price": 0.05317,
       "entry_model": "next_bar_open",
-      "stop": 0.05640283808301725,
+      "stop": 0.05603283808301725,
       "target": null,
       "opened_at": "2026-11-20 20:08:05",
       "entry_ts": 1795190400000,
@@ -170,16 +183,19 @@
       "unit_quantity": 34568.12898968038,
       "unit_entries": [
         {
-          "price": 0.05351,
+          "price": 0.05314,
           "n": 0.0014464190415086249
         }
       ],
-      "latest_entry": 0.05351,
-      "next_add": 0.05423320952075431,
+      "latest_entry": 0.05314,
+      "next_add": 0.05386320952075431,
       "exit_period": 10,
       "bar_time": 1795190400000,
-      "entry_filled": false,
-      "last_managed_bar": 1795190400000
+      "entry_filled": true,
+      "last_managed_bar": 1795204800000,
+      "fill_price": 0.05314,
+      "fill_deviation_pct": -0.6915,
+      "entry_bar_time": 1795204800000
     },
     {
       "id": "SUIUSDT|4h|2026-11-20 20:08:05",
@@ -187,11 +203,11 @@
       "symbol": "SUIUSDT",
       "interval": "4h",
       "direction": "short",
-      "entry": 0.6491,
+      "entry": 0.6407,
       "entry_trigger": 0.6491,
       "signal_price": 0.6412,
       "entry_model": "next_bar_open",
-      "stop": 0.6947669153431576,
+      "stop": 0.6863669153431576,
       "target": null,
       "opened_at": "2026-11-20 20:08:05",
       "entry_ts": 1795190400000,
@@ -215,16 +231,19 @@
       "unit_quantity": 2189.7690975745613,
       "unit_entries": [
         {
-          "price": 0.6491,
+          "price": 0.6407,
           "n": 0.022833457671578777
         }
       ],
-      "latest_entry": 0.6491,
-      "next_add": 0.6605167288357894,
+      "latest_entry": 0.6407,
+      "next_add": 0.6521167288357894,
       "exit_period": 10,
       "bar_time": 1795190400000,
-      "entry_filled": false,
-      "last_managed_bar": 1795190400000
+      "entry_filled": true,
+      "last_managed_bar": 1795204800000,
+      "fill_price": 0.6407,
+      "fill_deviation_pct": -1.2941,
+      "entry_bar_time": 1795204800000
     }
   ],
   "closed_trades": [
@@ -280,16 +299,16 @@
       "quantity": 269.2514382083689
     }
   ],
-  "BTCUSDT|4h|turtle|system1": "short",
-  "ETHUSDT|4h|turtle|system1": "short",
+  "BTCUSDT|4h|turtle|system1": "none",
+  "ETHUSDT|4h|turtle|system1": "none",
   "SOLUSDT|4h|turtle|system1": "none",
-  "BNBUSDT|4h|turtle|system1": "short",
+  "BNBUSDT|4h|turtle|system1": "none",
   "XRPUSDT|4h|turtle|system1": "none",
   "ADAUSDT|4h|turtle|system1": "none",
-  "DOGEUSDT|4h|turtle|system1": "short",
+  "DOGEUSDT|4h|turtle|system1": "none",
   "LINKUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1": "none",
-  "SUIUSDT|4h|turtle|system1": "short",
+  "SUIUSDT|4h|turtle|system1": "none",
   "PEPEUSDT|4h|turtle|system1": "none",
   "AVAXUSDT|4h|turtle|system1|blocked": false
 }

@@ -8163,7 +8163,18 @@
     "notification_event_id": "spot-signal|BTCUSDT|4h|1795190400000|short",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 58558.3,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.848,
+        "mae_pct": -4.17,
+        "final_return_pct": -3.083,
+        "final_price": 60363.9,
+        "outcome": "LOSS",
+        "observed_until": 1795291200000,
+        "observed_at": "2026-11-21 23:10:03",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -8231,7 +8242,18 @@
     "notification_event_id": "spot-signal|ETHUSDT|4h|1795190400000|short",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 1607.93,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 4.437,
+        "mae_pct": -6.767,
+        "final_return_pct": -4.95,
+        "final_price": 1687.52,
+        "outcome": "LOSS",
+        "observed_until": 1795291200000,
+        "observed_at": "2026-11-21 23:10:03",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -8299,7 +8321,18 @@
     "notification_event_id": "spot-signal|BNBUSDT|4h|1795190400000|short",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 535.23,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 5.913,
+        "mae_pct": -2.965,
+        "final_return_pct": -2.754,
+        "final_price": 549.97,
+        "outcome": "LOSS",
+        "observed_until": 1795291200000,
+        "observed_at": "2026-11-21 23:10:03",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -8367,7 +8400,18 @@
     "notification_event_id": "spot-signal|DOGEUSDT|4h|1795190400000|short",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.05314,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 4.46,
+        "mae_pct": -4.817,
+        "final_return_pct": -4.065,
+        "final_price": 0.0553,
+        "outcome": "LOSS",
+        "observed_until": 1795291200000,
+        "observed_at": "2026-11-21 23:10:03",
+        "provider": "okx"
+      },
       "48h": null
     }
   },
@@ -8435,7 +8479,18 @@
     "notification_event_id": "spot-signal|SUIUSDT|4h|1795190400000|short",
     "status": "pending",
     "horizons": {
-      "24h": null,
+      "24h": {
+        "entry_price": 0.6407,
+        "entry_model": "next_bar_open",
+        "mfe_pct": 8.225,
+        "mae_pct": -2.966,
+        "final_return_pct": -0.999,
+        "final_price": 0.6471,
+        "outcome": "LOSS",
+        "observed_until": 1795291200000,
+        "observed_at": "2026-11-21 23:10:03",
+        "provider": "okx"
+      },
       "48h": null
     }
   }

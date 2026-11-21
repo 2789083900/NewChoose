@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-11-21 17:27:13",
+  "generated_at": "2026-11-21 23:10:03",
   "total_signals": 95,
   "pending_signals": 5,
   "horizons": {
     "24h": {
-      "observed": 90,
+      "observed": 95,
       "wins": 44,
-      "losses": 46,
+      "losses": 51,
       "flats": 0,
-      "win_rate": 48.89,
-      "avg_return_pct": -0.268,
-      "avg_mfe_pct": 4.057,
-      "avg_mae_pct": -3.43
+      "win_rate": 46.32,
+      "avg_return_pct": -0.421,
+      "avg_mfe_pct": 4.147,
+      "avg_mae_pct": -3.478
     },
     "48h": {
       "observed": 90,
@@ -62,11 +62,11 @@
     "SUIUSDT": {
       "signals": 13,
       "24h": {
-        "observed": 12,
+        "observed": 13,
         "wins": 6,
-        "losses": 6,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.63
+        "losses": 7,
+        "win_rate": 46.15,
+        "avg_return_pct": -0.659
       },
       "48h": {
         "observed": 12,
@@ -96,11 +96,11 @@
     "BTCUSDT": {
       "signals": 8,
       "24h": {
-        "observed": 7,
+        "observed": 8,
         "wins": 5,
-        "losses": 2,
-        "win_rate": 71.43,
-        "avg_return_pct": 1.131
+        "losses": 3,
+        "win_rate": 62.5,
+        "avg_return_pct": 0.604
       },
       "48h": {
         "observed": 7,
@@ -113,11 +113,11 @@
     "ETHUSDT": {
       "signals": 10,
       "24h": {
-        "observed": 9,
+        "observed": 10,
         "wins": 4,
-        "losses": 5,
-        "win_rate": 44.44,
-        "avg_return_pct": -0.918
+        "losses": 6,
+        "win_rate": 40.0,
+        "avg_return_pct": -1.321
       },
       "48h": {
         "observed": 9,
@@ -130,11 +130,11 @@
     "BNBUSDT": {
       "signals": 8,
       "24h": {
-        "observed": 7,
+        "observed": 8,
         "wins": 3,
-        "losses": 4,
-        "win_rate": 42.86,
-        "avg_return_pct": 0.391
+        "losses": 5,
+        "win_rate": 37.5,
+        "avg_return_pct": -0.002
       },
       "48h": {
         "observed": 7,
@@ -164,11 +164,11 @@
     "DOGEUSDT": {
       "signals": 9,
       "24h": {
-        "observed": 8,
+        "observed": 9,
         "wins": 4,
-        "losses": 4,
-        "win_rate": 50.0,
-        "avg_return_pct": -0.173
+        "losses": 5,
+        "win_rate": 44.44,
+        "avg_return_pct": -0.606
       },
       "48h": {
         "observed": 8,

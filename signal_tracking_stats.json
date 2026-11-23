@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-11-22 19:31:53",
+  "generated_at": "2026-11-23 00:48:44",
   "total_signals": 53,
-  "pending_signals": 4,
+  "pending_signals": 0,
   "horizons": {
     "24h": {
       "observed": 53,
@@ -14,14 +14,14 @@
       "avg_mae_pct": -2.907
     },
     "48h": {
-      "observed": 49,
+      "observed": 53,
       "wins": 31,
-      "losses": 18,
+      "losses": 22,
       "flats": 0,
-      "win_rate": 63.27,
-      "avg_return_pct": 1.021,
-      "avg_mfe_pct": 5.801,
-      "avg_mae_pct": -3.647
+      "win_rate": 58.49,
+      "avg_return_pct": 0.602,
+      "avg_mfe_pct": 5.753,
+      "avg_mae_pct": -3.81
     }
   },
   "by_symbol": {
@@ -35,11 +35,11 @@
         "avg_return_pct": 0.699
       },
       "48h": {
-        "observed": 6,
+        "observed": 7,
         "wins": 5,
-        "losses": 1,
-        "win_rate": 83.33,
-        "avg_return_pct": 3.69
+        "losses": 2,
+        "win_rate": 71.43,
+        "avg_return_pct": 2.595
       }
     },
     "BTCUSDT": {
@@ -52,11 +52,11 @@
         "avg_return_pct": 0.192
       },
       "48h": {
-        "observed": 7,
+        "observed": 8,
         "wins": 5,
-        "losses": 2,
-        "win_rate": 71.43,
-        "avg_return_pct": 2.234
+        "losses": 3,
+        "win_rate": 62.5,
+        "avg_return_pct": 1.488
       }
     },
     "LINKUSDT": {
@@ -120,11 +120,11 @@
         "avg_return_pct": -1.154
       },
       "48h": {
-        "observed": 6,
+        "observed": 7,
         "wins": 4,
-        "losses": 2,
-        "win_rate": 66.67,
-        "avg_return_pct": 0.672
+        "losses": 3,
+        "win_rate": 57.14,
+        "avg_return_pct": -0.379
       }
     },
     "PEPEUSDT": {
@@ -188,11 +188,11 @@
         "avg_return_pct": 0.052
       },
       "48h": {
-        "observed": 4,
+        "observed": 5,
         "wins": 3,
-        "losses": 1,
-        "win_rate": 75.0,
-        "avg_return_pct": 3.887
+        "losses": 2,
+        "win_rate": 60.0,
+        "avg_return_pct": 2.364
       }
     },
     "XRPUSDT": {
